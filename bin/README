@@ -1,0 +1,2 @@
+bin/ is for command line scripts that should be included in the $PATH.
+
