@@ -31,63 +31,70 @@ outdir = utils.set_outdir()
 utils.plot_defaults() 
 outplot = os.path.join(outdir, "nightstats" + night + ".png") 
 
-# See if the nightly data exist, and generate them if they do not:
-specfilename = "specdata" + str(night) + ".json"
-guidefilename = "guidedata" + str(night) + ".json"
-specdatafile = os.path.join(outdir, 'NightlyData', specfilename)
-guidedatafile = os.path.join(outdir, 'NightlyData', guidefilename)
+science_start, science_width, dither_start, dither_width, guide_start, guide_width = utils.calc_obstimes(night) 
 
-if os.path.isfile(specdatafile) and not args.clobber:
-    specdata = utils.read_json(specdatafile)
-else: 
-    print("Note: {} not found ... creating it".format(specdatafile))
-    utils.calc_expidlist(night)
-    specdata = read_json(specdatafile, verbose=args.verbose, clobber=args.clobber)
+# # See if the nightly data exist, and generate them if they do not:
+# specfilename = "specdata" + str(night) + ".json"
+# guidefilename = "guidedata" + str(night) + ".json"
+# specdatafile = os.path.join(outdir, 'NightlyData', specfilename)
+# guidedatafile = os.path.join(outdir, 'NightlyData', guidefilename)
+# 
+# science_start, science_width = utils.calc_science(specfilename)
+# guide_start, guidee_width = utils.calc_guide(guidefilename)
+# 
+# if os.path.isfile(specdatafile) and not args.clobber:
+#     specdata = utils.read_json(specdatafile)
+# else: 
+#     print("Note: {} not found ... creating it".format(specdatafile))
+#     utils.calc_sciencelist(night)
+#     specdata = read_json(specdatafile, verbose=args.verbose, clobber=args.clobber)
+# 
+# if os.path.isfile(guidedatafile) and not args.clobber:
+#     guidedata = utils.read_json(guidedatafile)
+# else: 
+#     print("Note: {} not found ... creating it".format(guidedatafile))
+#     utils.calc_guidelist(night)
+#     guidedata = read_json(guidedatafile, verbose=args.verbose, clobber=args.clobber)
+# 
+# twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
+# startdate = int(twibeg_mjd) 
+# 
+# 
+# # Calculate the start and duration for the science observations:
+# science_start = []
+# science_width = []
+# for item in specdata: 
+#     if specdata[item]['OBSTYPE'] == 'SCIENCE' and specdata[item]['FLAVOR'] == 'science' and 'Dither' not in specdata[item]['PROGRAM'] and specdata[item]['DOMSHUTU'] == 'open' and specdata[item]['PMCOVER'] == 'open':
+#         science_start.append( (specdata[item]['DATE-OBS'] - startdate)*24. )
+#         science_width.append( specdata[item]['EXPTIME']/3600. )
+# 
+# # Separately account for time spent on dither tests
+# dither_start = []
+# dither_width = []
+# for item in specdata:
+#     if specdata[item]['OBSTYPE'] == 'SCIENCE' and specdata[item]['FLAVOR'] == 'science' and 'Dither' in specdata[item]['PROGRAM']:
+#         dither_start.append( (specdata[item]['DATE-OBS'] - startdate)*24. )
+#         dither_width.append( specdata[item]['EXPTIME']/3600. )
+# 
+# # Times for guiding: 
+# guide_start = []
+# guide_width = []
+# for item in guidedata:
+#     # if guidedata[item]['OBSTYPE'] == 'SCIENCE' and guidedata[item]['FLAVOR'] == 'science' and guidedata[item]['PMCOVER'] == 'open' and guidedata[item]['DOMSHUTU'] == 'open':
+#     if guidedata[item]['OBSTYPE'] == 'SCIENCE' and guidedata[item]['FLAVOR'] == 'science' and guidedata[item]['DOMSHUTU'] == 'open':
+#         guide_start.append( (guidedata[item]['GUIDE-START'] - startdate)*24. )
+#         guide_width.append( (guidedata[item]['GUIDE-STOP'] - guidedata[item]['GUIDE-START'])*24. )
 
-if os.path.isfile(guidedatafile) and not args.clobber:
-    guidedata = utils.read_json(guidedatafile)
-else: 
-    print("Note: {} not found ... creating it".format(guidedatafile))
-    utils.calc_guidelist(night)
-    guidedata = read_json(guidedatafile, verbose=args.verbose, clobber=args.clobber)
-
+# Compute total science and guiding time in hours
 twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
 startdate = int(twibeg_mjd) 
-
-
-# Calculate the start and duration for the science observations:
-science_start = []
-science_width = []
-for item in specdata: 
-    if specdata[item]['OBSTYPE'] == 'SCIENCE' and specdata[item]['FLAVOR'] == 'science' and 'Dither' not in specdata[item]['PROGRAM'] and specdata[item]['DOMSHUTU'] == 'open' and specdata[item]['PMCOVER'] == 'open':
-        science_start.append( (specdata[item]['DATE-OBS'] - startdate)*24. )
-        science_width.append( specdata[item]['EXPTIME']/3600. )
-
-# Separately account for time spent on dither tests
-dither_start = []
-dither_width = []
-for item in specdata:
-    if specdata[item]['OBSTYPE'] == 'SCIENCE' and specdata[item]['FLAVOR'] == 'science' and 'Dither' in specdata[item]['PROGRAM']:
-        dither_start.append( (specdata[item]['DATE-OBS'] - startdate)*24. )
-        dither_width.append( specdata[item]['EXPTIME']/3600. )
-
-# Times for guiding: 
-guide_start = []
-guide_width = []
-for item in guidedata:
-    # if guidedata[item]['OBSTYPE'] == 'SCIENCE' and guidedata[item]['FLAVOR'] == 'science' and guidedata[item]['PMCOVER'] == 'open' and guidedata[item]['DOMSHUTU'] == 'open':
-    if guidedata[item]['OBSTYPE'] == 'SCIENCE' and guidedata[item]['FLAVOR'] == 'science' and guidedata[item]['DOMSHUTU'] == 'open':
-        guide_start.append( (guidedata[item]['GUIDE-START'] - startdate)*24. )
-        guide_width.append( (guidedata[item]['GUIDE-STOP'] - guidedata[item]['GUIDE-START'])*24. )
+twibeg_hours = 24.*(twibeg_mjd - startdate)
+twiend_hours = 24.*(twiend_mjd - startdate)
+twitot_hours = twiend_hours - twibeg_hours
 
 # Get guider fwhm data to plot
 guide = utils.get_guidetelemetry(night) 
 guidetime = (Time(guide['time_recorded']).mjd - startdate)*24
-
-# Compute total science and guiding time in hours
-twibeg_hours = 24.*(twibeg_mjd - startdate)
-twiend_hours = 24.*(twiend_mjd - startdate)
-twitot_hours = twiend_hours - twibeg_hours
 
 # Get dome telemetry
 dome = utils.get_dometelemetry(night) 
@@ -96,8 +103,8 @@ dome_open = np.array([t for t in dome['shutter_upper']], dtype=bool)
 firstopen, lastclose, fractwiopen, twiopen_hours = utils.calc_domevals(night)
 
 # Calculate the total science time and guide time between twilights:
-science_hours = utils.get_obstime(science_start, science_width, twibeg_hours, twiend_hours) 
-guide_hours = utils.get_obstime(guide_start, guide_width, twibeg_hours, twiend_hours) 
+science_hours = utils.get_totobs(science_start, science_width, twibeg_hours, twiend_hours) 
+guide_hours = utils.get_totobs(guide_start, guide_width, twibeg_hours, twiend_hours)
 
 # Percent of time dome was open between twilights with science, guide exposures
 if twiopen_hours > 0.:

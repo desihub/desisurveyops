@@ -4,7 +4,6 @@ import os, sys
 import numpy as np
 from astropy.io import fits
 from glob import glob
-import argparse
 import matplotlib.pyplot as plt
 from astropy.time import Time
 import json
@@ -81,10 +80,10 @@ def plot_defaults():
     plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 
-def calc_expidlist(night, clobber=False, verbose=False): 
+def calc_sciencelist(night, clobber=False, verbose=False): 
     '''
     Create json files with start times, exptimes, and other information 
-    for a single night. Outputs have the form specdata20201224.json. 
+    for spectra for a single night. Outputs have the form specdata20201224.json. 
 
     Parameters
     ----------
@@ -438,38 +437,116 @@ def calc_domevals(night, verbose=False):
     return firstopen, lastclose, fractwiopen, twiopen_hrs
 
 
-def get_obstime(start, length, twibeg_hours, twiend_hours):
+def calc_obstimes(night, verbose=False, clobber=False):
     '''
-    Calculate time spend observing between twilights
+    Calculate start and lengths of science, dither, and guide exposures 
 
     Parameters
     ----------
-    start : list
-        start times of observations in UT hours
-    length : list
-        lengths of observations (EXPTIMEs) in hours
-    twibeg_hours : float
-        UT hours for twilight at beginning of the night
-    twiend_hours : float
-        UT hours for twilight at end of the night
+    night : int
+        night in form 20210320 for 20 March 2021
+    verbose : bool
+        print verbose output?
 
     Returns
     -------
-    out_hours : float
-        total number of hours exposing
+    science_start : float
+        start times of science exposures in UT hours
+    science_width : float
+        length of science exposures in UT hours
+    dither_start : float
+        start times of dither exposures in UT hours
+    dither_width : float
+        length of dither exposures in UT hours
+    guide_start : float
+        start times of guide exposures in UT hours
+    guide_width : float
+        length of guide exposures in UT hours
     '''
 
-    out_hours = 0.
+    outdir = set_outdir()
+
+    # Read in the data
+    specfilename = "specdata" + str(night) + ".json"
+    specdatafile = os.path.join(outdir, 'NightlyData', specfilename)
+    if os.path.isfile(specdatafile) and not clobber:
+        specdata = read_json(specdatafile)
+    else:
+        print("Note: {} not found ... creating it".format(specdatafile))
+        calc_sciencelist(night)
+        specdata = read_json(specdatafile, verbose=verbose, clobber=clobber)
+
+    guidefilename = "guidedata" + str(night) + ".json"
+    guidedatafile = os.path.join(outdir, 'NightlyData', guidefilename)
+    if os.path.isfile(guidedatafile) and not clobber:
+        guidedata = read_json(guidedatafile)
+    else:
+        print("Note: {} not found ... creating it".format(guidedatafile))
+        calc_guidelist(night)
+        guidedata = read_json(guidedatafile, verbose=verbose, clobber=clobber)
+
+    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    startdate = int(twibeg_mjd)
+    
+    # Calculate the start and duration for the science observations:
+    science_start = []
+    science_width = []
+    for item in specdata:
+        if specdata[item]['OBSTYPE'] == 'SCIENCE' and specdata[item]['FLAVOR'] == 'science' and 'Dither' not in specdata[item]['PROGRAM'] and specdata[item]['DOMSHUTU'] == 'open' and specdata[item]['PMCOVER'] == 'open':
+            science_start.append( (specdata[item]['DATE-OBS'] - startdate)*24. )
+            science_width.append( specdata[item]['EXPTIME']/3600. )
+    
+    # Separately account for time spent on dither tests
+    dither_start = []
+    dither_width = []
+    for item in specdata:
+        if specdata[item]['OBSTYPE'] == 'SCIENCE' and specdata[item]['FLAVOR'] == 'science' and 'Dither' in specdata[item]['PROGRAM']:
+            dither_start.append( (specdata[item]['DATE-OBS'] - startdate)*24. )
+            dither_width.append( specdata[item]['EXPTIME']/3600. )
+    
+    # Times for guiding:
+    guide_start = []
+    guide_width = []
+    for item in guidedata:
+        # if guidedata[item]['OBSTYPE'] == 'SCIENCE' and guidedata[item]['FLAVOR'] == 'science' and guidedata[item]['PMCOVER'] == 'open' and guidedata[item]['DOMSHUTU'] == 'open':
+        if guidedata[item]['OBSTYPE'] == 'SCIENCE' and guidedata[item]['FLAVOR'] == 'science' and guidedata[item]['DOMSHUTU'] == 'open':
+            guide_start.append( (guidedata[item]['GUIDE-START'] - startdate)*24. )
+            guide_width.append( (guidedata[item]['GUIDE-STOP'] - guidedata[item]['GUIDE-START'])*24. )
+    
+    return science_start, science_width, dither_start, dither_width, guide_start, guide_width
+
+def get_totobs(start, length, twibeg_hours, twiend_hours, verbose=False): 
+    '''
+    Calculate the total observing time between twilights:
+
+    Parameters
+    ----------
+    start : float
+        start times of exposures in UT hours
+    length : float
+        length of exposures in UT hours
+    twibeg_hours : float
+        time of twilight at the beginning of the night in UT hours
+    twiend_hours : float
+        time of twilight at the end of the night in UT hours
+    verbose : bool
+        print verbose output?
+
+    Returns
+    -------
+    obshours : float
+        total observing hours between twilights 
+    '''
+
+    obshours = 0.
     for i in range(len(start)):
         t1 = start[i]
         t2 = t1 + length[i]
         if t1 <= twibeg_hours and t2 >= twibeg_hours:
-            out_hours += t2-twibeg_hours
+            obshours += t2-twibeg_hours
         elif t1 >= twibeg_hours and t2 <= twiend_hours:
-            out_hours += t2-t1
+            obshours += t2-t1
         elif t1 <= twiend_hours and t2 >= twiend_hours:
-            out_hours += t1-twiend_hours
+            obshours += t1-twiend_hours
 
-    return out_hours
-
-
+    return obshours
