@@ -550,3 +550,52 @@ def get_totobs(start, length, twibeg_hours, twiend_hours, verbose=False):
             obshours += t1-twiend_hours
 
     return obshours
+
+
+def calc_science(night, verbose=False):
+    '''
+    Calculate quantities about science exposures for a given night
+
+
+    Parameters
+    ----------
+    night : int
+        night in form 20210320 for 20 March 2021
+    verbose : bool
+        print verbose output?
+
+    Returns
+    -------
+    science_first : float
+        start time of first spectroscopic exposure in MJD
+    science_last : float
+        end time of last spectroscopic exposure in MJD
+    scitwi_hours : float
+        number of hours of spectroscopic exposures between twilights in UT hours 
+    scitot_hours : float
+        total number of hours of spectroscopic exposures in UT hours (not limited by twilight)
+    '''
+
+    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    startdate = int(twibeg_mjd)
+    twibeg_hours = 24.*(twibeg_mjd - startdate)
+    twiend_hours = 24.*(twiend_mjd - startdate)
+    twitot_hours = twiend_hours - twibeg_hours
+
+    science_start, science_width, dither_start, dither_width, guide_start, guide_width = calc_obstimes(night)
+
+    # Science hours between twilights 
+    scitwi_hours = get_totobs(science_start, science_width, twibeg_hours, twiend_hours)
+
+    # Calculate MJD of start of first science exposure:
+    science_first = min(science_start)/24. + startdate
+    indx = np.where( np.asarray(science_start) == max(science_start))[0][0]
+    science_last = (science_start[indx] + science_width[indx])/24. + startdate
+
+    # Science hours total
+    scitot_hours = np.sum(science_width) 
+
+    # Open shutter time between twilights
+    fracscitwi = scitwi_hours/(twiend_hours - twibeg_hours)
+
+    return science_first, science_last, scitwi_hours, scitot_hours

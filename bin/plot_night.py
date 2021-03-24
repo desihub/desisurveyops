@@ -51,13 +51,13 @@ dome_open = np.array([t for t in dome['shutter_upper']], dtype=bool)
 firstopen, lastclose, fractwiopen, twiopen_hours = utils.calc_domevals(night)
 
 # Calculate the total science time and guide time between twilights:
-science_hours = utils.get_totobs(science_start, science_width, twibeg_hours, twiend_hours) 
-guide_hours = utils.get_totobs(guide_start, guide_width, twibeg_hours, twiend_hours)
+scitwi_hours = utils.get_totobs(science_start, science_width, twibeg_hours, twiend_hours) 
+guidetwi_hours = utils.get_totobs(guide_start, guide_width, twibeg_hours, twiend_hours)
 
 # Percent of time dome was open between twilights with science, guide exposures
 if twiopen_hours > 0.:
-    science_fraction = science_hours/twiopen_hours
-    guide_fraction = guide_hours/twiopen_hours
+    science_fraction = scitwi_hours/twiopen_hours
+    guide_fraction = guidetwi_hours/twiopen_hours
 else:
     science_fraction = 0.
     guide_fraction = 0.
