@@ -13,7 +13,7 @@ import pandas as pd
 
 def set_outdir(verbose=False): 
     '''
-    Set the root output directory
+    Set the root directory for the output and a NightlyData/ subdirectory
 
     Parameters
     ----------
@@ -46,7 +46,49 @@ def set_outdir(verbose=False):
     return outdir
 
 
+def set_datadir(verbose=False): 
+    '''
+    Set the root directory for the raw data
+
+    Parameters
+    ----------
+    verbose : bool
+        Print verbose output? 
+
+    Returns
+    -------
+    outdir : string
+        root output directory 
+    '''
+
+    datadir = '/global/cfs/cdirs/desi/spectro/data/'
+
+    if not os.path.isdir(datadir): 
+        print("Error: root data directory {} not found".format(datadir))
+        exit
+
+    if verbose: 
+        print("Raw data directory set to {}".format(datadir))
+
+    return datadir
+
+        
 def read_json(filename: str):
+    '''
+    Read in a json file
+
+    Parameters
+    ----------
+    filename : string
+        File to read in and convert to dictionary
+
+    Returns
+    -------
+    output : dict
+        file as dictionary
+
+    '''
+
     with open(filename) as fp:
         return json.load(fp)
 
@@ -99,25 +141,12 @@ def calc_sciencelist(night, clobber=False, verbose=False):
     none
     '''
 
+    # Output directory
     outdir = set_outdir()
 
-    # Find the nightly data (just distinguish between kpno and cori): 
-    kpnoroot = '/exposures/desi'
-    coriroot = '/global/cfs/cdirs/desi/spectro/data/'
+    # Directory with raw data
+    rootdir = set_rootdir()
 
-    if os.path.isdir(kpnoroot):
-        nightdir = os.path.join(kpnoroot, str(night)) 
-        dbhost = 'desi-db'
-        dbport = '5442'
-    elif os.path.isdir(coriroot): 
-        nightdir = os.path.join(coriroot, str(night)) 
-        dbhost = 'db.replicator.dev-cattle.stable.spin.nersc.org'
-        dbport = '60042'
-    else: 
-        print("Error: root data directory not found")
-        print("  Looked for {0} and {1}".format(kpnoroot, coriroot))
-        exit(-1)
-        
     # Names for output json file: 
     filename = "specdata" + str(night) + ".json"
     specdatafile = os.path.join(outdir, 'NightlyData', filename) 
@@ -182,23 +211,8 @@ def calc_guidelist(night, clobber=False, verbose=False):
     '''
 
     outdir = set_outdir()
-
-    # Find the nightly data (just distinguish between kpno and cori): 
-    kpnoroot = '/exposures/desi'
-    coriroot = '/global/cfs/cdirs/desi/spectro/data/'
-
-    if os.path.isdir(kpnoroot):
-        nightdir = os.path.join(kpnoroot, str(night)) 
-        dbhost = 'desi-db'
-        dbport = '5442'
-    elif os.path.isdir(coriroot): 
-        nightdir = os.path.join(coriroot, str(night)) 
-        dbhost = 'db.replicator.dev-cattle.stable.spin.nersc.org'
-        dbport = '60042'
-    else: 
-        print("Error: root data directory not found")
-        print("  Looked for {0} and {1}".format(kpnoroot, coriroot))
-        exit(-1)
+    datadir = set_datadir()
+    nightdir = os.path.join(datadir, str(night)) 
         
     # Names for output json file: 
     filename = "guidedata" + str(night) + ".json"
@@ -334,6 +348,77 @@ def get_dometelemetry(night, verbose=False):
     dome['dome_timestamp'] = np.array([Time(t).mjd for t in dome['dome_timestamp']])
 
     return dome
+
+def get_ccdtelemetry(night, verbose=False):
+    '''
+    Retrieve spectrograph ccd telemetry data for a given night.
+
+    Parameters
+    ----------
+    night : int
+        night in form 20210320 for 20 March 2021
+    verbose : bool
+        print verbose output?
+
+    Returns
+    -------
+    ccd : record array
+        ccd telemetry stream for night
+    '''
+
+    # connect to telemetry database
+    conn = psycopg2.connect(host="db.replicator.dev-cattle.stable.spin.nersc.org", port="60042", database="desi_dev", user="desi_reader", password="reader")
+
+    # set query limits as 3 hours before/after twilight at beginning/end of night
+    twi1, twi2 = get_twilights(night)
+    twibeg = Time( Time(twi1, format='mjd'), format='datetime')
+    twiend = Time( Time(twi2, format='mjd'), format='datetime')
+    query_start = twibeg - (3./24.)
+    query_stop = twiend + (3./24.)
+
+    specdf = pd.read_sql_query(f"SELECT * FROM spectrographs_ccds WHERE time_recorded >= '{query_start}' AND time_recorded < '{query_stop}'", conn)
+    spec_ccds = specdf.to_records()
+
+    # Convert dome_timestamp to a Time object in MJD
+    spec_ccds['time_recorded'] = np.array([Time(t).mjd for t in spec_ccds['time_recorded']])
+
+    return spec_ccds
+
+def get_teltelemetry(night, verbose=False):
+    '''
+    Retrieve telescope telemetry data for a given night.
+
+    Parameters
+    ----------
+    night : int
+        night in form 20210320 for 20 March 2021
+    verbose : bool
+        print verbose output?
+
+    Returns
+    -------
+    ccd : record array
+        ccd telemetry stream for night
+    '''
+
+    # connect to telemetry database
+    conn = psycopg2.connect(host="db.replicator.dev-cattle.stable.spin.nersc.org", port="60042", database="desi_dev", user="desi_reader", password="reader")
+
+    # set query limits as 3 hours before/after twilight at beginning/end of night
+    twi1, twi2 = get_twilights(night)
+    twibeg = Time( Time(twi1, format='mjd'), format='datetime')
+    twiend = Time( Time(twi2, format='mjd'), format='datetime')
+    query_start = twibeg - (3./24.)
+    query_stop = twiend + (3./24.)
+
+    # Telescope data:
+    teldf = pd.read_sql_query(f"SELECT * FROM tcs_info WHERE time_recorded >= '{query_start}' AND time_recorded < '{query_stop}'", conn)
+    tel = teldf.to_records()
+
+    # Convert dome_timestamp to a Time object in MJD
+    tel['time_recorded'] = np.array([Time(t).mjd for t in tel['time_recorded']])
+
+    return tel
 
 
 def get_guidetelemetry(night, verbose=False):
@@ -599,3 +684,218 @@ def calc_science(night, verbose=False):
     fracscitwi = scitwi_hours/(twiend_hours - twibeg_hours)
 
     return science_first, science_last, scitwi_hours, scitot_hours
+
+def get_skydata(expidlist, night, verbose=False):
+    '''
+    Determine start and lengths of all sky frames associated with expidlist
+
+    Parameters
+    ----------
+    expidlist : list
+        list of expids 
+    night : int
+        night in form 20210320 for 20 March 2021
+    verbose : bool
+        print verbose output?
+
+    Returns
+    -------
+    sky_start : list
+        start times of each sky exposure in UT hours
+    sky_width : list
+        lengths of each sky exposure in UT hours
+    '''
+
+    datadir = set_datadir()
+    nightdir = os.path.join(datadir, str(night)) 
+    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    startdate = int(twibeg_mjd)
+
+    if verbose:
+        print(night, startdate, twibeg_mjd, nightdir)
+
+    sky_start = []
+    sky_width = []
+    for expid in expidlist:
+        tmpdir = os.path.join(nightdir, expid.zfill(8))
+        skyfiles = (glob(tmpdir + "/sky-" + expid.zfill(8) + ".fits.fz"))
+        if len(skyfiles) > 0:
+            shh = fits.open(skyfiles[0])
+            for i in range(len(shh['SKYCAM0T'].data)):
+                tt = Time(shh['SKYCAM0T'].data[i]['DATE-OBS']).mjd
+                sky_start.append((tt - startdate)*24 )
+                sky_width.append(shh['SKYCAM0T'].data[i]['EXPTIME']/3600.)
+    return sky_start, sky_width
+
+
+def get_guidedata(expidlist, night, acqonly=False, startonly=False):
+    '''
+    Determine start and lengths of all sky frames associated with expidlist
+
+    Parameters
+    ----------
+    expidlist : list
+        list of expids 
+    night : int
+        night in form 20210320 for 20 March 2021
+    acqonly : bool 
+        report only the times for the acquisition images
+    startonly : bool 
+        report only the start of guiding
+
+    Returns
+    -------
+    guide_start : list
+        start times of each guide exposure in UT hours
+    guide_width : list
+        lengths of each guide exposure in UT hours
+    '''
+
+    datadir = set_datadir()
+    nightdir = os.path.join(datadir, str(night)) 
+    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    startdate = int(twibeg_mjd)
+
+    guide_start = []
+    guide_width = []
+    for expid in expidlist:
+        tmpdir = os.path.join(nightdir, expid.zfill(8))
+        guidefiles = (glob(tmpdir + "/guide-" + expid.zfill(8) + ".fits.fz"))
+        if len(guidefiles) > 0:
+            ghh = fits.open(guidefiles[0])
+            if acqonly:
+                tt = Time(ghh['GUIDE0T'].data[0]['DATE-OBS']).mjd
+                guide_start.append((tt - startdate)*24 )
+                guide_width.append(ghh['GUIDE0T'].data[0]['EXPTIME']/3600.)
+            elif startonly:
+                tt = Time(ghh['GUIDE0T'].data[1]['DATE-OBS']).mjd
+                guide_start.append((tt - startdate)*24 )
+                guide_width.append(ghh['GUIDE0T'].data[1]['EXPTIME']/3600.)
+            else:
+                for i in range(len(ghh['GUIDE0T'].data)):
+                    tt = Time(ghh['GUIDE0T'].data[i]['DATE-OBS']).mjd
+                    guide_start.append((tt - startdate)*24 )
+                    guide_width.append(ghh['GUIDE0T'].data[i]['EXPTIME']/3600.)
+    return guide_start, guide_width
+
+def get_fvcdata(expidlist, night):
+    '''
+    Determine start and lengths of all FVC frames associated with expidlist
+
+    Parameters
+    ----------
+    expidlist : list
+        list of expids 
+    night : int
+        night in form 20210320 for 20 March 2021
+
+    Returns
+    -------
+    fvc_start : list
+        start times of each FVC exposure in UT hours
+    fvc_width : list
+        lengths of each FVC exposure in UT hours
+    '''
+
+    datadir = set_datadir()
+    nightdir = os.path.join(datadir, str(night)) 
+    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    startdate = int(twibeg_mjd)
+
+    fvc_start = []
+    fvc_width = []
+    for expid in expidlist:
+        tmpdir = os.path.join(nightdir, expid.zfill(8))
+        fvcfiles = (glob(tmpdir + "/fvc-" + expid.zfill(8) + ".fits.fz"))
+        if len(fvcfiles) > 0:
+            fhh = fits.open(fvcfiles[0])
+            tt = Time(fhh['F0000'].header['DATE']).mjd
+            fvc_start.append((tt - startdate)*24 )
+            fvc_width.append(fhh['F0000'].header['EXPTIME']/3600.)
+            tt = Time(fhh['F0001'].header['DATE']).mjd
+            fvc_start.append((tt - startdate)*24 )
+            fvc_width.append(fhh['F0001'].header['EXPTIME']/3600.)
+    return fvc_start, fvc_width
+
+def get_scidata(expidlist, night):
+    '''
+    Determine start and lengths of all science frames associated with expidlist
+
+    Parameters
+    ----------
+    expidlist : list
+        list of expids 
+    night : int
+        night in form 20210320 for 20 March 2021
+
+    Returns
+    -------
+    spec_start : list
+        start times of each spec exposure in UT hours
+    spec_width : list
+        lengths of each spec exposure in UT hours
+    spec_expid : list
+        expid of each spec exposure
+    '''
+
+    datadir = set_datadir()
+    nightdir = os.path.join(datadir, str(night)) 
+    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    startdate = int(twibeg_mjd)
+
+    spec_start = []
+    spec_width = []
+    spec_expid = []
+
+    # Identify expids that corresponds to science exposures:
+    for expid in expidlist:
+        tmpdir = os.path.join(nightdir, expid.zfill(8))
+        scifiles = (glob(tmpdir + "/desi*"))
+        if len(scifiles) > 0:
+            hhh = fits.open(scifiles[0])
+            tt = Time(''.join(hhh['SPECTCONS'].data['DATE-OBS'][0])).mjd
+            try:
+                flavor = hhh[1].header['FLAVOR']
+                program = hhh[1].header['PROGRAM']
+                obstype = hhh[1].header['OBSTYPE']
+                exptime = hhh[1].header['EXPTIME']
+            except:
+                continue
+            if obstype == 'SCIENCE' and flavor == 'science' and 'Dither' not in program and exptime > 10.:
+                #spec_expids.append(expid)
+                spec_start.append((tt - startdate)*24 )
+                spec_width.append(hhh['SPEC'].header['EXPTIME']/3600.)
+                spec_expid.append(expid)
+
+    return spec_start, spec_width, spec_expid
+
+
+def getexpidlist(night):
+    '''
+    Get a list of all expids from a given night
+
+    Parameters
+    ----------
+    night : int
+        night in form 20210320 for 20 March 2021
+
+    Returns
+    -------
+    expidlist : list
+        list of expids
+    '''
+
+    outdir = set_outdir()
+    datadir = set_datadir()
+    nightdir = os.path.join(datadir, str(night))
+
+    expfiles = glob(nightdir + "/*/desi*")
+
+    expidlist = []
+    for i in range(len(expfiles)):
+        i1 = expfiles[i].rfind('desi-') + 5
+        i2 = expfiles[i].rfind('.fits')
+        expidlist.append(expfiles[i][i1:i2].lstrip('0'))
+
+    return expidlist
+
