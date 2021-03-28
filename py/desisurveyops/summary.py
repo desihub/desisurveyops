@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import ephem
 import desisurveyops.utilities as utils
 
-def init_summary(night, clobber=False, verbose=False):
+def init_summary(night, outfilename, clobber=False, verbose=False):
     '''
     Create an empty fits table will contain summary information for each night.
 
@@ -24,7 +24,7 @@ def init_summary(night, clobber=False, verbose=False):
     '''
 
     outdir = utils.set_outdir()
-    outputfile = os.path.join(outdir, "test.fits")
+    outputfile = os.path.join(outdir, outfilename)
 
     if os.path.isfile(outputfile) and not clobber:
         print("init_summary(): {} already exists and clobber=False".format(outputfile))
@@ -59,7 +59,11 @@ def calc_row(night):
     twibeg_mjd, twiend_mjd = utils.get_twilights(night) 
     firstopen, lastclose, fractwiopen, twiopen_hrs = utils.calc_domevals(night)
     science_first, science_last, scitwi_hrs, scitot_hrs = utils.calc_science(night) 
-    fracscitwi = scitwi_hrs/twiopen_hrs
+    print(twiopen_hrs)
+    if twiopen_hrs > 0.: 
+        fracscitwi = scitwi_hrs/twiopen_hrs
+    else:
+        fracscitwi = 0.
 
     # names=('NIGHT', 'TWIBEG', 'TWIEND', 'DOMEOPEN', 'DOMECLOSE', 'DOMEFRAC', 'DOMEHRS', 'SCSTART', 'SCSTOP', 'SCTWTOT', 'SCTOT', 'SCTWFRAC'),
     c0 = np.array([night], dtype=np.int32)
@@ -80,7 +84,7 @@ def calc_row(night):
     return newrow
 
 
-def update_table(night, clobber=False, verbose=False): 
+def update_table(night, outfilename, clobber=False, verbose=False): 
     '''
     Update the summary table with data for 'night' 
 
@@ -99,15 +103,17 @@ def update_table(night, clobber=False, verbose=False):
     '''
 
     outdir = utils.set_outdir()
-    outputfile = os.path.join(outdir, "test.fits")
+    outputfile = os.path.join(outdir, outfilename)
 
     t = QTable.read(outputfile)
 
-    if night in t['NIGHT']:
+    if int(night) in t['NIGHT']:
+        print("Found {} in table".format(night))
         if not clobber:
             print("Data for {} already in table and clobber=False".format(night))
             return
         else:
+            print("clobber=True")
             indx = np.where(t['NIGHT'] == night)[0][0]
             t.remove_row(indx)
 

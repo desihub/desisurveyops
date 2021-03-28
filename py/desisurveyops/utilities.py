@@ -145,7 +145,8 @@ def calc_sciencelist(night, clobber=False, verbose=False):
     outdir = set_outdir()
 
     # Directory with raw data
-    rootdir = set_rootdir()
+    datadir = set_datadir()
+    nightdir = os.path.join(datadir, str(night)) 
 
     # Names for output json file: 
     filename = "specdata" + str(night) + ".json"
@@ -170,6 +171,8 @@ def calc_sciencelist(night, clobber=False, verbose=False):
             scifiles = (glob(tmpdir + "/desi*"))
             if len(scifiles) > 0:  
                hhh = fits.open(scifiles[0])
+               if hhh[1].header['DATE-OBS'] == None:
+                   continue
                specdata[expid] = {}
                specdata[expid]['DATE-OBS'] = Time(hhh[1].header['DATE-OBS']).mjd
                specdata[expid]['OBSTYPE'] = hhh[1].header['OBSTYPE']
@@ -213,10 +216,12 @@ def calc_guidelist(night, clobber=False, verbose=False):
     outdir = set_outdir()
     datadir = set_datadir()
     nightdir = os.path.join(datadir, str(night)) 
+    twibeg_mjd, twiend_mjd = get_twilights(int(night))
         
     # Names for output json file: 
     filename = "guidedata" + str(night) + ".json"
     guidedatafile = os.path.join(outdir, 'NightlyData', filename) 
+
 
     # See if json file for this night already exists: 
     if not os.path.isfile(guidedatafile) or clobber: 
@@ -232,41 +237,69 @@ def calc_guidelist(night, clobber=False, verbose=False):
 
         guidedata = {}
         for expid in expids:
-            tmpdir = os.path.join(nightdir, expid)
-            guidefiles = (glob(tmpdir + "/guide-" + expid + ".fits.fz"))
-            if len(guidefiles) > 0:
-               hhh = fits.open(guidefiles[0])
-               guidedata[expid] = {}
-               t1 = Time(hhh['GUIDE0T'].data[0]['DATE-OBS']).mjd
-               t2 = Time(hhh['GUIDE0T'].data[-1]['DATE-OBS']).mjd
-               guidedata[expid]['GUIDE-START'] = t1
-               guidedata[expid]['GUIDE-STOP'] = t2
-               try:
-                   guidedata[expid]['DOMSHUTU'] = hhh[0].header['DOMSHUTU']
-               except KeyError:
-                   guidedata[expid]['DOMSHUTU'] = 'None'
-               try:
-                   guidedata[expid]['PMCOVER'] = hhh[0].header['PMCOVER']
-               except KeyError:
-                   guidedata[expid]['PMCOVER'] = 'UNKNOWN'
-               try:
-                   guidedata[expid]['OBSTYPE'] = hhh[0].header['OBSTYPE']
-               except KeyError:
-                   guidedata[expid]['OBSTYPE'] = 'None'
-               try:
-                   guidedata[expid]['FLAVOR'] = hhh[0].header['FLAVOR']
-               except KeyError:
-                   guidedata[expid]['FLAVOR'] = 'None'
-               try:
-                   guidedata[expid]['EXPTIME'] = hhh[0].header['EXPTIME']
-               except KeyError:
-                   guidedata[expid]['EXPTIME'] = 0.
+            # tmpdir = os.path.join(nightdir, expid, "guide-" + expid + ".fits.fz")
+            # guidefiles = (glob(tmpdir + "/guide-" + expid + ".fits.fz"))
+            # guidefile = tmpdir + "/guide-" + expid + ".fits.fz"
+            guidefile = os.path.join(nightdir, expid, "guide-" + expid + ".fits.fz")
+            #if len(guidefiles) > 0:
+            if os.path.isfile(guidefile):
+                try:
+                    hhh = fits.open(guidefile)
+                except OSError: 
+                    if verbose: 
+                        print("OSError with {}".format(guidefile))
+                    continue
+                guidedata[expid] = {}
+                t1 = Time( find_dateobs(hhh) ).mjd
+                try: 
+                    t2 = Time(hhh['GUIDE0T'].data[-1]['DATE-OBS']).mjd
+                except KeyError:
+                    t2 = t1  # Need to fix this
+                guidedata[expid]['GUIDE-START'] = t1
+                guidedata[expid]['GUIDE-STOP'] = t2
+                try:
+                    guidedata[expid]['DOMSHUTU'] = hhh[0].header['DOMSHUTU']
+                except KeyError:
+                    guidedata[expid]['DOMSHUTU'] = 'None'
+                try:
+                    guidedata[expid]['PMCOVER'] = hhh[0].header['PMCOVER']
+                except KeyError:
+                    guidedata[expid]['PMCOVER'] = 'UNKNOWN'
+                try:
+                    guidedata[expid]['OBSTYPE'] = hhh[0].header['OBSTYPE']
+                except KeyError:
+                    guidedata[expid]['OBSTYPE'] = 'None'
+                try:
+                    guidedata[expid]['FLAVOR'] = hhh[0].header['FLAVOR']
+                except KeyError:
+                    guidedata[expid]['FLAVOR'] = 'None'
+                try:
+                    guidedata[expid]['EXPTIME'] = hhh[0].header['EXPTIME']
+                except KeyError:
+                    guidedata[expid]['EXPTIME'] = 0.
         with open(guidedatafile, 'w') as fp:
             json.dump(guidedata, fp)
 
         if verbose: 
             print("Wrote", guidedatafile) 
 
+
+def find_dateobs(hhh):
+    '''
+    Delve deep into hdu to find keyword
+
+    '''
+    try:
+        val = hhh['GUIDE0T'].data[0]['DATE-OBS']
+    except KeyError:
+        try:
+            val = hhh['GUIDE0'].data[0]['DATE-OBS']
+        except IndexError:
+            try:
+                val = hhh['GUIDE0'].header['DATE-OBS']
+            except KeyError:
+                print("KeyError")
+    return val
 
 def get_twilights(night, verbose=False):
     '''
@@ -287,10 +320,10 @@ def get_twilights(night, verbose=False):
         time of twilight in MJD at the end of the night
     '''
 
-    night = int(night) + 1
+    night = int(night)
     nightstr = str(night)
     timestr = "{0}-{1}-{2}T00:00:00.0".format(nightstr[:4], nightstr[4:6], nightstr[6:8])
-    t = Time(timestr, format='isot', scale='utc')
+    t = Time(timestr, format='isot', scale='utc') + 1
 
     # Set observatory lat,long to calculate twilight
     desi = ephem.Observer()
@@ -559,7 +592,7 @@ def calc_obstimes(night, verbose=False, clobber=False):
     else:
         print("Note: {} not found ... creating it".format(specdatafile))
         calc_sciencelist(night)
-        specdata = read_json(specdatafile, verbose=verbose, clobber=clobber)
+        specdata = read_json(specdatafile)
 
     guidefilename = "guidedata" + str(night) + ".json"
     guidedatafile = os.path.join(outdir, 'NightlyData', guidefilename)
@@ -568,7 +601,7 @@ def calc_obstimes(night, verbose=False, clobber=False):
     else:
         print("Note: {} not found ... creating it".format(guidedatafile))
         calc_guidelist(night)
-        guidedata = read_json(guidedatafile, verbose=verbose, clobber=clobber)
+        guidedata = read_json(guidedatafile)
 
     twibeg_mjd, twiend_mjd = get_twilights(int(night))
     startdate = int(twibeg_mjd)
@@ -673,6 +706,8 @@ def calc_science(night, verbose=False):
     scitwi_hours = get_totobs(science_start, science_width, twibeg_hours, twiend_hours)
 
     # Calculate MJD of start of first science exposure:
+    if len(science_start) == 0:
+        return 0., 0., 0., 0.
     science_first = min(science_start)/24. + startdate
     indx = np.where( np.asarray(science_start) == max(science_start))[0][0]
     science_last = (science_start[indx] + science_width[indx])/24. + startdate
