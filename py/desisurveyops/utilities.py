@@ -565,6 +565,8 @@ def calc_obstimes(night, verbose=False, clobber=False):
         night in form 20210320 for 20 March 2021
     verbose : bool
         print verbose output?
+    clobber : bool
+        overwrite existing file
 
     Returns
     -------
@@ -934,3 +936,60 @@ def getexpidlist(night):
 
     return expidlist
 
+
+def calc_interexp(night, minexptime=90., clobber=False, verbose=False):
+    '''
+    Calculate the interexposure times
+
+    Parameters
+    ----------
+    night : int
+        night in form 20210320 for 20 March 2021
+    minexptime : float
+        minimum science exposure time to consider in calculation
+    verbose : bool
+        print verbose output?
+    clobber : bool
+        overwrite existing file
+
+    Returns
+    -------
+    interexp : 1-d float array
+        times between successive science exposures
+    '''
+
+    # Read in the data
+    outdir = set_outdir()
+    specfilename = "specdata" + str(night) + ".json"
+    specdatafile = os.path.join(outdir, 'NightlyData', specfilename)
+    if os.path.isfile(specdatafile) and not clobber:
+        specdata = read_json(specdatafile)
+    else:
+        print("Note: {} not found ... creating it".format(specdatafile))
+        calc_sciencelist(night)
+        specdata = read_json(specdatafile)
+
+    # Take about the dict
+    dateobs = []
+    exptime = []
+    expid = []
+    for i, key in enumerate(specdata.keys()):
+        if specdata[key]['EXPTIME'] > minexptime:
+            dateobs.append(specdata[key]['DATE-OBS'])
+            exptime.append(specdata[key]['EXPTIME'])
+            expid.append(key)
+            
+    scidata = np.zeros([len(dateobs), 3])
+    for i in range(len(dateobs)):
+        scidata[i] = np.asarray([ dateobs[i], exptime[i], expid[i] ])
+
+    # Sort by expid:
+    sortindx = 2
+    sortdata = scidata[scidata[:,sortindx].argsort()]
+
+    # Calculate interexposure time between each successive pair
+    interexp = []
+    for i in range(len(sortdata) - 1):
+        interexp.append(24*3600*(sortdata[i+1][0] - sortdata[i][0]))
+
+    return interexp
