@@ -11,7 +11,7 @@ import desisurveyops.utilities as utils
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                         description="""Generate detailed timing plot between two times,  
-                        e.g. try ./plot_night.py -n 20201221""") 
+                        e.g. try ./plot_night.py -n 20201221 -t1 9 -t2 9.5""") 
 
 parser.add_argument('-n','--night', type=str, default="20201215", required=False,
                     help='Night to analyze')
@@ -41,6 +41,8 @@ if args.outplot is None:
     outplot = os.path.join(outdir, "plot-" + night + ".png") 
 else: 
     outplot = os.path.join(outdir, args.outplot+".png") 
+    if ".png.png" in outplot: 
+        outplot = outplot[:-4]
 
 # Compute total science and guiding time in hours
 twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
