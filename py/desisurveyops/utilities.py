@@ -937,7 +937,7 @@ def getexpidlist(night):
     return expidlist
 
 
-def calc_interexp(night, minexptime=90., clobber=False, verbose=False):
+def calc_interexp(night, minexptime=120., clobber=False, verbose=False):
     '''
     Calculate the interexposure times
 
@@ -988,8 +988,9 @@ def calc_interexp(night, minexptime=90., clobber=False, verbose=False):
     sortdata = scidata[scidata[:,sortindx].argsort()]
 
     # Calculate interexposure time between each successive pair
+    secperday = 24.*3600.
     interexp = []
     for i in range(len(sortdata) - 1):
-        interexp.append(24*3600*(sortdata[i+1][0] - sortdata[i][0]))
+        interexp.append(secperday*(sortdata[i+1][0] - sortdata[i][0] - sortdata[i][1]/secperday ))
 
     return interexp
