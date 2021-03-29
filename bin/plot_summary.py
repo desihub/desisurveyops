@@ -34,7 +34,11 @@ outdir = utils.set_outdir()
 
 # See if the output file already exists and clobber=True
 
-outplot = os.path.join(outdir, "ObservingEfficiency.png")
+if args.filename is not None:
+    outplot = os.path.join(outdir, args.filename)
+else: 
+    outplot = os.path.join(outdir, "ObservingEfficiency.png")
+
 if os.path.isfile(outplot) and not args.clobber: 
     print("Error: {} already exists and clobber = False".format(outplot))
 
@@ -54,35 +58,28 @@ else:
 # Create datetime array for plots
 dates = np.array([Time(t, format='mjd').datetime for t in hdu[1].data['TWIBEG']])
 
-
-# Compute interexposure values
-interexp_min = []
-interexp_med = []
-for i in range(len(hdu[1].data['NIGHT'])):
-    interexp = utils.calc_interexp(hdu[1].data['NIGHT'][i])
-    if len(interexp) > 1:
-        interexp_min.append(np.min(interexp))
-        interexp_med.append(np.median(interexp))
-    else:
-        interexp_min.append(-60.)
-        interexp_med.append(-60.)
-
 # Create the plot
 fig, axarr = plt.subplots(2, 1, figsize=(14,9), sharex=True)
 axarr[0].set_ylabel("Interexposure Time [s]")
-axarr[0].plot(dates, interexp_min, 'ko', fillstyle='none', label='Minimum')
-axarr[0].plot(dates, interexp_med, 'b^', label="Median")
-axarr[0].set_ylim(0, 900)
-axarr[0].legend()
-#axarr[1].plot(hdu[1].data['TWIBEG'], hdu[1].data['DOMEFRAC'], 'o', label="Dome Open Fraction")
-#axarr[1].plot(hdu[1].data['TWIBEG'], hdu[1].data['SCTWFRAC'], 'o', label="Observing Efficiency")
+for i in range(len(hdu[1].data['NIGHT'])):
+    interexp = utils.calc_interexp(hdu[1].data['NIGHT'][i], minexptime=60.)
+    nexp = len(interexp)
+    t = []
+    for i in range(nexp):
+        t.append(dates[i])
+    axarr[0].plot(t, interexp.T[4], 'o', color='gray', alpha=0.25)
+axarr[0].plot([dates.min(), dates.max()], [60., 60.], 'k:')
+axarr[0].plot([dates.min(), dates.max()], [120., 120.], 'k:')
+axarr[0].plot([dates.min(), dates.max()], [180., 180.], 'k:')
+axarr[0].set_ylim(0, 300)
 axarr[1].plot(dates, hdu[1].data['DOMEFRAC'], 'ko', fillstyle='none', label="Dome Open")
 axarr[1].plot(dates, hdu[1].data['SCTWFRAC'], 'b^', label="Observing Efficiency")
 axarr[1].set_xlabel("Night")
 axarr[1].set_ylabel("Fraction")
-axarr[1].legend()
+axarr[1].legend(loc='upper left')
 plt.tight_layout()
 plt.savefig(outplot, bbox_inches="tight")
+
 if args.verbose: 
     print("Wrote", outplot)
 

@@ -937,7 +937,7 @@ def getexpidlist(night):
     return expidlist
 
 
-def calc_interexp(night, minexptime=120., clobber=False, verbose=False):
+def calc_interexp(night, minexptime=300., clobber=False, verbose=False):
     '''
     Calculate the interexposure times
 
@@ -954,8 +954,8 @@ def calc_interexp(night, minexptime=120., clobber=False, verbose=False):
 
     Returns
     -------
-    interexp : 1-d float array
-        times between successive science exposures
+    interexp : 2-d float array
+        columns are DATE-OBS in MJD, DATE-OBS in UT hrs, EXPTIME in s, EXPID, interexposure time in s
     '''
 
     # Read in the data
@@ -970,27 +970,32 @@ def calc_interexp(night, minexptime=120., clobber=False, verbose=False):
         specdata = read_json(specdatafile)
 
     # Take about the dict
-    dateobs = []
+    dateobs_mjd = []
     exptime = []
     expid = []
     for i, key in enumerate(specdata.keys()):
         if specdata[key]['EXPTIME'] > minexptime:
-            dateobs.append(specdata[key]['DATE-OBS'])
+            dateobs_mjd.append(specdata[key]['DATE-OBS'])
             exptime.append(specdata[key]['EXPTIME'])
             expid.append(key)
-            
-    scidata = np.zeros([len(dateobs), 3])
-    for i in range(len(dateobs)):
-        scidata[i] = np.asarray([ dateobs[i], exptime[i], expid[i] ])
 
+    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    startdate = int(twibeg_mjd)
+
+    scidata = np.zeros([len(dateobs_mjd), 5])
+    for i in range(len(dateobs_mjd)):
+        dateobs_hrs = (dateobs_mjd[i] - startdate)*24.
+        scidata[i] = np.asarray([dateobs_mjd[i], dateobs_hrs, exptime[i], expid[i], 0.])
+            
     # Sort by expid:
-    sortindx = 2
-    sortdata = scidata[scidata[:,sortindx].argsort()]
+    columnIndex = 3
+    sortdata = scidata[scidata[:,columnIndex].argsort()]
 
     # Calculate interexposure time between each successive pair
     secperday = 24.*3600.
     interexp = []
     for i in range(len(sortdata) - 1):
-        interexp.append(secperday*(sortdata[i+1][0] - sortdata[i][0] - sortdata[i][1]/secperday ))
+        sortdata[i][4] = secperday*(sortdata[i+1][0] - sortdata[i][0] - sortdata[i][1]/secperday)
+        # interexp.append(secperday*(sortdata[i+1][0] - sortdata[i][0] - sortdata[i][1]/secperday ))
 
-    return interexp
+    return sortdata[:-1]
