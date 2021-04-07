@@ -815,7 +815,7 @@ def get_guidedata(expidlist, night, acqonly=False, startonly=False):
                     guide_width.append(ghh['GUIDE0T'].data[i]['EXPTIME']/3600.)
     return guide_start, guide_width
 
-def get_fvcdata(expidlist, night):
+def get_fvcdata(expidlist, night, verbose=False):
     '''
     Determine start and lengths of all FVC frames associated with expidlist
 
@@ -845,13 +845,18 @@ def get_fvcdata(expidlist, night):
         tmpdir = os.path.join(nightdir, expid.zfill(8))
         fvcfiles = (glob(tmpdir + "/fvc-" + expid.zfill(8) + ".fits.fz"))
         if len(fvcfiles) > 0:
+            if verbose:
+                print(fvcfiles[0])
             fhh = fits.open(fvcfiles[0])
             tt = Time(fhh['F0000'].header['DATE']).mjd
             fvc_start.append((tt - startdate)*24 )
             fvc_width.append(fhh['F0000'].header['EXPTIME']/3600.)
-            tt = Time(fhh['F0001'].header['DATE']).mjd
-            fvc_start.append((tt - startdate)*24 )
-            fvc_width.append(fhh['F0001'].header['EXPTIME']/3600.)
+            try:   # Splits do not have a second FVC image
+                tt = Time(fhh['F0001'].header['DATE']).mjd
+                fvc_start.append((tt - startdate)*24 )
+                fvc_width.append(fhh['F0001'].header['EXPTIME']/3600.)
+            except KeyError: 
+                continue
     return fvc_start, fvc_width
 
 def get_scidata(expidlist, night):
