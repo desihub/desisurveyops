@@ -1,2 +1,12 @@
 bin/ is for command line scripts that should be included in the $PATH.
 
+Scripts
+-------
+
+**plot_night.py** : Create a graphical timeline of observations and calculate basic summary statistics
+
+**plot_sequence.py** : Generate a detailed graphical timeline of activity between two time intervals
+
+**plot_summary.py** : Generate a summary plot of observing efficiency across many nights
+
+**update_summary.py** : Update table of observing efficiency data
