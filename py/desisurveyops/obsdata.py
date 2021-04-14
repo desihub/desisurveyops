@@ -33,10 +33,16 @@ def calc_sciencelist(night, clobber=False, verbose=False):
     '''
 
     # Output directory
-    outdir = utils.get_outdir()
+    try:
+        outdir = utils.get_outdir()
+    except RuntimeError:
+        exit(1)
 
     # Directory with raw data
-    datadir = utils.get_rawdatadir()
+    try: 
+        datadir = utils.get_rawdatadir()
+    except RuntimeError:
+        exit(1)
     nightdir = os.path.join(datadir, str(night)) 
 
     # Names for output json file: 
@@ -104,8 +110,16 @@ def calc_guidelist(night, clobber=False, verbose=False):
     none
     '''
 
-    outdir = utils.get_outdir()
-    datadir = utils.get_rawdatadir()
+    try:
+        outdir = utils.get_outdir()
+    except RuntimeError:
+        exit(1)
+
+    try: 
+        datadir = utils.get_rawdatadir()
+    except RuntimeError:
+        exit(1)
+
     nightdir = os.path.join(datadir, str(night)) 
     twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
         
@@ -415,7 +429,10 @@ def calc_obstimes(night, verbose=False, clobber=False):
         length of guide exposures in UT hours
     '''
 
-    outdir = utils.get_outdir()
+    try:
+        outdir = utils.get_outdir()
+    except RuntimeError:
+        exit(1)
 
     # Read in the data
     specfilename = "specdata" + str(night) + ".json"
@@ -575,7 +592,10 @@ def get_skydata(expidlist, night, verbose=False):
         lengths of each sky exposure in UT hours
     '''
 
-    datadir = utils.get_rawdatadir()
+    try: 
+        datadir = utils.get_rawdatadir()
+    except RuntimeError:
+        exit(1)
     nightdir = os.path.join(datadir, str(night)) 
     twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
@@ -620,7 +640,10 @@ def get_guidedata(expidlist, night, acqonly=False, startonly=False):
         lengths of each guide exposure in UT hours
     '''
 
-    datadir = utils.get_rawdatadir()
+    try: 
+        datadir = utils.get_rawdatadir()
+    except RuntimeError:
+        exit(1)
     nightdir = os.path.join(datadir, str(night)) 
     twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
@@ -666,7 +689,10 @@ def get_fvcdata(expidlist, night, verbose=False):
         lengths of each FVC exposure in UT hours
     '''
 
-    datadir = utils.get_rawdatadir()
+    try: 
+        datadir = utils.get_rawdatadir()
+    except RuntimeError:
+        exit(1)
     nightdir = os.path.join(datadir, str(night)) 
     twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
@@ -713,7 +739,10 @@ def get_scidata(expidlist, night):
         expid of each spec exposure
     '''
 
-    datadir = utils.get_rawdatadir()
+    try: 
+        datadir = utils.get_rawdatadir()
+    except RuntimeError:
+        exit(1)
     nightdir = os.path.join(datadir, str(night)) 
     twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
@@ -767,7 +796,11 @@ def calc_interexp(night, minexptime=300., clobber=False, verbose=False):
     '''
 
     # Read in the data
-    outdir = utils.get_outdir()
+    try:
+        outdir = utils.get_outdir()
+    except RuntimeError:
+        exit(1)
+
     specfilename = "specdata" + str(night) + ".json"
     specdatafile = os.path.join(outdir, 'NightlyData', specfilename)
     if os.path.isfile(specdatafile) and not clobber:

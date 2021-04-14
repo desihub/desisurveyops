@@ -29,7 +29,8 @@ def get_outdir(verbose=False):
     try:
         outdir = os.environ['DESINIGHTSTATS']
     except KeyError:
-        raise RuntimeError('Did not find environment variable DESINIGHTSTATS for output directory') 
+        print('  Error: Did not find environment variable DESINIGHTSTATS for output directory') 
+        raise RuntimeError
 
     if not os.path.isdir(outdir): 
         try: 
@@ -70,12 +71,16 @@ def get_rawdatadir(verbose=False):
         root output directory 
     '''
 
-    # datadir = '/global/cfs/cdirs/desi/spectro/data/'
-    datadir = os.environ['DESI_SPECTRO_DATA']
+    try: 
+        datadir = os.environ['DESI_SPECTRO_DATA']
+        # Note this is /global/cfs/cdirs/desi/spectro/data/ at NERSC
+    except KeyError: 
+        print('  Error: Did not find environment variable DESI_SPECTRO_DATA')
+        raise RuntimeError
 
     if not os.path.isdir(datadir): 
         print("Error: root data directory {} not found".format(datadir))
-        exit(1)
+        raise RuntimeError
 
     if verbose: 
         print("Raw data directory set to {}".format(datadir))
