@@ -364,7 +364,7 @@ def get_dometelemetry(night, verbose=False):
     '''
 
     # connect to telemetry database
-    conn = psycopg2.connect(host="db.replicator.dev-cattle.stable.spin.nersc.org", port="60042", database="desi_dev", user="desi_reader", password="reader")
+    conn = psycopg2.connect(host="db.replicator.dev-cattle.stable.spin.nersc.org", port="60042", database="desi_dev", user="desi_reader")
 
     # set query limits as 3 hours before/after twilight at beginning/end of night
     twi1, twi2 = get_twilights(night)
@@ -400,7 +400,7 @@ def get_ccdtelemetry(night, verbose=False):
     '''
 
     # connect to telemetry database
-    conn = psycopg2.connect(host="db.replicator.dev-cattle.stable.spin.nersc.org", port="60042", database="desi_dev", user="desi_reader", password="reader")
+    conn = psycopg2.connect(host="db.replicator.dev-cattle.stable.spin.nersc.org", port="60042", database="desi_dev", user="desi_reader")
 
     # set query limits as 3 hours before/after twilight at beginning/end of night
     twi1, twi2 = get_twilights(night)
@@ -435,7 +435,7 @@ def get_teltelemetry(night, verbose=False):
     '''
 
     # connect to telemetry database
-    conn = psycopg2.connect(host="db.replicator.dev-cattle.stable.spin.nersc.org", port="60042", database="desi_dev", user="desi_reader", password="reader")
+    conn = psycopg2.connect(host="db.replicator.dev-cattle.stable.spin.nersc.org", port="60042", database="desi_dev", user="desi_reader")
 
     # set query limits as 3 hours before/after twilight at beginning/end of night
     twi1, twi2 = get_twilights(night)
@@ -472,7 +472,7 @@ def get_guidetelemetry(night, verbose=False):
     '''
 
     # connect to telemetry database
-    conn = psycopg2.connect(host="db.replicator.dev-cattle.stable.spin.nersc.org", port="60042", database="desi_dev", user="desi_reader", password="reader")
+    conn = psycopg2.connect(host="db.replicator.dev-cattle.stable.spin.nersc.org", port="60042", database="desi_dev", user="desi_reader")
 
     # set query limits as 3 hours before/after twilight at beginning/end of night
     twi1, twi2 = get_twilights(night)
