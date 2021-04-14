@@ -33,7 +33,7 @@ def calc_sciencelist(night, clobber=False, verbose=False):
     '''
 
     # Output directory
-    outdir = utils.set_outdir()
+    outdir = utils.get_outdir()
 
     # Directory with raw data
     datadir = utils.get_rawdatadir()
@@ -104,7 +104,7 @@ def calc_guidelist(night, clobber=False, verbose=False):
     none
     '''
 
-    outdir = utils.set_outdir()
+    outdir = utils.get_outdir()
     datadir = utils.get_rawdatadir()
     nightdir = os.path.join(datadir, str(night)) 
     twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
@@ -415,7 +415,7 @@ def calc_obstimes(night, verbose=False, clobber=False):
         length of guide exposures in UT hours
     '''
 
-    outdir = utils.set_outdir()
+    outdir = utils.get_outdir()
 
     # Read in the data
     specfilename = "specdata" + str(night) + ".json"
@@ -767,7 +767,7 @@ def calc_interexp(night, minexptime=300., clobber=False, verbose=False):
     '''
 
     # Read in the data
-    outdir = utils.set_outdir()
+    outdir = utils.get_outdir()
     specfilename = "specdata" + str(night) + ".json"
     specdatafile = os.path.join(outdir, 'NightlyData', specfilename)
     if os.path.isfile(specdatafile) and not clobber:

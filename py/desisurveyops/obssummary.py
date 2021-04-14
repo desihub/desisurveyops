@@ -25,7 +25,7 @@ def init_summary(night, outfilename, clobber=False, verbose=False):
     none
     '''
 
-    outdir = utils.set_outdir()
+    outdir = utils.get_outdir()
     outputfile = os.path.join(outdir, outfilename)
 
     if os.path.isfile(outputfile) and not clobber:
@@ -104,7 +104,7 @@ def update_table(night, outfilename, clobber=False, verbose=False):
     none
     '''
 
-    outdir = utils.set_outdir()
+    outdir = utils.get_outdir()
     outputfile = os.path.join(outdir, outfilename)
 
     t = QTable.read(outputfile)

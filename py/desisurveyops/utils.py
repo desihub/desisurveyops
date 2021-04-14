@@ -11,7 +11,7 @@ import ephem
 import psycopg2
 import pandas as pd
 
-def set_outdir(verbose=False): 
+def get_outdir(verbose=False): 
     '''
     Set the root directory for the output and a NightlyData/ subdirectory
 
@@ -55,7 +55,7 @@ def set_outdir(verbose=False):
     return outdir
 
 
-def set_rawdatadir(verbose=False): 
+def get_rawdatadir(verbose=False): 
     '''
     Set the root directory for the raw data
 
@@ -209,7 +209,7 @@ def getexpidlist(night):
         list of expids
     '''
 
-    outdir = set_outdir()
+    outdir = get_outdir()
     datadir = get_rawdatadir()
     nightdir = os.path.join(datadir, str(night))
 
