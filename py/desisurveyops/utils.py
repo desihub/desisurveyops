@@ -149,7 +149,7 @@ def find_dateobs(hhh):
                 print("KeyError")
     return val
 
-def get_twilights(night, verbose=False):
+def get_twilights(night, alt=-18., verbose=False):
     '''
     Calculate and return 18 deg twilight values for the start and end of the night.
 
@@ -180,8 +180,8 @@ def get_twilights(night, verbose=False):
     desi.elev = 2097.
     desi.date = t.strftime('%Y/%m/%d 7:00')
 
-    # Calculate astronomical twilight times
-    desi.horizon = '-18'
+    # Calculate twilight times
+    desi.horizon = str(alt)
     beg_twilight=desi.previous_setting(ephem.Sun(), use_center=True) # End astro twilight
     end_twilight=desi.next_rising(ephem.Sun(), use_center=True) # Begin astro twilight
     twibeg = Time( beg_twilight.datetime(), format='datetime').mjd
