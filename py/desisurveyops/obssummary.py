@@ -3,7 +3,9 @@ import numpy as np
 from astropy.table import QTable
 import matplotlib.pyplot as plt
 import ephem
-import desisurveyops.utilities as utils
+import desisurveyops.utils as utils
+import desisurveyops.obsdata as od
+
 
 def init_summary(night, outfilename, clobber=False, verbose=False):
     '''
@@ -57,8 +59,8 @@ def calc_row(night):
     '''
 
     twibeg_mjd, twiend_mjd = utils.get_twilights(night) 
-    firstopen, lastclose, fractwiopen, twiopen_hrs = utils.calc_domevals(night)
-    science_first, science_last, scitwi_hrs, scitot_hrs = utils.calc_science(night) 
+    firstopen, lastclose, fractwiopen, twiopen_hrs = od.calc_domevals(night)
+    science_first, science_last, scitwi_hrs, scitot_hrs = od.calc_science(night) 
     print(twiopen_hrs)
     if twiopen_hrs > 0.: 
         fracscitwi = scitwi_hrs/twiopen_hrs

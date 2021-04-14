@@ -10,116 +10,7 @@ import json
 import ephem
 import psycopg2
 import pandas as pd
-
-def set_outdir(verbose=False): 
-    '''
-    Set the root directory for the output and a NightlyData/ subdirectory
-
-    Parameters
-    ----------
-    verbose : bool
-        Print verbose output? 
-
-    Returns
-    -------
-    outdir : string
-        root output directory 
-    '''
-
-    try:
-        outdir = os.environ['DESINIGHTSTATS']
-    except KeyError:
-        outdir = '/global/cfs/cdirs/desi/users/martini/NightStats/'
-
-    if not os.path.isdir(outdir): 
-        os.mkdir(outdir) 
-
-    # Directory for expid info per night
-    nightlydir = os.path.join(outdir, 'NightlyData')
-
-    if not os.path.isdir(nightlydir): 
-        os.mkdir(nightlydir) 
-
-    if verbose: 
-        print("Output directory set to {}".format(outdir))
-
-    return outdir
-
-
-def set_datadir(verbose=False): 
-    '''
-    Set the root directory for the raw data
-
-    Parameters
-    ----------
-    verbose : bool
-        Print verbose output? 
-
-    Returns
-    -------
-    outdir : string
-        root output directory 
-    '''
-
-    datadir = '/global/cfs/cdirs/desi/spectro/data/'
-
-    if not os.path.isdir(datadir): 
-        print("Error: root data directory {} not found".format(datadir))
-        exit
-
-    if verbose: 
-        print("Raw data directory set to {}".format(datadir))
-
-    return datadir
-
-        
-def read_json(filename: str):
-    '''
-    Read in a json file
-
-    Parameters
-    ----------
-    filename : string
-        File to read in and convert to dictionary
-
-    Returns
-    -------
-    output : dict
-        file as dictionary
-
-    '''
-
-    with open(filename) as fp:
-        return json.load(fp)
-
-
-def plot_defaults():
-    '''
-    Load reasonable matplotlib font sizes
-
-    Parameters
-    ----------
-    none
-
-    Returns
-    -------
-    none
-    '''
-
-    # matplotlib settings 
-    SMALL_SIZE = 14
-    MEDIUM_SIZE = 16
-    BIGGER_SIZE = 18
-
-    plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
-    plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
-    plt.rc('axes', labelsize=BIGGER_SIZE)    # fontsize of the x and y labels
-    plt.rc('lines', linewidth=2)
-    plt.rc('axes', linewidth=2)
-    plt.rc('xtick', labelsize=MEDIUM_SIZE)    # fontsize of the tick labels
-    plt.rc('ytick', labelsize=MEDIUM_SIZE)    # fontsize of the tick labels
-    plt.rc('legend', fontsize=MEDIUM_SIZE)    # legend fontsize
-    plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+import desisurveyops.utils as utils
 
 
 def calc_sciencelist(night, clobber=False, verbose=False): 
@@ -142,10 +33,10 @@ def calc_sciencelist(night, clobber=False, verbose=False):
     '''
 
     # Output directory
-    outdir = set_outdir()
+    outdir = utils.set_outdir()
 
     # Directory with raw data
-    datadir = set_datadir()
+    datadir = utils.set_datadir()
     nightdir = os.path.join(datadir, str(night)) 
 
     # Names for output json file: 
@@ -213,10 +104,10 @@ def calc_guidelist(night, clobber=False, verbose=False):
     none
     '''
 
-    outdir = set_outdir()
-    datadir = set_datadir()
+    outdir = utils.set_outdir()
+    datadir = utils.set_datadir()
     nightdir = os.path.join(datadir, str(night)) 
-    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
         
     # Names for output json file: 
     filename = "guidedata" + str(night) + ".json"
@@ -250,7 +141,7 @@ def calc_guidelist(night, clobber=False, verbose=False):
                         print("OSError with {}".format(guidefile))
                     continue
                 guidedata[expid] = {}
-                t1 = Time( find_dateobs(hhh) ).mjd
+                t1 = Time( utils.find_dateobs(hhh) ).mjd
                 try: 
                     t2 = Time(hhh['GUIDE0T'].data[-1]['DATE-OBS']).mjd
                 except KeyError:
@@ -284,68 +175,6 @@ def calc_guidelist(night, clobber=False, verbose=False):
             print("Wrote", guidedatafile) 
 
 
-def find_dateobs(hhh):
-    '''
-    Delve deep into hdu to find keyword
-
-    '''
-    try:
-        val = hhh['GUIDE0T'].data[0]['DATE-OBS']
-    except KeyError:
-        try:
-            val = hhh['GUIDE0'].data[0]['DATE-OBS']
-        except IndexError:
-            try:
-                val = hhh['GUIDE0'].header['DATE-OBS']
-            except KeyError:
-                print("KeyError")
-    return val
-
-def get_twilights(night, verbose=False):
-    '''
-    Calculate and return 18 deg twilight values for the start and end of the night.
-
-    Parameters
-    ----------
-    night : int
-        night in form 20210320 for 20 March 2021
-    verbose : bool
-        print verbose output? 
-
-    Returns
-    -------
-    twibeg : float
-        time of twilight in MJD at beginning of the night
-    twiend : float
-        time of twilight in MJD at the end of the night
-    '''
-
-    night = int(night)
-    nightstr = str(night)
-    timestr = "{0}-{1}-{2}T00:00:00.0".format(nightstr[:4], nightstr[4:6], nightstr[6:8])
-    t = Time(timestr, format='isot', scale='utc') + 1
-
-    # Set observatory lat,long to calculate twilight
-    desi = ephem.Observer()
-    desi.lon = '-111.59989'
-    desi.lat = '31.96403'
-    desi.elev = 2097.
-    desi.date = t.strftime('%Y/%m/%d 7:00')
-
-    # Calculate astronomical twilight times
-    desi.horizon = '-18'
-    beg_twilight=desi.previous_setting(ephem.Sun(), use_center=True) # End astro twilight
-    end_twilight=desi.next_rising(ephem.Sun(), use_center=True) # Begin astro twilight
-    twibeg = Time( beg_twilight.datetime(), format='datetime').mjd
-    twiend = Time( end_twilight.datetime(), format='datetime').mjd
-
-    if verbose: 
-        print("Evening twilight: ", beg_twilight, "UT") 
-        print("Morning twilight: ", end_twilight, "UT") 
-
-    return twibeg, twiend
-
-
 def get_dometelemetry(night, verbose=False):
     '''
     Retrieve dome telemetry data for a given night.
@@ -367,7 +196,7 @@ def get_dometelemetry(night, verbose=False):
     conn = psycopg2.connect(database="desi_dev", user="desi_reader")
 
     # set query limits as 3 hours before/after twilight at beginning/end of night
-    twi1, twi2 = get_twilights(night)
+    twi1, twi2 = utils.get_twilights(night)
     twibeg = Time( Time(twi1, format='mjd'), format='datetime')
     twiend = Time( Time(twi2, format='mjd'), format='datetime')
     query_start = twibeg - (3./24.)
@@ -381,6 +210,7 @@ def get_dometelemetry(night, verbose=False):
     dome['dome_timestamp'] = np.array([Time(t).mjd for t in dome['dome_timestamp']])
 
     return dome
+
 
 def get_ccdtelemetry(night, verbose=False):
     '''
@@ -403,7 +233,7 @@ def get_ccdtelemetry(night, verbose=False):
     conn = psycopg2.connect(database="desi_dev", user="desi_reader")
 
     # set query limits as 3 hours before/after twilight at beginning/end of night
-    twi1, twi2 = get_twilights(night)
+    twi1, twi2 = utils.get_twilights(night)
     twibeg = Time( Time(twi1, format='mjd'), format='datetime')
     twiend = Time( Time(twi2, format='mjd'), format='datetime')
     query_start = twibeg - (3./24.)
@@ -416,6 +246,7 @@ def get_ccdtelemetry(night, verbose=False):
     spec_ccds['time_recorded'] = np.array([Time(t).mjd for t in spec_ccds['time_recorded']])
 
     return spec_ccds
+
 
 def get_teltelemetry(night, verbose=False):
     '''
@@ -438,7 +269,7 @@ def get_teltelemetry(night, verbose=False):
     conn = psycopg2.connect(database="desi_dev", user="desi_reader")
 
     # set query limits as 3 hours before/after twilight at beginning/end of night
-    twi1, twi2 = get_twilights(night)
+    twi1, twi2 = utils.get_twilights(night)
     twibeg = Time( Time(twi1, format='mjd'), format='datetime')
     twiend = Time( Time(twi2, format='mjd'), format='datetime')
     query_start = twibeg - (3./24.)
@@ -475,7 +306,7 @@ def get_guidetelemetry(night, verbose=False):
     conn = psycopg2.connect(database="desi_dev", user="desi_reader")
 
     # set query limits as 3 hours before/after twilight at beginning/end of night
-    twi1, twi2 = get_twilights(night)
+    twi1, twi2 = utils.get_twilights(night)
     twibeg = Time( Time(twi1, format='mjd'), format='datetime')
     twiend = Time( Time(twi2, format='mjd'), format='datetime')
     query_start = twibeg - (3./24.)
@@ -511,7 +342,7 @@ def calc_domevals(night, verbose=False):
         hours the dome was open between 18 deg twilights
     '''
 
-    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
     twibeg_hours = 24.*(twibeg_mjd - startdate)
     twiend_hours = 24.*(twiend_mjd - startdate)
@@ -584,28 +415,28 @@ def calc_obstimes(night, verbose=False, clobber=False):
         length of guide exposures in UT hours
     '''
 
-    outdir = set_outdir()
+    outdir = utils.set_outdir()
 
     # Read in the data
     specfilename = "specdata" + str(night) + ".json"
     specdatafile = os.path.join(outdir, 'NightlyData', specfilename)
     if os.path.isfile(specdatafile) and not clobber:
-        specdata = read_json(specdatafile)
+        specdata = utils.read_json(specdatafile)
     else:
         print("Note: {} not found ... creating it".format(specdatafile))
         calc_sciencelist(night)
-        specdata = read_json(specdatafile)
+        specdata = utils.read_json(specdatafile)
 
     guidefilename = "guidedata" + str(night) + ".json"
     guidedatafile = os.path.join(outdir, 'NightlyData', guidefilename)
     if os.path.isfile(guidedatafile) and not clobber:
-        guidedata = read_json(guidedatafile)
+        guidedata = utils.read_json(guidedatafile)
     else:
         print("Note: {} not found ... creating it".format(guidedatafile))
         calc_guidelist(night)
-        guidedata = read_json(guidedatafile)
+        guidedata = utils.read_json(guidedatafile)
 
-    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
     
     # Calculate the start and duration for the science observations:
@@ -634,6 +465,7 @@ def calc_obstimes(night, verbose=False, clobber=False):
             guide_width.append( (guidedata[item]['GUIDE-STOP'] - guidedata[item]['GUIDE-START'])*24. )
     
     return science_start, science_width, dither_start, dither_width, guide_start, guide_width
+
 
 def get_totobs(start, length, twibeg_hours, twiend_hours, verbose=False): 
     '''
@@ -696,7 +528,7 @@ def calc_science(night, verbose=False):
         total number of hours of spectroscopic exposures in UT hours (not limited by twilight)
     '''
 
-    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
     twibeg_hours = 24.*(twibeg_mjd - startdate)
     twiend_hours = 24.*(twiend_mjd - startdate)
@@ -743,9 +575,9 @@ def get_skydata(expidlist, night, verbose=False):
         lengths of each sky exposure in UT hours
     '''
 
-    datadir = set_datadir()
+    datadir = utils.set_datadir()
     nightdir = os.path.join(datadir, str(night)) 
-    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
 
     if verbose:
@@ -788,9 +620,9 @@ def get_guidedata(expidlist, night, acqonly=False, startonly=False):
         lengths of each guide exposure in UT hours
     '''
 
-    datadir = set_datadir()
+    datadir = utils.set_datadir()
     nightdir = os.path.join(datadir, str(night)) 
-    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
 
     guide_start = []
@@ -834,9 +666,9 @@ def get_fvcdata(expidlist, night, verbose=False):
         lengths of each FVC exposure in UT hours
     '''
 
-    datadir = set_datadir()
+    datadir = utils.set_datadir()
     nightdir = os.path.join(datadir, str(night)) 
-    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
 
     fvc_start = []
@@ -859,6 +691,7 @@ def get_fvcdata(expidlist, night, verbose=False):
                 continue
     return fvc_start, fvc_width
 
+
 def get_scidata(expidlist, night):
     '''
     Determine start and lengths of all science frames associated with expidlist
@@ -880,9 +713,9 @@ def get_scidata(expidlist, night):
         expid of each spec exposure
     '''
 
-    datadir = set_datadir()
+    datadir = utils.set_datadir()
     nightdir = os.path.join(datadir, str(night)) 
-    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
 
     spec_start = []
@@ -912,36 +745,6 @@ def get_scidata(expidlist, night):
     return spec_start, spec_width, spec_expid
 
 
-def getexpidlist(night):
-    '''
-    Get a list of all expids from a given night
-
-    Parameters
-    ----------
-    night : int
-        night in form 20210320 for 20 March 2021
-
-    Returns
-    -------
-    expidlist : list
-        list of expids
-    '''
-
-    outdir = set_outdir()
-    datadir = set_datadir()
-    nightdir = os.path.join(datadir, str(night))
-
-    expfiles = glob(nightdir + "/*/desi*")
-
-    expidlist = []
-    for i in range(len(expfiles)):
-        i1 = expfiles[i].rfind('desi-') + 5
-        i2 = expfiles[i].rfind('.fits')
-        expidlist.append(expfiles[i][i1:i2].lstrip('0'))
-
-    return expidlist
-
-
 def calc_interexp(night, minexptime=300., clobber=False, verbose=False):
     '''
     Calculate the interexposure times
@@ -964,15 +767,15 @@ def calc_interexp(night, minexptime=300., clobber=False, verbose=False):
     '''
 
     # Read in the data
-    outdir = set_outdir()
+    outdir = utils.set_outdir()
     specfilename = "specdata" + str(night) + ".json"
     specdatafile = os.path.join(outdir, 'NightlyData', specfilename)
     if os.path.isfile(specdatafile) and not clobber:
-        specdata = read_json(specdatafile)
+        specdata = utils.read_json(specdatafile)
     else:
         print("Note: {} not found ... creating it".format(specdatafile))
         calc_sciencelist(night)
-        specdata = read_json(specdatafile)
+        specdata = utils.read_json(specdatafile)
 
     # Take about the dict
     dateobs_mjd = []
@@ -984,7 +787,7 @@ def calc_interexp(night, minexptime=300., clobber=False, verbose=False):
             exptime.append(specdata[key]['EXPTIME'])
             expid.append(key)
 
-    twibeg_mjd, twiend_mjd = get_twilights(int(night))
+    twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
 
     scidata = np.zeros([len(dateobs_mjd), 5])
