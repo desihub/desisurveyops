@@ -3,6 +3,8 @@ py/desisurveyops is for library code that you would "import desisurveyops.blat"
 code
 ----
 
-**utilities.py** : basic calculation and data gathering functions
+**utils.py** : basic calculation functions
 
-**summary.py** : tools to create summary data of observing efficiency
+**obsdata.py** : functions to calculate observation timing
+
+**obssummary.py** : tools to create summary data of observing efficiency
