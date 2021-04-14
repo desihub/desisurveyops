@@ -35,7 +35,11 @@ night = args.night
 t1 = args.starttime
 t2 = args.stoptime
 
-outdir = utils.set_outdir()
+try:
+    outdir = utils.get_outdir()
+except RuntimeError:
+    exit(1)
+
 utils.plot_defaults() 
 
 if args.outplot is None:

@@ -30,8 +30,15 @@ args = parser.parse_args()
 
 utils.plot_defaults()
 
-datadir = utils.get_rawdatadir()
-outdir = utils.set_outdir()
+try:
+    datadir = utils.get_rawdatadir()
+except RuntimeError:
+    exit(1)
+
+try:
+    outdir = utils.get_outdir()
+except RuntimeError:
+    exit(1)
 
 # See if the output file already exists and clobber=True
 
