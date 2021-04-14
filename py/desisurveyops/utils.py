@@ -13,7 +13,9 @@ import pandas as pd
 
 def get_outdir(verbose=False): 
     '''
-    Set the root directory for the output and a NightlyData/ subdirectory
+    Get the root directory for the output and a NightlyData/ subdirectory based on the 
+    environment variable DESINIGHTSTATS. Try to create the directories if they do not 
+    already exist. 
 
     Parameters
     ----------
