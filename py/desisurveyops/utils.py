@@ -29,16 +29,25 @@ def set_outdir(verbose=False):
     try:
         outdir = os.environ['DESINIGHTSTATS']
     except KeyError:
-        outdir = '/global/cfs/cdirs/desi/users/martini/NightStats/'
+        raise RuntimeError('Did not find environment variable DESINIGHTSTATS for output directory') 
 
     if not os.path.isdir(outdir): 
-        os.mkdir(outdir) 
+        try: 
+            os.mkdir(outdir) 
+        except PermissionError:
+            raise RuntimeError("Could not create directory {}".format(outdir))
+            exit(1)
+
 
     # Directory for expid info per night
     nightlydir = os.path.join(outdir, 'NightlyData')
 
     if not os.path.isdir(nightlydir): 
-        os.mkdir(nightlydir) 
+        try: 
+            os.mkdir(nightlydir) 
+        except PermissionError:
+            raise RuntimeError("Could not create directory {}".format(nightlydir))
+            exit(1)
 
     if verbose: 
         print("Output directory set to {}".format(outdir))
@@ -46,7 +55,7 @@ def set_outdir(verbose=False):
     return outdir
 
 
-def set_datadir(verbose=False): 
+def set_rawdatadir(verbose=False): 
     '''
     Set the root directory for the raw data
 
@@ -61,11 +70,12 @@ def set_datadir(verbose=False):
         root output directory 
     '''
 
-    datadir = '/global/cfs/cdirs/desi/spectro/data/'
+    # datadir = '/global/cfs/cdirs/desi/spectro/data/'
+    datadir = os.environ['DESI_SPECTRO_DATA']
 
     if not os.path.isdir(datadir): 
         print("Error: root data directory {} not found".format(datadir))
-        exit
+        exit(1)
 
     if verbose: 
         print("Raw data directory set to {}".format(datadir))
@@ -200,7 +210,7 @@ def getexpidlist(night):
     '''
 
     outdir = set_outdir()
-    datadir = set_datadir()
+    datadir = get_rawdatadir()
     nightdir = os.path.join(datadir, str(night))
 
     expfiles = glob(nightdir + "/*/desi*")

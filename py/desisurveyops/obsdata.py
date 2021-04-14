@@ -36,7 +36,7 @@ def calc_sciencelist(night, clobber=False, verbose=False):
     outdir = utils.set_outdir()
 
     # Directory with raw data
-    datadir = utils.set_datadir()
+    datadir = utils.get_rawdatadir()
     nightdir = os.path.join(datadir, str(night)) 
 
     # Names for output json file: 
@@ -105,7 +105,7 @@ def calc_guidelist(night, clobber=False, verbose=False):
     '''
 
     outdir = utils.set_outdir()
-    datadir = utils.set_datadir()
+    datadir = utils.get_rawdatadir()
     nightdir = os.path.join(datadir, str(night)) 
     twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
         
@@ -575,7 +575,7 @@ def get_skydata(expidlist, night, verbose=False):
         lengths of each sky exposure in UT hours
     '''
 
-    datadir = utils.set_datadir()
+    datadir = utils.get_rawdatadir()
     nightdir = os.path.join(datadir, str(night)) 
     twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
@@ -620,7 +620,7 @@ def get_guidedata(expidlist, night, acqonly=False, startonly=False):
         lengths of each guide exposure in UT hours
     '''
 
-    datadir = utils.set_datadir()
+    datadir = utils.get_rawdatadir()
     nightdir = os.path.join(datadir, str(night)) 
     twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
@@ -666,7 +666,7 @@ def get_fvcdata(expidlist, night, verbose=False):
         lengths of each FVC exposure in UT hours
     '''
 
-    datadir = utils.set_datadir()
+    datadir = utils.get_rawdatadir()
     nightdir = os.path.join(datadir, str(night)) 
     twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
@@ -713,7 +713,7 @@ def get_scidata(expidlist, night):
         expid of each spec exposure
     '''
 
-    datadir = utils.set_datadir()
+    datadir = utils.get_rawdatadir()
     nightdir = os.path.join(datadir, str(night)) 
     twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
     startdate = int(twibeg_mjd)
