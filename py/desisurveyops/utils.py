@@ -33,7 +33,7 @@ def get_outdir(verbose=False):
 
     if not os.path.isdir(outdir): 
         try: 
-            os.mkdir(outdir) 
+            os.makedirs(outdir) 
         except PermissionError:
             raise RuntimeError("Could not create directory {}".format(outdir))
             exit(1)
@@ -44,7 +44,7 @@ def get_outdir(verbose=False):
 
     if not os.path.isdir(nightlydir): 
         try: 
-            os.mkdir(nightlydir) 
+            os.makedirs(nightlydir) 
         except PermissionError:
             raise RuntimeError("Could not create directory {}".format(nightlydir))
             exit(1)
