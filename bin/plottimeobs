@@ -7,7 +7,7 @@ from glob import glob
 import argparse
 import matplotlib.pyplot as plt
 from astropy.time import Time
-import desisurveyops.utilities as utils
+import desisurveyops.utils as utils
 import desisurveyops.obsdata as od
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
