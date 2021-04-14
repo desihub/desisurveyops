@@ -7,6 +7,7 @@ import argparse
 import matplotlib.pyplot as plt
 from astropy.time import Time
 import desisurveyops.utilities as utils
+import desisurveyops.obsdata as od
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                         description="""Generate summary plot of observing efficiency""")
@@ -62,7 +63,7 @@ dates = np.array([Time(t, format='mjd').datetime for t in hdu[1].data['TWIBEG']]
 fig, axarr = plt.subplots(2, 1, figsize=(14,9), sharex=True)
 axarr[0].set_ylabel("Interexposure Time [s]")
 for i in range(len(hdu[1].data['NIGHT'])):
-    interexp = utils.calc_interexp(hdu[1].data['NIGHT'][i], minexptime=60.)
+    interexp = od.calc_interexp(hdu[1].data['NIGHT'][i], minexptime=60.)
     nexp = len(interexp)
     t = []
     for i in range(nexp):

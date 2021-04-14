@@ -7,7 +7,8 @@ from glob import glob
 import argparse
 import matplotlib.pyplot as plt
 from astropy.time import Time
-import desisurveyops.utilities as utils
+import desisurveyops.utils as utils
+import desisurveyops.obsdata as od
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                         description="""Generate nightly observing efficiency plot,  
@@ -31,7 +32,7 @@ outdir = utils.set_outdir()
 utils.plot_defaults() 
 outplot = os.path.join(outdir, "nightstats" + night + ".png") 
 
-science_start, science_width, dither_start, dither_width, guide_start, guide_width = utils.calc_obstimes(night) 
+science_start, science_width, dither_start, dither_width, guide_start, guide_width = od.calc_obstimes(night) 
 
 # Compute total science and guiding time in hours
 twibeg_mjd, twiend_mjd = utils.get_twilights(int(night))
@@ -41,18 +42,18 @@ twiend_hours = 24.*(twiend_mjd - startdate)
 twitot_hours = twiend_hours - twibeg_hours
 
 # Get guider fwhm data to plot
-guide = utils.get_guidetelemetry(night) 
+guide = od.get_guidetelemetry(night) 
 guidetime = (Time(guide['time_recorded']).mjd - startdate)*24
 
 # Get dome telemetry
-dome = utils.get_dometelemetry(night) 
+dome = od.get_dometelemetry(night) 
 dometime = np.array([ (t - startdate)*24 for t in dome['dome_timestamp']])
 dome_open = np.array([t for t in dome['shutter_upper']], dtype=bool)
-firstopen, lastclose, fractwiopen, twiopen_hours = utils.calc_domevals(night)
+firstopen, lastclose, fractwiopen, twiopen_hours = od.calc_domevals(night)
 
 # Calculate the total science time and guide time between twilights:
-scitwi_hours = utils.get_totobs(science_start, science_width, twibeg_hours, twiend_hours) 
-guidetwi_hours = utils.get_totobs(guide_start, guide_width, twibeg_hours, twiend_hours)
+scitwi_hours = od.get_totobs(science_start, science_width, twibeg_hours, twiend_hours) 
+guidetwi_hours = od.get_totobs(guide_start, guide_width, twibeg_hours, twiend_hours)
 
 # Percent of time dome was open between twilights with science, guide exposures
 if twiopen_hours > 0.:

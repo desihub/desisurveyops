@@ -8,7 +8,7 @@ import argparse
 import matplotlib.pyplot as plt
 from astropy.time import Time
 import desisurveyops.utilities as utils
-import desisurveyops.summary as summ
+import desisurveyops.obssummary as os
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                         description="""Create/update table with observing summary stats""")
@@ -61,12 +61,12 @@ print("Nights to calculate/update: ", inputnights)
 for i, night in enumerate(inputnights): 
     if i == 0:
         if not os.path.isfile(outputfile): 
-            summ.init_summary(night, outputfile)
+            os.init_summary(night, outputfile)
             print("File does not exist, initializing {} with night {}".format(outputfile, night))
         else:
-            summ.update_table(night, outputfile)
+            os.update_table(night, outputfile)
             print("File {} exists, updating night {}".format(outputfile, night))
     else:
-        summ.update_table(night, outputfile)
+        os.update_table(night, outputfile)
         print("Updating night {}".format(night))
 

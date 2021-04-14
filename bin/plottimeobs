@@ -8,6 +8,7 @@ import argparse
 import matplotlib.pyplot as plt
 from astropy.time import Time
 import desisurveyops.utilities as utils
+import desisurveyops.obsdata as od
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                         description="""Generate detailed timing plot between two times,  
@@ -52,21 +53,21 @@ twiend_hours = 24.*(twiend_mjd - startdate)
 twitot_hours = twiend_hours - twibeg_hours
 
 # Get dome telemetry
-dome = utils.get_dometelemetry(night) 
+dome = od.get_dometelemetry(night) 
 dometime = np.array([ (t - startdate)*24 for t in dome['dome_timestamp']])
 
 if args.verbose:
     print("Finished dome telemetry query")
 
 # Get spectrograph CCD telemetry
-spec_ccds = utils.get_ccdtelemetry(night)
+spec_ccds = od.get_ccdtelemetry(night)
 specccdtime = (spec_ccds['time_recorded'] - startdate)*24
 
 if args.verbose:
     print("Finished CCD telemetry query")
 
 # Telescope telemetry
-tel = utils.get_teltelemetry(night)
+tel = od.get_teltelemetry(night)
 teltime = (tel['time_recorded'] - startdate)*24
 
 if args.verbose:
@@ -83,7 +84,7 @@ y2 = 1
 expidlist = utils.getexpidlist(night)
 
 # Get spec data:
-spec_start, spec_width, spec_expid = utils.get_scidata(expidlist, night)
+spec_start, spec_width, spec_expid = od.get_scidata(expidlist, night)
 
 # Narrow down the list of expids to the specified time range
 mask = np.asarray(spec_start) > t1 - 0.5
@@ -91,13 +92,13 @@ mask = mask*(np.asarray(spec_start) < t2 + 0.5)
 expidlist = np.asarray(spec_expid)[mask]
 
 # Get obs data for this time range:
-science_start, science_width, dither_start, dither_width, guide_start, guide_width = utils.calc_obstimes(night)
+science_start, science_width, dither_start, dither_width, guide_start, guide_width = od.calc_obstimes(night)
 
 science_start = np.asarray(spec_start)[mask]
 science_width = np.asarray(spec_width)[mask]
-sky_start, sky_width = utils.get_skydata(expidlist, night)
-guide_start, guide_width = utils.get_guidedata(expidlist, night)
-fvc_start, fvc_width = utils.get_fvcdata(expidlist, night)
+sky_start, sky_width = od.get_skydata(expidlist, night)
+guide_start, guide_width = od.get_guidedata(expidlist, night)
+fvc_start, fvc_width = od.get_fvcdata(expidlist, night)
 
 fig, ax1 = plt.subplots(figsize=(18,8))
 ax1.plot(teltime, 100*tel['tracking'], label="tracking")
