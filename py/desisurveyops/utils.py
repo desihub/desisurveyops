@@ -73,10 +73,12 @@ def get_rawdatadir(verbose=False):
 
     try: 
         datadir = os.environ['DESI_SPECTRO_DATA']
-        # Note this is /global/cfs/cdirs/desi/spectro/data/ at NERSC
     except KeyError: 
-        print('  Error: Did not find environment variable DESI_SPECTRO_DATA')
-        raise RuntimeError
+        try: 
+            datadir = os.path.join( os.environ['DESI_ROOT'], 'spectro', 'data')
+        except KeyError: 
+            print('  Error: Did not find environment variable DESI_SPECTRO_DATA')
+            raise RuntimeError
 
     if not os.path.isdir(datadir): 
         print("Error: root data directory {} not found".format(datadir))
