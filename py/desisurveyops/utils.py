@@ -60,7 +60,7 @@ def get_outdir(verbose=False):
 
 def get_rawdatadir(verbose=False): 
     '''
-    Set the root directory for the raw data
+    Get the root directory for the raw data
 
     Parameters
     ----------
@@ -70,7 +70,7 @@ def get_rawdatadir(verbose=False):
     Returns
     -------
     outdir : string
-        root output directory 
+        root directory with DESI raw data
     '''
 
     try: 
@@ -160,12 +160,14 @@ def find_dateobs(hhh):
 
 def get_twilights(night, alt=-18., verbose=False):
     '''
-    Calculate and return 18 deg twilight values for the start and end of the night.
+    Calculate and return twilight values for the start and end of the night.
 
     Parameters
     ----------
     night : int
         night in form 20210320 for 20 March 2021
+    alt : float
+        sun altitude for twilight (default 18 deg twilight)
     verbose : bool
         print verbose output? 
 
