@@ -1,0 +1,72 @@
+#!/usr/bin/env python
+  
+import os, sys
+import numpy as np
+from astropy.io import fits
+from glob import glob
+import argparse
+import matplotlib.pyplot as plt
+from astropy.time import Time
+import desisurveyops.utilities as utils
+import desisurveyops.obssummary as osum
+
+parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                        description="""Create/update table with observing summary stats""")
+
+parser.add_argument('-n','--night', nargs='*', default=None, required=False,
+                    help='Night to analyze - default is all')
+
+parser.add_argument('-f','--filename', type=str, default="nightlystats.fits",
+                    required=False, help='Output file name (default nightlystats.fits)')
+
+parser.add_argument('-c','--clobber', action='store_true', default=False, 
+                    required=False,
+                    help='Clobber (overwrite) data for a night if it already exists?')
+
+parser.add_argument('-v','--verbose', action='store_true', default=False, 
+                    required=False,
+                    help='Provide verbose output?')
+
+args = parser.parse_args()
+
+datadir = utils.get_rawdatadir()
+
+outdir = utils.set_outdir()
+if args.filename is None:
+    outputfile = os.path.join(outdir, args.filename)
+else: 
+    outputfile = os.path.join(outdir, "nightlystats.fits")
+
+nightdirs = glob(datadir + "/*")
+nights = []
+for nightdir in nightdirs:
+    onenight = nightdir[nightdir.rfind('/')+1::]
+    # if '202012' in onenight or '2021' in onenight:
+    if '2021' in onenight:
+        nights.append(onenight)
+
+nights = np.asarray(nights)
+nights.sort() 
+
+inputnights = args.night
+
+if inputnights is not None:
+    for inputnight in inputnights:
+        assert(inputnight in nights), "Night {} not in range".format(inputnight)
+else:
+    inputnights = nights
+
+print("Nights to calculate/update: ", inputnights)
+
+for i, night in enumerate(inputnights): 
+    if i == 0:
+        if not os.path.isfile(outputfile): 
+            osum.init_summary(night, outputfile)
+            print("File does not exist, initializing {} with night {}".format(outputfile, night))
+        else:
+            osum.update_table(night, outputfile)
+            print("File {} exists, updating night {}".format(outputfile, night))
+    else:
+        osum.update_table(night, outputfile)
+        print("Updating night {}".format(night))
+

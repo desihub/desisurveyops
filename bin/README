@@ -1,2 +1,13 @@
 bin/ is for command line scripts that should be included in the $PATH.
 
+Scripts
+-------
+
+**plotnightobs** : Create a graphical timeline of observations and calculate basic summary statistics
+
+**plottimeobs** : Generate a detailed graphical timeline of activity between two time intervals
+
+**plotobsefficiency** : Generate a summary plot of observing efficiency across many nights
+
+**updateefficiency** : Update table of observing efficiency data
+
