@@ -1,0 +1,1534 @@
+#!/usr/bin/env python
+
+import matplotlib
+
+matplotlib.use("Agg")
+import sys
+import os
+import numpy as np
+import fitsio
+import astropy.io.fits as fits
+from astropy.time import Time
+from astropy.table import Table, vstack
+from astropy import units
+from astropy.coordinates import SkyCoord
+import healpy as hp
+from desitarget.sv3.sv3_targetmask import desi_mask, mws_mask, bgs_mask
+from desitarget.targetmask import zwarn_mask
+from desitarget.io import read_targets_in_tiles
+from desitarget.geomask import match
+import scipy.ndimage
+import matplotlib.pyplot as plt
+from matplotlib import gridspec
+from matplotlib.ticker import MultipleLocator
+import textwrap
+import yaml
+from desitarget.internal import sharedmem
+from desiutil.dust import SFDMap
+from argparse import ArgumentParser
+
+
+# AR get from MTL TARGET_STATE : unobs, more, done
+# AR ! CALIB with NUMOBS > 0 will not be returned !
+def get_mtlstatus(target_states, numobss, zwarns):
+    tracer = np.array([target_state.split("|")[0] for target_state in target_states])
+    status = np.array(
+        [
+            target_state.split("|")[1] if target_state[:5] != "CALIB" else ""
+            for target_state in target_states
+        ]
+    )
+    unobss = numobss == 0
+    unobss |= (zwarns & zwarn_mask["UNPLUGGED"]) > 0
+    unobss |= (zwarns & zwarn_mask["NODATA"]) > 0
+    dones = status == "DONE"
+    dones |= np.in1d(tracer, ["BGS", "LRG", "ELG_HIP", "ELG_LOP"]) & np.in1d(
+        status, ["MORE_ZGOOD", "MORE_ZGO"]
+    )
+    mores = (~dones) & np.in1d(
+        status, ["MORE_MIDZQSO", "MORE_ZGO", "MORE_ZGOOD", "MORE_ZWA", "MORE_ZWARN"]
+    )
+    return unobss, mores, dones
+
+
+# AR temporary file name
+def get_tmpfn_rosetteid_program(rosetteid_program):
+    rosette_id, program = rosetteid_program.split(",")
+    return os.path.join(args.outdir, "tmp-{}-{}.fits".format(rosette_id, program))
+
+
+# AR creating a (temporary) fits file for each {rosette_id, program}
+# AR with columns:
+# AR - mtl : "TARGETID", "SV3_DESI_TARGET", "SV3_BGS_TARGET", "SV3_MWS_TARGET", "TIMESTAMP", "Z", "ZTILEID"
+# AR - own : "PROGRAM", "ROSETTE_ID", "GFIBMAG", "RMAG", "ZFIBMAG", "GAIAMAG", "D2D", "DRA", "DDEC", "UNOBS", "MORE", "DONE"
+def _fits_rosetteid_program(rosetteid_program):
+    rosette_id, program = rosetteid_program.split(",")
+    i = np.where(rosette_ids == int(rosette_id))[0][0]
+    # AR mtl keys we propagate
+    mtl_keys = [
+        "TARGETID",
+        "RA",
+        "DEC",
+        "SV3_DESI_TARGET",
+        "SV3_BGS_TARGET",
+        "SV3_MWS_TARGET",
+        "TIMESTAMP",
+        "Z",
+        "ZTILEID",
+        "ZWARN",
+        "NUMOBS",
+        "NUMOBS_MORE",
+        "PRIORITY",
+    ]
+    # AR select tiles
+    tkeep = (tiles["PROGRAM"] == program) & (tiles_rosette == int(rosette_id))
+    # AR read targets
+    if program == "BACKUP":
+        dtcat = "gaiadr2"
+    else:
+        dtcat = "dr9"
+    targdir = os.path.join(
+        os.getenv("DESI_TARGET"),
+        "catalogs",
+        dtcat,
+        dtver,
+        "targets",
+        "sv3",
+        "resolve",
+        program.lower(),
+    )
+    targs = read_targets_in_tiles(targdir, tiles=tiles[tkeep], quick=True)
+    # AR read mtl (should be the same target list as targs)
+    mtldir = os.path.join(os.getenv("DESI_SURVEYOPS"), "mtl", "sv3", program.lower(),)
+    mtls = read_targets_in_tiles(
+        mtldir, tiles=tiles[tkeep], quick=False, mtl=True, unique=True
+    )
+    # AR match targs-mtls
+    targs_ii, mtls_ii = match(targs["TARGETID"], mtls["TARGETID"])
+    targs, mtls = targs[targs_ii], mtls[mtls_ii]
+    if (len(targs_ii) != len(targs)) | (len(targs_ii) != len(mtls)):
+        sys.exit("issue with matching targs and mtls; exiting")
+    # AR initializing the table
+    d = Table()
+    # AR targets distance to the rosette center
+    cs = SkyCoord(targs["RA"] * units.degree, targs["DEC"] * units.degree, frame="icrs")
+    d["D2D"] = cs.separation(rosette_cs[i]).value
+    d["DRA"] = (targs["RA"] - rosette_ras[i]) * np.cos(np.radians(rosette_decs[i]))
+    d["DDEC"] = targs["DEC"] - rosette_decs[i]
+    # AR mtl status
+    d["UNOBS"], d["MORE"], d["DONE"] = get_mtlstatus(
+        mtls["TARGET_STATE"], mtls["NUMOBS"], mtls["ZWARN"]
+    )
+    # AR various own keys
+    d["PROGRAM"] = np.array([program for x in range(len(targs))])
+    d["ROSETTE_ID"] = np.array([rosette_ids[i] for x in range(len(targs))])
+    d["GFIBMAG"] = 22.5 - 2.5 * np.log10(
+        targs["FIBERFLUX_G"] / targs["MW_TRANSMISSION_G"]
+    )
+    d["RMAG"] = 22.5 - 2.5 * np.log10(targs["FLUX_R"] / targs["MW_TRANSMISSION_R"])
+    d["ZFIBMAG"] = 22.5 - 2.5 * np.log10(
+        targs["FIBERFLUX_Z"] / targs["MW_TRANSMISSION_Z"]
+    )
+    d["GAIAMAG"] = targs["GAIA_PHOT_G_MEAN_MAG"]
+    for key in mtl_keys:
+        d[key] = mtls[key].copy()
+    d.write(get_tmpfn_rosetteid_program(rosetteid_program), overwrite=True)
+    return True
+
+
+# AR/ADM from desitarget/QA.py
+def _javastring():
+    """Return a string that embeds a date in a webpage
+    """
+
+    js = textwrap.dedent(
+        """
+    <SCRIPT LANGUAGE="JavaScript">
+    var months = new Array(13);
+    months[1] = "January";
+    months[2] = "February";
+    months[3] = "March";
+    months[4] = "April";
+    months[5] = "May";
+    months[6] = "June";
+    months[7] = "July";
+    months[8] = "August";
+    months[9] = "September";
+    months[10] = "October";
+    months[11] = "November";
+    months[12] = "December";
+    var dateObj = new Date(document.lastModified)
+    var lmonth = months[dateObj.getMonth() + 1]
+    var date = dateObj.getDate()
+    var fyear = dateObj.getYear()
+    if (fyear < 2000)
+    fyear = fyear + 1900
+    if (date == 1 || date == 21 || date == 31)
+    document.write(" " + lmonth + " " + date + "st, " + fyear)
+    else if (date == 2 || date == 22)
+    document.write(" " + lmonth + " " + date + "nd, " + fyear)
+    else if (date == 3 || date == 23)
+    document.write(" " + lmonth + " " + date + "rd, " + fyear)
+    else
+    document.write(" " + lmonth + " " + date + "th, " + fyear)
+    </SCRIPT>
+    """
+    )
+    return js
+
+
+# AR switch from full path to web path
+def path_full2web(fn):
+    return fn.replace(os.getenv("DESI_ROOT"), "https://data.desi.lbl.gov/desi")
+
+
+# AR html rosette table
+def write_html_rosettetable(
+    html, program, html_rosette_ids, bkgcol, style, h2title, main=True
+):
+    fields = [
+        "RosetteID",
+        "Field",
+        "RA",
+        "Dec",
+        "TILEID: unobs",
+        "TILEID: started",
+        "TILEID: done",
+    ] + dict_mask[program]["names"]
+    # AR we provide unobs-more-done for two regions of the rosette
+    d2dmins = [0.0, 0.20]
+    d2dmaxs = [2.0, 1.45]
+    d2dcols = ["black", "red"]
+    d2dlabel = " , ".join(
+        [
+            "in {}: {} < d2d [deg] < {}".format(d2dcol, d2dmin, d2dmax)
+            for d2dcol, d2dmin, d2dmax in zip(d2dcols, d2dmins, d2dmaxs)
+        ]
+    )
+    # AR
+    if h2title is not None:
+        html.write(
+            "<h2><a id='rosette{}' href='#rosette{}' > {}</a>\n".format(
+                program.lower(), program.lower(), h2title
+            )
+        )
+        html.write(
+            "<a href='#top' style='position: absolute; right: 0;'>Top of the page</a></h2>\n"
+        )
+    if main:
+        html.write(
+            "<p style='{}'>Click on the RosetteID to access its detailed SV3 html page.</p>".format(
+                style
+            )
+        )
+    html.write(
+        "<p style='{}'>For each tracer, we report the fraction with MTL TARGET_STATE: UNOBS-MORE-DONE, for different regions of the rosette: {}, where d2d is the distance to the center of the rosette.</p>".format(
+            style, d2dlabel,
+        )
+    )
+    html.write("<table>\n")
+    html.write("<style>\n")
+    html.write("th, td {border:1px solid black; font-size: 0.80em}\n")
+    html.write("tr:nth-child(even) {background-color: " + bkgcol + ";}\n")
+    html.write("</style>\n")
+    html.write("<tr>\n")
+    html.write(" ".join(["<th> {} </th>".format(x) for x in fields]) + "\n")
+    html.write("</tr>\n")
+    for html_rosette_id in html_rosette_ids:
+        if html_rosette_id == "ALL":
+            tkeep = tiles["PROGRAM"] == program
+            rkeep = main_table["PROGRAM"] == program
+        else:
+            tkeep = (tiles["PROGRAM"] == program) & (tiles_rosette == html_rosette_id)
+            rkeep = (main_table["PROGRAM"] == program) & (
+                main_table["ROSETTE_ID"] == html_rosette_id
+            )
+        for d2dmin, d2dmax, d2dcol in zip(d2dmins, d2dmaxs, d2dcols):
+            d2dsel = (
+                (rkeep) & (main_table["D2D"] >= d2dmin) & (main_table["D2D"] <= d2dmax)
+            )
+            # AR first iteration: we report all infos
+            if d2dcol == d2dcols[0]:
+                if main:
+                    tmparr = [
+                        "<a href='rosette{}-{}.html'>rosette{}-{}</a>".format(
+                            html_rosette_id, program, html_rosette_id, program,
+                        )
+                    ]
+                else:
+                    tmparr = ["rosette{}-{}".format(html_rosette_id, program)]
+                if html_rosette_id == "ALL":
+                    tmparr += ["-", "-", "-", "-", "-", "-"]
+                else:
+                    i = np.where(rosette_ids == html_rosette_id)[0][0]
+                    tmparr += [rosette_fields[i]]
+                    tmparr += ["{:.3f}".format(rosette_ras[i])]
+                    tmparr += ["{:.3f}".format(rosette_decs[i])]
+                    tmparr += [
+                        ",".join(
+                            tiles["TILEID"][(tkeep) & (tiles_status == "unobs")].astype(
+                                str
+                            )
+                        )
+                    ]
+                    tmparr += [
+                        ",".join(
+                            tiles["TILEID"][(tkeep) & (tiles_status == "start")].astype(
+                                str
+                            )
+                        )
+                    ]
+                    tmparr += [
+                        ",".join(
+                            tiles["TILEID"][(tkeep) & (tiles_status == "done")].astype(
+                                str
+                            )
+                        )
+                    ]
+            # AR second iteration: we report only the unobs-more-done fractions
+            else:
+                tmparr = ["", "", "", "", "", "", ""]
+            # AR loop on tracers
+            for mask, key, name in zip(
+                dict_mask[program]["mask"],
+                dict_mask[program]["keys"],
+                dict_mask[program]["names"],
+            ):
+                keep = (d2dsel) & ((main_table[key] & mask[name]) > 0)
+                tmparr += [
+                    "{:.2f}-{:.2f}-{:.2f}".format(
+                        main_table["UNOBS"][keep].mean(),
+                        main_table["MORE"][keep].mean(),
+                        main_table["DONE"][keep].mean(),
+                    )
+                ]
+            html.write("<tr>\n")
+            html.write(
+                " ".join(
+                    [
+                        '<td style="color:{};"> {} </td>'.format(d2dcol, x)
+                        for x in tmparr
+                    ]
+                )
+                + "\n"
+            )
+            html.write("</tr>" + "\n")
+    html.write("</table>\n")
+    html.write("\n")
+    return True
+
+
+# AR html rosette page
+def write_html_rosettepage(html, bkgcol, style, program, html_rosette_id):
+    # print("write_html_rosettepage() for Rosette-{}-{}".format(html_rosette_id, program))
+    if html_rosette_id == "ALL":
+        rkeep = main_table["PROGRAM"] == program
+    else:
+        rkeep = (main_table["PROGRAM"] == program) & (
+            main_table["ROSETTE_ID"] == html_rosette_id
+        )
+    _ = write_html_rosettetable(
+        html, program, [html_rosette_id], bkgcol, style, None, main=False
+    )
+    for name in dict_mask[program]["names"]:
+        html.write("<br>\n")
+        tmparr = []
+        for case in ["obs", "done"]:
+            outroot = path_full2web(
+                "{}/sv3-plots/sv3-rosette{}-{}-{}-{}".format(
+                    args.outdir, html_rosette_id, program, name, case
+                )
+            )
+            tmparr += [
+                "<a href='{}-mag.png'><img SRC='{}-mag.png' width=17% height=auto></a>".format(
+                    outroot, outroot
+                )
+            ]
+            tmparr += [
+                "<a href='{}-sky.png'><img SRC='{}-sky.png' width=17% height=auto></a>".format(
+                    outroot, outroot
+                )
+            ]
+            if (case == "done") & (program != "BACKUP") & (name != "MWS_ANY"):
+                tmparr += [
+                    "<a href='{}-z.png'><img SRC='{}-z.png' width=17% height=auto></a>".format(
+                        outroot, outroot
+                    )
+                ]
+            tmparr += ["<a&emsp;></a>"]
+        html.write("<tr>\n")
+        html.write(" ".join(["<td> {} </td>".format(x) for x in tmparr]) + "\n")
+        html.write("</tr>" + "\n")
+        html.write("<br>\n")
+    html.write("\n")
+    return True
+
+
+# AR html per-exposure table
+def write_html_perexp(html, tsnr, style, h2title):
+    html.write(
+        "<h2><a id='per-exposure-properties' href='#per-exposure-properties' > {} </a> ({} exposure(s) over {} night(s))".format(
+            h2title, len(d), len(np.unique(tsnr["NIGHT"]))
+        )
+    )
+    html.write(
+        "<a href='#top' style='position: absolute; right: 0;'>Top of the page</a></h2>\n"
+    )
+    html.write(
+        "<p style='{}'>Click on the TILEID / NIGHT / EXPID / NIGHTWATCH to access its folder with processed files.</p>".format(
+            style
+        )
+    )
+    html.write(
+        "<p style='{}'>FIBER_FRACFLUX: fraction of light in a 1.52 arcsec diameter fiber-sized aperture given the PSF shape, assuming that the PSF is perfectly aligned with the fiber (i.e. does not capture any astrometry/positioning errors).</p>".format(
+            style
+        )
+    )
+    html.write(
+        "<p style='{}'>AIRMASS, TRANSPARENCY, SEEING, FIBER_FRACFLUX: from GFA.</p>".format(
+            style
+        )
+    )
+    html.write(
+        "<p style='{}'>SKY_MAG_R_SPEC: spectroscopic sky, corrected for throughput, convolved with DECam r-band filter.</p>".format(
+            style
+        )
+    )
+    html.write(
+        "<p style='{}'>EFFTIME_SPEC: see https://desi.lbl.gov/trac/wiki/SurveyOps/SurveySpeed.</p>".format(
+            style
+        )
+    )
+    # ADM write out a list of the target categories.
+    fields = (
+        [
+            "TILEID",
+            "FAPRGRM",
+            "NIGHT",
+            "EXPID",
+            "NIGHTWATCH",
+            "EXPTIME",
+            "EFFTIME_SPEC",
+        ]
+        + [
+            "AIRMASS_GFA",
+            "TRANSPARENCY_GFA",
+            "SEEING_GFA",
+            "FIBER_FRACFLUX_GFA",
+        ]
+        + ["SKY_MAG_R_SPEC"]
+    )
+    html.write("<table>\n")
+    night = ""
+    for i in range(len(tsnr))[::-1]:
+        night_prev = night
+        night = tsnr["NIGHT"][i]
+        specprod = "daily"
+        # AR night header
+        if night != night_prev:
+            html.write("<tr>\n")
+            html.write(
+                " ".join(
+                    ["<th> {} </th>".format(x.replace("_GFA", "")) for x in fields]
+                )
+                + "\n"
+            )
+            html.write("</tr>\n")
+        html.write("<tr>")
+        # AR redux path
+        redux_path = os.path.join(
+            "https://data.desi.lbl.gov/desi", "spectro", "redux", specprod,
+        )
+        # AR building array
+        tmparr = []
+        for field in fields:
+            if field == "TILEID":
+                tmparr += [
+                    "<a href='{}' target='external'> {}".format(
+                        os.path.join(redux_path, "tiles", "{}".format(tsnr["TILEID"][i]),),
+                        tsnr["TILEID"][i],
+                    )
+                ]
+            elif field == "NIGHT":
+                tmparr += [
+                    "<a href='{}' target='external'> {}".format(
+                        os.path.join(
+                            redux_path, "exposures", "{}".format(tsnr["NIGHT"][i]),
+                        ),
+                        tsnr["NIGHT"][i],
+                    )
+                ]
+            elif field == "EXPID":
+                tmparr += [
+                    "<a href='{}' target='external'> {}".format(
+                        os.path.join(
+                            redux_path,
+                            "exposures",
+                            "{}".format(tsnr["NIGHT"][i]),
+                            "{:08}".format(tsnr["EXPID"][i]),
+                        ),
+                        tsnr["EXPID"][i],
+                    )
+                ]
+            elif field == "NIGHTWATCH":
+                tmparr += [
+                    "<a href='{}' target='external'> {}".format(
+                        os.path.join(
+                            "https://nightwatch.desi.lbl.gov/"
+                            "{}".format(tsnr["NIGHT"][i]),
+                            "{:08}".format(tsnr["EXPID"][i]),
+                            "qa-summary-{:08}.html".format(tsnr["EXPID"][i]),
+                        ),
+                        "Nightwatch",
+                    )
+                ]
+            elif field in ["FAPRGRM"]:
+                tmparr += ["{}".format(tsnr[field][i])]
+            elif field in ["SKY_MAG_R_SPEC"]:
+                tmparr += ["{:.1f}".format(tsnr[field][i])]
+            elif field in [
+                "AIRMASS_GFA",
+                "TRANSPARENCY_GFA",
+                "SEEING_GFA",
+                "FIBER_FRACFLUX_GFA",
+            ]:
+                tmparr += ["{:.2f}".format(tsnr[field][i])]
+            else:
+                tmparr += ["{:.0f}".format(tsnr[field][i])]
+        html.write(" ".join(["<td> {} </td>".format(x) for x in tmparr]) + "\n")
+        html.write("</tr>\n")
+    html.write("</table>\n")
+    html.write("\n")
+    return True
+
+
+def mycmap(name, n, cmin, cmax):
+    cmaporig = matplotlib.cm.get_cmap(name)
+    mycol = cmaporig(np.linspace(cmin, cmax, n))
+    cmap = matplotlib.colors.ListedColormap(mycol)
+    cmap.set_under(mycol[0])
+    cmap.set_over(mycol[-1])
+    return cmap
+
+
+def plot_hist(ax, x, xp):
+    # x : x-quantity for the case sample
+    # xp: x-quantity for the parent sample
+    #
+    selp = np.isfinite(xp)
+    sel = np.isfinite(x)
+    bins = np.linspace(xp[selp].min(), xp[selp].max(), 26)
+    #
+    cps, _, _ = ax.hist(
+        xp[selp], bins=bins, histtype="step", alpha=0.3, lw=3, color="k", density=False,
+    )
+    cs, _, _, = ax.hist(
+        x[sel], bins=bins, histtype="step", alpha=1.0, lw=1.0, color="k", density=False,
+    )
+    ax.set_ylabel("counts")
+    ax.grid(True)
+    axr = ax.twinx()
+    axr.plot(
+        0.5 * (bins[1:] + bins[:-1]),
+        np.array(cs) / np.array(cps).astype(float),
+        color="r",
+        lw=0.5,
+    )
+    axr.yaxis.label.set_color("r")
+    axr.tick_params(axis="y", colors="r")
+    axr.set_ylabel("ratio", labelpad=0)
+    axr.set_ylim(0, 1)
+    return
+
+
+# AR
+def _plot_rosetteid_program(rosetteid_program):
+    rosette_id, program = rosetteid_program.split(",")
+    #gridsize, xlim, ylim, clim = 25, (-2, 2), (-2, 2), (0, 1)
+    gridsize, xlim, ylim, clim = 50, (-2, 2), (-2, 2), (0, 1)
+    # AR select tiles
+    if rosette_id == "ALL":
+        rkeep = main_table["PROGRAM"] == program
+    else:
+        rkeep = (main_table["PROGRAM"] == program) & (
+            main_table["ROSETTE_ID"] == int(rosette_id)
+        )
+    rtiles = np.unique(main_table["ZTILEID"][(rkeep) & (main_table["ZTILEID"] != -1)])
+    for mask, key, name in zip(
+        dict_mask[program]["mask"],
+        dict_mask[program]["keys"],
+        dict_mask[program]["names"],
+    ):
+        keep = (rkeep) & ((main_table[key] & mask[name]) > 0)
+        dras, ddecs = main_table["DRA"][keep], main_table["DDEC"][keep]
+        obss, dones = ~(main_table["UNOBS"][keep]), main_table["DONE"][keep]
+        timestamp = main_table["TIMESTAMP"][keep]
+        zs = main_table["Z"][keep]
+        #print(rosette_id, program, name, keep.sum())
+        for case, C in zip(["obs", "done"], [obss, dones]):
+            outroot = "{}/sv3-plots/sv3-rosette{}-{}-{}-{}".format(
+                args.outdir, rosette_id, program, name, case
+            )
+            title = "Program={}, Rosette_id={}, NTILE={}, tracer={}".format(
+                program, rosette_id, len(rtiles), name,
+            )
+            # AR projected 2d obs/done
+            fig, ax = plt.subplots()
+            hb = ax.hexbin(
+                dras,
+                ddecs,
+                C=C,
+                gridsize=gridsize,
+                extent=(xlim[1], xlim[0], ylim[0], ylim[1]),
+                cmap=mycm,
+                vmin=clim[0],
+                vmax=clim[1],
+                mincnt=0,
+            )
+            # AR plotting individual missing targets if not too many
+            if C.mean() > 0.90:
+                ax.scatter(dras[~C], ddecs[~C], s=1, c="k", rasterized=True, label="not {} ({})".format(case, (~C).sum()))
+                ax.legend(markerscale=5, loc=2)
+            ax.set_title(title)
+            ax.set_xlabel("Delta R.A. * cos(Dec.) [deg]")
+            ax.set_ylabel("Delta Dec. [deg]")
+            ax.set_xlim(ax.get_xlim()[::-1])
+            ax.set_ylim(ylim)
+            ax.grid(True)
+            cbar = plt.colorbar(hb, fraction=0.046, pad=0.04)
+            cbar.set_label("fraction {}".format(case))
+            cbar.mappable.set_clim(clim)
+            if rosette_id != "ALL":
+                ax.text(
+                    0.02,
+                    0.02,
+                    "TILEID = {}".format(",".join(rtiles.astype(str))),
+                    transform=ax.transAxes,
+                )
+            ax.text(
+                0.98,
+                0.95,
+                "{} = {}/{} = {:.2f}".format(
+                    case, C.sum(), keep.sum(), C.sum() / keep.sum()
+                ),
+                ha="right",
+                transform=ax.transAxes,
+            )
+            ax.text(
+                0.98, 0.90, np.sort(timestamp)[-1], ha="right", transform=ax.transAxes
+            )
+            plt.savefig("{}-sky.png".format(outroot), bbox_inches="tight")
+            plt.close()
+            # AR magnitude hist
+            fig, ax = plt.subplots()
+            if name in ["LRG", "LRG_LOWDENS"]:
+                magkey = "ZFIBMAG"
+            elif name in ["ELG", "ELG_HIP", "ELG_LOP"]:
+                magkey = "GFIBMAG"
+            elif name in ["QSO", "BGS_BRIGHT", "BGS_FAINT"]:
+                magkey = "RMAG"
+            else:
+                magkey = "GAIAMAG"
+            mags = main_table[magkey][keep]
+            ax.set_title(title)
+            ax.set_xlabel(magkey)
+            plot_hist(ax, mags[C], mags)
+            _, ymax = ax.get_ylim()
+            ax.set_ylim(0.8, 100 * ymax)
+            ax.set_yscale("log")
+            if rosette_id != "ALL":
+                ax.text(
+                    0.02,
+                    0.02,
+                    "TILEID = {}".format(",".join(rtiles.astype(str))),
+                    transform=ax.transAxes,
+                )
+            ax.text(
+                0.98,
+                0.95,
+                "{} = {}/{} = {:.2f}".format(
+                    case, C.sum(), keep.sum(), C.sum() / keep.sum()
+                ),
+                ha="right",
+                transform=ax.transAxes,
+            )
+            ax.text(
+                0.98, 0.90, np.sort(timestamp)[-1], ha="right", transform=ax.transAxes
+            )
+            plt.savefig("{}-mag.png".format(outroot), bbox_inches="tight")
+            plt.close()
+            # AR zspec hist
+            if (case == "done") & (program != "BACKUP") & (name != "MWS_ANY"):
+                fig, ax = plt.subplots()
+                if name == "QSO":
+                    bins = np.arange(0, 6, 0.025)
+                else:
+                    bins = np.arange(0, 2, 0.025)
+                _ = ax.hist(
+                    zs[dones],
+                    bins=bins,
+                    density=True,
+                    histtype="stepfilled",
+                    alpha=0.5,
+                    color="k",
+                )
+                ax.set_title(title)
+                ax.set_xlabel("Z")
+                ax.set_ylabel("Normalized counts")
+                ax.set_ylim(0, 5)
+                ax.grid(True)
+                if rosette_id != "ALL":
+                    ax.text(
+                        0.02,
+                        0.02,
+                        "TILEID = {}".format(",".join(rtiles.astype(str))),
+                        transform=ax.transAxes,
+                    )
+                ax.text(
+                    0.98,
+                    0.95,
+                    "{} = {}/{} = {:.2f}".format(
+                        case, C.sum(), keep.sum(), C.sum() / keep.sum()
+                    ),
+                    ha="right",
+                    transform=ax.transAxes,
+                )
+                ax.text(
+                    0.98,
+                    0.90,
+                    np.sort(timestamp)[-1],
+                    ha="right",
+                    transform=ax.transAxes,
+                )
+                plt.savefig("{}-z.png".format(outroot), bbox_inches="tight")
+                plt.close()
+    return True
+
+
+# AR mollweide plot setting
+# AR http://balbuceosastropy.blogspot.com/2013/09/the-mollweide-projection.html
+def set_mwd(ax, org=0):
+    # org is the origin of the plot, 0 or a multiple of 30 degrees in [0,360).
+    tick_labels = np.array([150, 120, 90, 60, 30, 0, 330, 300, 270, 240, 210])
+    tick_labels = np.remainder(tick_labels + 360 + org, 360)
+    ax.set_xticklabels(tick_labels)  # we add the scale on the x axis
+    ax.set_xlabel("R.A [deg]")
+    ax.xaxis.label.set_fontsize(12)
+    ax.set_ylabel("Dec. [deg]")
+    ax.yaxis.label.set_fontsize(12)
+    ax.grid(True)
+    return True
+
+
+# AR mollweide coordinates conversion
+def get_radec_mw(ra, dec, org):
+    ra = np.remainder(ra + 360 - org, 360)  # shift ra values
+    ra[ra > 180] -= 360  # scale conversion to [-180, 180]
+    ra = -ra  # reverse the scale: East to the left
+    return np.radians(ra), np.radians(dec)
+
+
+def main():
+
+    # AR plots
+    if args.plot == "y":
+
+        # AR sky map
+        # dr9
+        h = fits.open(pixwfn)
+        nside, nest = h[1].header["HPXNSIDE"], h[1].header["HPXNEST"]
+        npix = hp.nside2npix(nside)
+        theta, phi = hp.pix2ang(nside, np.arange(npix, dtype=int), nest=nest)
+        hpdict = {}
+        hpdict["ra"], hpdict["dec"] = 180.0 / np.pi * phi, 90.0 - 180.0 / np.pi * theta
+        hpdict["fracarea"] = h[1].data["fracarea"]
+        ## north/south
+        c = SkyCoord(
+            hpdict["ra"] * units.degree, hpdict["dec"] * units.degree, frame="icrs"
+        )
+        hpdict["north"] = (
+            (hpdict["fracarea"] > 0)
+            & (hpdict["dec"] > 32.375)
+            & (c.galactic.b.value > 0)
+        )
+        hpdict["south"] = (hpdict["fracarea"] > 0) & (~hpdict["north"])
+        # plotting skymap
+        projection = "mollweide"
+        org = 120  # centre ra for mollweide plots
+        fig = plt.figure(figsize=(15, 10))
+        ax = fig.add_subplot(111, projection=projection)
+        _ = set_mwd(ax, org)
+        # dr9
+        ramws, decmws = get_radec_mw(hpdict["ra"], hpdict["dec"], org)
+        for s, a in zip([hpdict["north"], hpdict["south"]], [0.05, 0.6]):
+            ax.scatter(
+                ramws[s], decmws[s], s=1, c="0.8", zorder=0, alpha=a, rasterized=True
+            )
+        # des
+        ras, decs = np.loadtxt(desfn, unpack=True)
+        ramws, decmws = get_radec_mw(ras, decs, org)
+        ax.plot(ramws, decmws, c="k", lw=0.5)
+        # AR rosettes
+        ramws, decmws = get_radec_mw(rosette_ras, rosette_decs, org)
+        for i in range(len(rosette_ids)):
+            ax.scatter(
+                ramws[i],
+                decmws[i],
+                color=plt.get_cmap("tab20")(i),
+                s=50,
+                label="RosetteID = {} ({})".format(rosette_ids[i], rosette_fields[i]),
+            )
+        ax.legend(loc=3, ncol=2)
+        plt.savefig(outfns["skymap"], bbox_inches="tight")
+        plt.close()
+
+        # AR cumulative number + per-night of observed spectra
+        fig, ax = plt.subplots(figsize=(20, 10))
+        gs = gridspec.GridSpec(len(programs) + 1, 1, hspace=0.1)
+        ax = {ix: plt.subplot(gs[ix]) for ix in range(len(programs) + 1)}
+        mjds = {"UNIQ": []}
+        ncumul = {program: 0 for program in programs}
+        # AR cumulative
+        for ix, program in enumerate(programs):
+            mtldir = os.path.join(
+                os.getenv("DESI_SURVEYOPS"), "mtl", "sv3", program.lower(),
+            )
+            d = read_targets_in_tiles(
+                mtldir, tiles=tiles[tiles["PROGRAM"] == program], mtl=True, unique=False
+            )
+            keep = d["NUMOBS"] > 0
+            keep &= (d["ZWARN"] & zwarn_mask["UNPLUGGED"]) == 0
+            keep &= (d["ZWARN"] & zwarn_mask["NODATA"]) == 0
+            d = d[keep]
+            # AR TIMESTAMP is when mtl was run, so during daytime after the night
+            # AR so we "assign" to int(mjd)-1
+            mjds[program] = np.floor(Time(d["TIMESTAMP"]).mjd) - 1
+            mjds["UNIQ"] = np.unique(np.append(mjds["UNIQ"], mjds[program]))
+            #
+            for mjd in np.unique(mjds[program]):
+                tmpx = 0.5 + mjd + np.array([-0.25, 0.25, 0.25, -0.25])
+                start = 0
+                masks, keys, names = (
+                    dict_mask[program]["mask"],
+                    dict_mask[program]["keys"],
+                    dict_mask[program]["names"],
+                )
+                if program == "DARK":
+                    masks = [
+                        mask
+                        for mask, name in zip(masks, names)
+                        if name in ["LRG", "ELG", "QSO"]
+                    ]
+                    keys = [
+                        key
+                        for key, name in zip(keys, names)
+                        if name in ["LRG", "ELG", "QSO"]
+                    ]
+                    names = [name for name in names if name in ["LRG", "ELG", "QSO"]]
+                # AR now, at most 3 tracers per program
+                cols = ["r", "b", "y", "g"][: len(names)]
+                for mask, key, name, col in zip(masks, keys, names, cols):
+                    tmp = (d[key] & mask[name]) > 0
+                    # AR removing the ELGxQSO for the ELG counting
+                    if name == "ELG":
+                        tmp &= (d[key] & mask["QSO"]) == 0
+                    if mjd == np.unique(mjds[program])[0]:
+                        label = "{} = {:.0f}k cumulated".format(
+                            name, np.round(tmp.sum() / 1000)
+                        )
+                        # AR assuming no overlap between names
+                        ncumul[program] += tmp.sum()
+                    else:
+                        label = None
+                    tmp &= mjds[program] == mjd
+                    # AR removing the ELGxQSO for the ELG counting
+                    if name == "ELG":
+                        tmp &= (d[key] & mask["QSO"]) == 0
+                    tmpn = tmp.sum()
+                    tmpy = start + np.array([0, 0, tmpn, tmpn])
+                    ax[ix].fill(
+                        tmpx, tmpy, fill=True, color=col, alpha=0.5, label=label
+                    )
+                    start += tmpn
+        # AR per-night
+        ix = len(programs)
+        for mjd in mjds["UNIQ"]:
+            tmpx = 0.5 + mjd + np.array([-0.25, 0.25, 0.25, -0.25])
+            start = 0
+            for program, progcol in zip(programs, progcols):
+                if mjd == mjds["UNIQ"][0]:
+                    label = "{} = {:.0f}k cumulated".format(
+                        program, np.round(ncumul[program] / 1000)
+                    )
+                else:
+                    label = None
+                tmpn = (mjds[program] == mjd).sum()
+                tmpy = start + np.array([0, 0, tmpn, tmpn])
+                ax[ix].fill(
+                    tmpx, tmpy, fill=True, color=progcol, alpha=0.5, label=label
+                )
+                start += tmpn
+        # AR plot settings
+        for ix in range(len(programs) + 1):
+            ax[ix].set_xlim(mjds["UNIQ"][0] - 0.5, mjds["UNIQ"][-1] + 1)
+            ax[ix].set_xticks(0.5 + mjds["UNIQ"])
+            ax[ix].grid(True)
+            ax[ix].set_ylabel("N spectra (per-night)")
+            ax[ix].set_ylim(0, 1.1e5)
+            ax[ix].legend(loc=1)
+            if ix == len(programs):
+                nights = Time(mjds["UNIQ"], format="mjd").strftime("%Y%m%d")
+                ax[ix].set_xticklabels(nights, rotation=45, ha="right")
+            else:
+                ax[ix].set_xticklabels([])
+        plt.savefig(outfns["nspec"], bbox_inches="tight")
+        plt.close()
+
+        # AR SPEC_EFFTIME vs GFA_EFFTIME
+        xylim = (0, 2000)
+        fig, ax = plt.subplots()
+        for program, speckey, gfakey in zip(
+            ["DARK", "BRIGHT"],
+            ["ELG_EFFTIME_DARK", "BGS_EFFTIME_BRIGHT"],
+            ["EFFTIME_DARK_GFA", "EFFTIME_BRIGHT_GFA"],
+        ):
+            keep = tsnr["FAPRGRM"] == program.lower()
+            # AR clipping to xylim to get all exposures visible
+            x = np.clip(tsnr[gfakey][keep], xylim[0], xylim[1])
+            y = np.clip(tsnr[speckey][keep], xylim[0], xylim[1])
+            c = progcols[programs == program]
+            ax.scatter(
+                x,
+                y,
+                c=c,
+                s=15,
+                alpha=0.5,
+                label="{} ({} exposures)".format(program, keep.sum()),
+            )
+        ax.plot(xylim, xylim, color="k", ls="--")
+        ax.grid(True)
+        ax.set_axisbelow(True)
+        ax.set_title(
+            "SV3 from {} to {}".format(tsnr["NIGHT"].min(), tsnr["NIGHT"].max(),)
+        )
+        ax.set_xlabel("GFA_EFFTIME [s]")
+        ax.set_ylabel("SPEC_EFFTIME [s]")
+        ax.set_xlim(xylim)
+        ax.set_ylim(xylim)
+        ax.xaxis.set_major_locator(MultipleLocator(250))
+        ax.yaxis.set_major_locator(MultipleLocator(250))
+        ax.legend(loc=2, markerscale=2, fontsize=8)
+        plt.savefig(outfns["efftime-spec-gfa"], bbox_inches="tight")
+        plt.close()
+
+        # AR obs. fraction per program/rosette/tracer
+        rosetteid_programs = []
+        for rosette_id in rosette_ids.astype(str).tolist() + ["ALL"]:
+            rosetteid_programs += [
+                "{},{}".format(rosette_id, program) for program in programs
+            ]
+        pool = sharedmem.MapReduce(np=args.numproc)
+        with pool:
+            _ = pool.map(_plot_rosetteid_program, rosetteid_programs)
+
+        # AR per-night on-sky exptime
+        # AR  and per-tile efftime_dark
+        nights, ii = np.unique(tsnr["NIGHT"], return_index=True)
+        mjds = np.array(
+            [
+                Time(
+                    {
+                        "year": night // 10000,
+                        "month": night // 100 % 100,
+                        "day": night % 100,
+                    }
+                ).mjd
+                for night in nights
+            ]
+        )
+        #
+        # AR per night
+        for xquant in ["exptime", "efftime_gfa"]:
+            xs = np.zeros((len(nights), len(programs)))
+            for i in range(len(nights)):
+                for j in range(len(programs)):
+                    keep = (tsnr["NIGHT"] == nights[i]) & (
+                        tsnr["FAPRGRM"] == programs[j].lower()
+                    )
+                    if xquant == "exptime":
+                        xs[i, j] = tsnr[xquant.upper()][keep].sum() / 3600.0
+                    else:
+                        xs[i, j] = (
+                            tsnr["EFFTIME_{}_GFA".format(programs[j])][keep].sum()
+                            / 3600.0
+                        )
+            # AR
+            fig, ax = plt.subplots(figsize=(20, 5))
+            for i in range(len(nights)):
+                start = 0
+                if i == 0:
+                    labels = [
+                        "{}={:.0f} hrs".format(programs[j], xs[:, j].sum())
+                        for j in range(len(programs))
+                    ]
+                else:
+                    labels = [None for x in programs]
+                for j in range(len(programs)):
+                    tmpx = mjds[i] + np.array([-0.25, 0.25, 0.25, -0.25])
+                    tmpy = start + np.array([0, 0, xs[i, j], xs[i, j]])
+                    ax.fill(
+                        tmpx,
+                        tmpy,
+                        fill=True,
+                        color=progcols[j],
+                        alpha=0.5,
+                        label=labels[j],
+                    )
+                    start += xs[i, j]
+                    if j == 0:
+                        ax.text(
+                            mjds[i],
+                            0,
+                            "{}".format(nights[i]),
+                            rotation=45,
+                            ha="right",
+                            va="top",
+                        )
+            # AR
+            ax.grid(True)
+            ax.set_axisbelow(True)
+            ax.set_title(
+                "SV3 {} from {} to {} ({} exposures)".format(
+                    xquant.upper(), tsnr["NIGHT"].min(), tsnr["NIGHT"].max(), len(tsnr),
+                )
+            )
+            ax.set_xlabel("MJD-OBS")
+            ax.set_ylabel("{} per NIGHT [hours]".format(xquant.upper()))
+            ax.set_ylim(-2, 10)
+            ax.xaxis.set_major_locator(MultipleLocator(5))
+            ax.yaxis.set_major_locator(MultipleLocator(1))
+            ax.legend(loc=2)
+            plt.savefig(outfns[xquant], bbox_inches="tight")
+            plt.close()
+        #
+        # AR per tile
+        #
+        for program, progefftime, progcol in zip(programs, progefftimes, progcols):
+            effkey = "EFFTIME_{}_GFA".format(program)
+            ylim = (-0.5 * progefftime, 3 * progefftime)
+            ytxt = ylim[0] + 0.125 * (ylim[1] - ylim[0])
+            tileids = np.unique(tiles["TILEID"][tiles["PROGRAM"] == program])
+            # AR getting stats
+            efftimes = np.zeros(len(tileids))
+            for i in range(len(tileids)):
+                for j in range(3):
+                    keep = tsnr["TILEID"] == tileids[i]
+                    efftimes[i] = tsnr[effkey][keep].sum()
+            # AR
+            fig, ax = plt.subplots(figsize=(20, 5))
+            for i in range(len(tileids)):
+                start = 0
+                if i == 0:
+                    label = "{}={:.0f} hrs cumulated".format(
+                        program, efftimes.sum() / 3600.0
+                    )
+                else:
+                    label = None
+                tmpx = i + np.array([-0.25, 0.25, 0.25, -0.25])
+                tmpy = start + np.array([0, 0, efftimes[i], efftimes[i]])
+                ax.fill(tmpx, tmpy, fill=True, color=progcol, alpha=0.5, label=label)
+                start += efftimes[i]
+                ax.text(
+                    i,
+                    ytxt,
+                    "{}".format(tileids[i]),
+                    rotation=90,
+                    fontsize=6,
+                    ha="center",
+                    va="top",
+                )
+            # AR
+            ax.axhline(
+                progefftime,
+                color="r",
+                ls="--",
+                label="Goal efftime ({}s)".format(progefftime),
+            )
+            ax.grid(True)
+            ax.set_axisbelow(True)
+            ax.set_title(
+                "{} : {} from {} to {} ({} exposures cumulating {:.0f} hrs)".format(
+                    program,
+                    effkey,
+                    tsnr["NIGHT"].min(),
+                    tsnr["NIGHT"].max(),
+                    (tsnr["FAPRGRM"] == program.lower()).sum(),
+                    efftimes.sum() / 3600.0,
+                )
+            )
+            ax.set_xlabel("")
+            ax.set_ylabel("{} per TILEID [s]".format(effkey))
+            ax.set_ylim(ylim)
+            ax.xaxis.set_major_locator(MultipleLocator(25))
+            ax.set_yticklabels(
+                ["{:.0f}".format(x) if x > 0 else "" for x in ax.get_yticks()]
+            )
+            ax.legend(loc=1)
+            plt.savefig(
+                outfns["efftime_gfa-{}".format(program.lower())], bbox_inches="tight",
+            )
+            plt.close()
+        # ADM make sure all of the relevant directories and plots can be read by a web-browser.
+        cmd = "chmod 644 {}/*".format(os.path.join(args.outdir, "sv3-plots"))
+        ok = os.system(cmd)
+        cmd = "chmod 775 {}".format(os.path.join(args.outdir, "sv3-plots"))
+        ok = os.system(cmd)
+
+    # AR html pages
+    # initially copied from desitarget/QA.py from ADM!
+    if args.html == "y":
+
+        # AR html settings
+        bkgcol = "#f0f0f5"  # "#e6fff2"
+        style = "line-height:25%; font-size:1vw"
+
+        # ADM set up the html file and write preamble to it.
+        htmlfile = os.path.join(outfns["html"], "index.html")
+
+        # ADM grab the magic string that writes the last-updated date to a webpage.
+        js = _javastring()
+
+        # ADM html preamble.
+        htmlmain = open(htmlfile, "w")
+        htmlmain.write("<html><body>\n")
+        htmlmain.write("<h1>SV3 Overview Page</h1>\n")
+        htmlmain.write("\n")
+
+        # AR page menu
+        htmlmain.write("<nav>\n")
+        htmlmain.write("\t<ul>\n")
+        htmlmain.write("\t\t<li><a href='#files' >Files</a></li>\n")
+        htmlmain.write("\t\t<li><a href='#skymap' >Rosettes sky map</a></li>\n")
+        htmlmain.write(
+            "\t\t<li><a href='#rosettedark' >Per-rosette status: DARK</a></li>\n"
+        )
+        htmlmain.write(
+            "\t\t<li><a href='#rosettebright' >Per-rosette status: BRIGHT</a></li>\n"
+        )
+        htmlmain.write(
+            "\t\t<li><a href='#rosettebackup' >Per-rosette status: BACKUP</a></li>\n"
+        )
+        htmlmain.write(
+            "\t\t<li><a href='#nspec' >Per-night number of spectra</a></li>\n"
+        )
+        htmlmain.write(
+            "\t\t<li><a href='#pernight' >Per-night EXPTIME and GFA_EFFTIME</a></li>\n"
+        )
+        htmlmain.write("\t\t<li><a href='#pertile' >Per-tile GFA_EFFTIME</a></li>\n")
+        htmlmain.write(
+            "\t\t<li><a href='#specgfa' >SPEC_EFFTIME vs. GFA_EFFTIME</a></li>\n"
+        )
+        htmlmain.write(
+            "\t\t<li><a href='#perexp' > Per-exposure properties</a> ({} exposure(s) over {} night(s))</li>\n".format(
+                len(tsnr), len(np.unique(tsnr["NIGHT"]))
+            )
+        )
+        htmlmain.write("\t</ul>\n")
+        htmlmain.write("</nav>\n")
+        htmlmain.write("\n")
+
+        # AR Fits files
+        htmlmain.write("<h2><a id='files' href='#files' > Files</a>\n")
+        htmlmain.write(
+            "<a href='#top' style='position: absolute; right: 0;'>Top of the page</a></h2>\n"
+        )
+        htmlmain.write(
+            "<p style='font-size:1vw'><a href='{}' target='external'> {} </a> : main file with all exposures. Column content: {}.</p>\n".format(
+                path_full2web(tsnrfn),
+                os.path.basename(tsnrfn),
+                ", ".join(tsnr.dtype.names),
+            )
+        )
+        htmlmain.write(
+            "<p style='font-size:1vw'><a href='{}' target='external'> {} </a> : tiling file. Column content: {}.</p>\n".format(
+                path_full2web(tilesfn),
+                os.path.basename(tilesfn),
+                ", ".join(tiles.dtype.names),
+            )
+        )
+        htmlmain.write(
+            "<p style='font-size:1vw'><a href='{}' target='external'> {} </a> : tile status file.</p>\n".format(
+                path_full2web(tilestatusfn), os.path.basename(tilestatusfn),
+            )
+        )
+
+        # AR Sky map
+        htmlmain.write("<h2><a id='skymap' href='#skymap' > Rosettes sky map</a>\n")
+        htmlmain.write(
+            "<a href='#top' style='position: absolute; right: 0;'>Top of the page</a></h2>\n"
+        )
+        tmppng = outfns["skymap"].replace(args.outdir, "../")
+        htmlmain.write("<tr>\n")
+        htmlmain.write(
+            "<td align=center><a href='{}'><img SRC='{}' width=80% height=auto></a></td>\n".format(
+                tmppng, tmppng
+            )
+        )
+        htmlmain.write("</tr>\n")
+        htmlmain.write("\n")
+
+        # AR Per-rosette overview
+        html_rosette_ids = rosette_ids.tolist() + ["ALL"]
+        for program in programs:
+            _ = write_html_rosettetable(
+                htmlmain,
+                program,
+                html_rosette_ids,
+                bkgcol,
+                style,
+                "Per-rosette status: {}".format(program),
+                main=True,
+            )
+
+        # AR Nspec per night
+        htmlmain.write("<h2><a id='nspec' href='#nspec' > Per-night number of spectra</a>\n")
+        htmlmain.write(
+            "<a href='#top' style='position: absolute; right: 0;'>Top of the page</a></h2>\n"
+        )
+        tmppng = outfns["nspec"].replace(args.outdir, "../")
+        htmlmain.write("<tr>\n")
+        htmlmain.write(
+            "<td align=center><a href='{}'><img SRC='{}' width=80% height=auto></a></td>\n".format(
+                tmppng, tmppng
+            )
+        )
+        htmlmain.write("</tr>\n")
+        htmlmain.write("\n")
+
+        # AR Per-night EXPTIME and EFFTIME
+        htmlmain.write(
+            "<h2><a id='pernight' href='#pernight' > Per-night EXPTIME and GFA_EFFTIME</a>\n"
+        )
+        htmlmain.write(
+            "<a href='#top' style='position: absolute; right: 0;'>Top of the page</a></h2>\n"
+        )
+        for xquant in ["exptime", "efftime_gfa"]:
+            tmppng = outfns[xquant].replace(args.outdir, "../")
+            htmlmain.write("<tr>\n")
+            htmlmain.write(
+                "<td align=center><a href='{}'><img SRC='{}' width=80% height=auto></a></td>\n".format(
+                    tmppng, tmppng
+                )
+            )
+            htmlmain.write("</tr>\n")
+            htmlmain.write("\n")
+
+        # AR Per-tile: EFFTIME
+        htmlmain.write(
+            "<h2><a id='pertile' href='#pertile' > Per-tile: GFA_EFFTIME</a>\n"
+        )
+        htmlmain.write(
+            "<a href='#top' style='position: absolute; right: 0;'>Top of the page</a></h2>\n"
+        )
+        for png in [
+            outfns["efftime_gfa-{}".format(program.lower())] for program in programs
+        ]:
+            tmppng = png.replace(args.outdir, "../")
+            htmlmain.write("<tr>\n")
+            htmlmain.write(
+                "<td align=center><a href='{}'><img SRC='{}' width=80% height=auto></a></td>\n".format(
+                    tmppng, tmppng
+                )
+            )
+            htmlmain.write("</tr>\n")
+            htmlmain.write("\n")
+
+        # AR SPEC vs GFA EFFTIME
+        htmlmain.write(
+            "<h2><a id='specgfa' href='#specgfa' > SPEC_EFFTIME vs. GFA_EFFTIME</a>\n"
+        )
+        htmlmain.write(
+            "<a href='#top' style='position: absolute; right: 0;'>Top of the page</a></h2>\n"
+        )
+        tmppng = outfns["efftime-spec-gfa"].replace(args.outdir, "../")
+        htmlmain.write("<tr>\n")
+        htmlmain.write(
+            "<td align=center><a href='{}'><img SRC='{}' width=50% height=auto></a></td>\n".format(
+                tmppng, tmppng
+            )
+        )
+        htmlmain.write("</tr>\n")
+        htmlmain.write("\n")
+
+        # AR Exposure properties
+        _ = write_html_perexp(htmlmain, tsnr, style, "Per-exposure properties")
+
+        # AR for each program-rosette_id, make a separate page
+        for program in programs:
+            for rosette_id in rosette_ids.tolist() + ["ALL"]:
+                htmlfile = os.path.join(
+                    outfns["html"], "rosette{}-{}.html".format(rosette_id, program)
+                )
+                html = open(htmlfile, "w")
+
+                # ADM html preamble.
+                html.write("<html><body>\n")
+                html.write("<h1>Rosette{}-{}</h1>\n".format(rosette_id, program))
+
+                _ = write_html_rosettepage(html, bkgcol, style, program, rosette_id)
+
+                # ADM html postamble
+                html.write(
+                    "<p style='font-size:1vw; text-align:right'><i>Last updated: {}</p></i>\n".format(
+                        js
+                    )
+                )
+                html.write("</html></body>\n")
+                html.close()
+
+        # ADM html postamble for main page.
+        htmlmain.write(
+            "<p style='font-size:1vw; text-align:right'><i>Last updated: {}</p></i>\n".format(
+                js
+            )
+        )
+        htmlmain.write("</html></body>\n")
+        htmlmain.close()
+
+        # ADM make sure all of the relevant directories and plots can be read by a web-browser.
+        cmd = "chmod 644 {}/*".format(outfns["html"])
+        ok = os.system(cmd)
+        cmd = "chmod 775 {}".format(outfns["html"])
+        ok = os.system(cmd)
+
+
+# =====================================
+
+if __name__ == "__main__":
+
+    # AR reading arguments
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--outdir",
+        help="output directory (fiducial location: $DESI_ROOT/survey/observations/SV3/)",
+        type=str,
+        default=None,
+        required=True,
+    )
+    parser.add_argument(
+        "--plot",
+        help="do plots (skymap, observing conditions, r_depth)? (y/n)",
+        type=str,
+        default="y",
+    )
+    parser.add_argument(
+        "--html", help="create html pages, one per tile (y/n)", type=str, default="y",
+    )
+    parser.add_argument(
+        "--numproc",
+        help="number of concurrent processes to use (default=1)",
+        type=int,
+        default=1,
+    )
+    args = parser.parse_args()
+    #
+    if args.outdir[-1] == "/":
+        args.outdir = args.outdir[:-1]
+    # AR printing arguments
+    for kwargs in args._get_kwargs():
+        print(kwargs)
+
+    # AR desitarget version of the sv3 catalogs
+    dtver = "0.57.0"
+
+    # AR rosettes infos
+    # AR https://desi.lbl.gov/trac/wiki/SurveyOps/OnePercent#Rosettefootprints
+    rosette_fields = np.array(
+        [
+            "COSMOS",
+            "GAMA G12",
+            "GAMA G12",
+            "GOODS-North",
+            "Coma cluster",
+            "VVDS-F14",
+            "DEEP2 CFHTLS-D3/W3",
+            "Bootes NDWFS/AGES",
+            "GAMA G15",
+            "GAMA G15",
+            "GAMA G15",
+            "ELAIS N1",
+            "HSC DR2",
+            "HSC DR2",
+            "XDEEP",
+            "Euclid Deep Field",
+        ]
+    )
+    rosette_ras = np.array(
+        [
+            150.100,
+            179.600,
+            183.100,
+            189.900,
+            194.750,
+            210.000,
+            215.500,
+            217.800,
+            216.300,
+            219.800,
+            218.050,
+            242.750,
+            241.050,
+            245.880,
+            252.500,
+            269.730,
+        ]
+    )
+    rosette_decs = np.array(
+        [
+            2.182,
+            0.000,
+            0.000,
+            61.800,
+            28.200,
+            5.000,
+            52.500,
+            34.400,
+            -0.600,
+            -0.600,
+            2.430,
+            54.980,
+            43.450,
+            43.450,
+            34.500,
+            66.020,
+        ]
+    )
+    rosette_ids = np.arange(len(rosette_ras), dtype=int)
+    rosette_cs = SkyCoord(
+        rosette_ras * units.degree, rosette_decs * units.degree, frame="icrs"
+    )
+
+    # AR per-tile information
+    tilesfn = os.path.join(os.getenv("DESI_SURVEYOPS"), "ops", "tiles-sv3.ecsv")
+    tiles = Table.read(tilesfn)
+    tiles_cs = SkyCoord(
+        tiles["RA"] * units.degree, tiles["DEC"] * units.degree, frame="icrs"
+    )
+    tiles_rosette = np.array(
+        [tiles_c.separation(rosette_cs).value.argmin() for tiles_c in tiles_cs]
+    )
+    # AR status
+    tilestatusfn = os.path.join(
+        os.getenv("DESI_ROOT"), "spectro", "redux", "daily", "tiles.csv"
+    )
+    d = Table.read(tilestatusfn)
+    tiles_status = np.array(["unobs" for x in tiles])
+    keep = np.in1d(tiles["TILEID"], d["TILEID"][d["OBSSTATUS"] == "obsstart"])
+    tiles_status[keep] = "start"
+    keep = np.in1d(tiles["TILEID"], d["TILEID"][d["OBSSTATUS"] == "obsend"])
+    tiles_status[keep] = "done"
+
+    # AR pixweight (for imaging properties only, dark is fine)
+    pixwfn = os.path.join(
+        os.getenv("DESI_TARGET"),
+        "catalogs",
+        "dr9",
+        dtver,
+        "pixweight",
+        "sv3",
+        "resolve",
+        "dark",
+        "sv3pixweight-1-dark.fits",
+    )
+    # AR DES footprint
+    desfn = os.path.join(
+        os.getenv("DESI_ROOT"), "survey", "observations", "misc", "des_footprint.txt"
+    )
+
+    # AR programs , colors, goal efftime, masks
+    programs = np.array(["DARK", "BRIGHT", "BACKUP"])
+    progcols = np.array(["k", "y", "c"])
+    fn = os.path.join(os.getenv("DESI_SURVEYOPS"), "ops", "config-sv3.yaml")
+    f = open(fn, "r")
+    desi = yaml.safe_load(f)
+    f.close()
+    progefftimes = [
+        int(desi["programs"][program]["efftime"].split()[0]) for program in programs
+    ]
+    dict_mask = {
+        "DARK": {
+            "mask": [desi_mask, desi_mask, desi_mask, desi_mask, desi_mask, desi_mask],
+            "keys": [
+                "SV3_DESI_TARGET",
+                "SV3_DESI_TARGET",
+                "SV3_DESI_TARGET",
+                "SV3_DESI_TARGET",
+                "SV3_DESI_TARGET",
+                "SV3_DESI_TARGET",
+            ],
+            "names": ["LRG", "LRG_LOWDENS", "ELG", "ELG_HIP", "ELG_LOP", "QSO"],
+        },
+        "BRIGHT": {
+            "mask": [bgs_mask, bgs_mask, desi_mask],
+            "keys": ["SV3_BGS_TARGET", "SV3_BGS_TARGET", "SV3_DESI_TARGET"],
+            "names": ["BGS_BRIGHT", "BGS_FAINT", "MWS_ANY"],
+        },
+        "BACKUP": {
+            "mask": [mws_mask, mws_mask],
+            "keys": ["SV3_MWS_TARGET", "SV3_MWS_TARGET"],
+            "names": ["BACKUP_FAINT", "BACKUP_VERY_FAINT"],
+        },
+    }
+
+    # AR per-exposure information
+    tsnrfn = os.path.join(
+        os.getenv("DESI_ROOT"), "spectro", "redux", "daily", "tsnr-exposures.csv"
+    )
+    tsnr = Table.read(tsnrfn)
+    tsnr = tsnr[np.in1d(tsnr["TILEID"], tiles["TILEID"])]
+
+    # AR output products
+    outfns = {}
+    if os.path.isdir(os.path.join(args.outdir, "sv3-plots")) == False:
+        os.mkdir(os.path.join(args.outdir, "sv3-plots"))
+    outfns["skymap"] = os.path.join(args.outdir, "sv3-plots", "sv3-skymap.png")
+    outfns["efftime-spec-gfa"] = os.path.join(
+        args.outdir, "sv3-plots", "sv3-efftime-spec-gfa.png"
+    )
+    outfns["exptime"] = os.path.join(args.outdir, "sv3-plots", "sv3-exptime.png")
+    outfns["efftime_gfa"] = os.path.join(
+        args.outdir, "sv3-plots", "sv3-efftime_gfa.png"
+    )
+    outfns["nspec"] = os.path.join(args.outdir, "sv3-plots", "sv3-nspec.png")
+    for program in programs:
+        outfns["efftime_gfa-{}".format(program.lower())] = os.path.join(
+            args.outdir, "sv3-plots", "sv3-efftime_gfa-{}.png".format(program)
+        )
+    outfns["html"] = os.path.join(args.outdir, "sv3-html")
+    if (args.html == "y") & (os.path.isdir(outfns["html"]) == False):
+        os.mkdir(outfns["html"])
+
+    # AR color map
+    mycm = mycmap("coolwarm", 10, 0, 1)
+
+    # AR create a temporary fits file for each {rosette_id, program}
+    rosetteid_programs = []
+    for rosette_id in rosette_ids:
+        rosetteid_programs += [
+            "{},{}".format(rosette_id, program) for program in programs
+        ]
+    pool = sharedmem.MapReduce(np=args.numproc)
+    with pool:
+        _ = pool.map(_fits_rosetteid_program, rosetteid_programs)
+    # AR storing all data in a table
+    main_table = vstack(
+        [
+            Table.read(get_tmpfn_rosetteid_program(rosetteid_program))
+            for rosetteid_program in rosetteid_programs
+        ]
+    )
+    # AR remove temporary files
+    for rosetteid_program in rosetteid_programs:
+        os.remove(get_tmpfn_rosetteid_program(rosetteid_program))
+
+    main()
