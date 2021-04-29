@@ -584,11 +584,14 @@ def _plot_rosetteid_program(rosetteid_program):
                 vmin=clim[0],
                 vmax=clim[1],
                 mincnt=0,
+                alpha=0.8,
             )
-            # AR plotting individual missing targets if not too many
-            if C.mean() > 0.90:
-                ax.scatter(dras[~C], ddecs[~C], s=1, c="k", rasterized=True, label="not {} ({})".format(case, (~C).sum()))
-                ax.legend(markerscale=5, loc=2)
+            # AR plotting 2500 individual missing targets
+            ii = np.where(~C)[0]
+            tmpn = np.min([len(ii), 2500])
+            ii = np.random.choice(ii, size = tmpn, replace=False)
+            ax.scatter(dras[ii], ddecs[ii], s=1, c="k", rasterized=True, label="{} not {}".format(tmpn, case))
+            ax.legend(markerscale=5, loc=2)
             ax.set_title(title)
             ax.set_xlabel("Delta R.A. * cos(Dec.) [deg]")
             ax.set_ylabel("Delta Dec. [deg]")
