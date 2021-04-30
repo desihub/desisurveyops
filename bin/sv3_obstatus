@@ -734,7 +734,7 @@ def get_radec_mw(ra, dec, org):
 def main():
 
     # AR plots
-    if args.plot == "y":
+    if not args.noplot:
 
         # AR sky map
         # dr9
@@ -1089,7 +1089,7 @@ def main():
 
     # AR html pages
     # initially copied from desitarget/QA.py from ADM!
-    if args.html == "y":
+    if not args.nohtml:
 
         # AR html settings
         bkgcol = "#f0f0f5"  # "#e6fff2"
@@ -1319,13 +1319,14 @@ if __name__ == "__main__":
         required=True,
     )
     parser.add_argument(
-        "--plot",
-        help="do plots (skymap, observing conditions, r_depth)? (y/n)",
-        type=str,
-        default="y",
+        "--noplot",
+        help="do not generate plots",
+        action="store_true",
     )
     parser.add_argument(
-        "--html", help="create html pages, one per tile (y/n)", type=str, default="y",
+        "--nohtml",
+        help="do not create html pages",
+        action="store_true",
     )
     parser.add_argument(
         "--numproc",
@@ -1508,7 +1509,7 @@ if __name__ == "__main__":
             args.outdir, "sv3-plots", "sv3-efftime_gfa-{}.png".format(program)
         )
     outfns["html"] = os.path.join(args.outdir, "sv3-html")
-    if (args.html == "y") & (os.path.isdir(outfns["html"]) == False):
+    if (not args.nohtml) & (os.path.isdir(outfns["html"]) == False):
         os.mkdir(outfns["html"])
 
     # AR color map
