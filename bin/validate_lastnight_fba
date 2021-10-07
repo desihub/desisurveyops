@@ -6,17 +6,30 @@ import os
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--night", help="use this if you want to specify the night, rather than just use the last one",default='20210921')
-parser.add_argument("--clean", help="remove all files in the output directory prior to start, True/Fase",default=False)
+#required arguments
+parser.add_argument("--night", help="use this to specify the night, this is required unless you want 20210921 for some reason",default='20210921')
+#not required arguments
+parser.add_argument("--specprod",help="set specprod to something other than daily",default='daily')
+parser.add_argument("--outroot",help="the root directory for temporary outputs",default=os.environ['CSCRATCH'])
 args = parser.parse_args()
 
 month = args.night[:6]
 
+if args.night == '20210921':
+    print('DID YOU REALLY MEAN TO RUN THIS FOR '+args.night)
+    
+if not os.path.exists(args.outroot):
+    
+    print('the root directory '+args.outroot+' for where temporary output is meant to go does not exist; provide a different --outroot argument')
+    sys.exit('the root directory '+args.outroot+' for where temporary output is meant to go does not exist; provide a different --outroot argument; exiting')
+    
+
+desiroot = os.path.expandvars('$DESI_ROOT/')
 #open exposures file
-exps = Table.read('/global/cfs/cdirs/desi/spectro/redux/daily/exposure_tables/'+month+'/exposure_table_'+args.night+'.csv')
+exps = Table.read(desiroot+'spectro/redux/'+args.specprod+'/exposure_tables/'+month+'/exposure_table_'+args.night+'.csv')
 
 #check if tileid are in main
-tlm = Table.read('/global/cfs/cdirs/desi/survey/ops/surveyops/trunk/ops/tiles-main.ecsv')
+tlm = Table.read(desiroot+'survey/ops/surveyops/trunk/ops/tiles-main.ecsv')
 sel = np.isin(exps['TILEID'],tlm['TILEID'])
 exps = exps[sel]
 
@@ -28,17 +41,16 @@ print('looking at fiberassign files used on the night '+args.night)
 print('the '+str(len(tidl))+' tileids are:')
 print(tidl)
 
-if not os.path.exists(os.environ['CSCRATCH']+'/fiberassign'):
-    os.mkdir(os.environ['CSCRATCH']+'/fiberassign')
-    print('made '+os.environ['CSCRATCH']+'/fiberassign')
 
-outdir = os.environ['CSCRATCH']+'/fiberassign/rerun'
+if not os.path.exists(args.outroot+'/fiberassign'):
+    os.mkdir(args.outroot+'/fiberassign')
+    print('made '+args.outroot+'/fiberassign')
+
+outdir = args.outroot+'/fiberassign/rerun'
 if not os.path.exists(outdir):
     os.mkdir(outdir)
     print('made '+outdir)
 
-if args.clean:
-    os.system('rm -R '+outdir+'/*')
 
 fol = [] #empty list to contain orginal fiberassign file names
 fnl = [] #empty list to contain new fiberassign file names
@@ -47,18 +59,15 @@ for tid in tidl:
     sel = exps['TILEID'] == tid
     expid = exps[sel]['EXPID'][0] #just select one expid to get the fiberassign file
     ff = 'fiberassign-'+str(tid).zfill(6)+'.fits.gz'
-    fn = '/global/cfs/cdirs/desi/spectro/data/'+args.night+'/'+str(expid).zfill(8)+'/'+ff
+    fn = desiroot+'spectro/data/'+args.night+'/'+str(expid).zfill(8)+'/'+ff
     print('reproducing data for fiberassign file '+fn)
     fol.append(fn)
     fnl.append(outdir+'/'+str(tid).zfill(6)[:3]+'/fiberassign-'+str(tid).zfill(6)+'.fits.gz')
     #system call run fiberassign
     os.system('fba_rerun --infiberassign '+fn+' --outdir '+outdir+' --nosteps qa') #--dtver 1.1.1 
 
-#try:
 from fiberassign.fba_rerun_io import fba_rerun_check
 docheck = True
-#except:
-#    print('import failed, not doing check')
 
 tids_passl = []
 if docheck:
@@ -91,7 +100,7 @@ if docheck:
 
 print('The number of tiles that is passed is '+str(len(tids_passl)))
 
-intermediate_dir = '/global/cfs/cdirs/desi/survey/fiberassign/main' #remove the test once we are happy
+intermediate_dir = desiroot+'survey/fiberassign/main' #remove the test once we are happy
 for tid in tids_passl:
     mv_tiddir = os.path.join(intermediate_dir, str(tid).zfill(6)[:3])
     if not os.path.isdir(mv_tiddir):
@@ -105,4 +114,4 @@ for tid in tids_passl:
             print("moving {} to {}".format(fn, mv_fn))
             os.system("mv {} {}".format(fn, mv_fn))
 
-os.system("fix_permissions.sh /global/cfs/cdirs/desi/survey/fiberassign/main")
+os.system(f"fix_permissions.sh {intermediate_dir}")
