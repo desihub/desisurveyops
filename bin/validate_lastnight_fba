@@ -1,33 +1,53 @@
 #!/usr/bin/env python
-# requires source /project/projectdirs/desi/software/desi_environment.sh master
-from astropy.table import Table
-import numpy as np
+# requires source /global/cfs/cdirs/desi/software/desi_environment.sh master
 import os
 import argparse
 import sys
+import datetime
+
+import numpy as np
+from astropy.table import Table
 
 parser = argparse.ArgumentParser()
-#required arguments
-parser.add_argument("--night", help="use this to specify the night, this is required unless you want 20210921 for some reason",default='20210921')
-#not required arguments
-parser.add_argument("--specprod",help="set specprod to something other than daily",default='daily')
-parser.add_argument("--outroot",help="the root directory for temporary outputs",default=os.environ['CSCRATCH'])
+parser.add_argument("--night", type=str, default=None,
+        help="night to validate, overriding last night")
+parser.add_argument("--specprod", default='daily',
+        help="set specprod to something other than daily")
+parser.add_argument("--outroot", default=None, type=str,
+        help="the root directory for temporary outputs")
+
 args = parser.parse_args()
 
-month = args.night[:6]
+if args.night is None:
+    args.night = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y%m%d')
 
-if args.night == '20210921':
-    print('DID YOU REALLY MEAN TO RUN THIS FOR '+args.night)
-    
+if args.outroot is None:
+    if 'PSCRATCH' in os.environ:
+        args.outroot = os.environ['PSCRATCH']  #- NERSC Perlmutter
+    elif 'CSCRATCH' in os.environ:
+        args.outroot = os.environ['CSCRATCH']  #- NERSC Cori
+    elif 'SCRATCH' in os.environ:
+        args.outroot = os.environ['SCRATCH']
+    else:
+        print('ERROR: must specify --outroot or set $PSCRATCH, $CSCRATCH, or $SCRATCH')
+        sys.exit(1)
+
+yearmonth = args.night[:6]
+
 if not os.path.exists(args.outroot):
     
     print('the root directory '+args.outroot+' for where temporary output is meant to go does not exist; provide a different --outroot argument')
     sys.exit('the root directory '+args.outroot+' for where temporary output is meant to go does not exist; provide a different --outroot argument; exiting')
     
+if 'DESI_ROOT' in os.environ:
+    desiroot = os.environ['DESI_ROOT']+'/'
+else:
+    print('ERROR: $DESI_ROOT not yet; you likely need to run')
+    print('  source /global/cfs/cdirs/desi/software/desi_environment.sh master')
+    sys.exit(1)
 
-desiroot = os.path.expandvars('$DESI_ROOT/')
 #open exposures file
-exps = Table.read(desiroot+'spectro/redux/'+args.specprod+'/exposure_tables/'+month+'/exposure_table_'+args.night+'.csv')
+exps = Table.read(desiroot+'spectro/redux/'+args.specprod+'/exposure_tables/'+yearmonth+'/exposure_table_'+args.night+'.csv')
 
 #check if tileid are in main
 tlm = Table.read(desiroot+'survey/ops/surveyops/trunk/ops/tiles-main.ecsv')
