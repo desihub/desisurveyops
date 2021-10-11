@@ -1,0 +1,153 @@
+#!/usr/bin/env python
+# requires source /global/cfs/cdirs/desi/software/desi_environment.sh master
+import os
+import argparse
+import sys
+import datetime
+import shutil
+
+import numpy as np
+from astropy.table import Table
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--night", type=str, default=None,
+        help="night to validate, overriding last night")
+parser.add_argument("--specprod", default='daily',
+        help="set specprod to something other than daily")
+parser.add_argument("--tempdir", default=None, type=str,
+        help="the root directory for temporary outputs")
+parser.add_argument("--outroot", default=None, type=str,
+        help="root directory for final outputs ($DESI_ROOT/survey/fiberassign/main)")
+parser.add_argument("--overwrite", default=False, action='store_true',
+        help="overwrite final outputs in outroot")
+
+args = parser.parse_args()
+
+if args.night is None:
+    args.night = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y%m%d')
+
+if args.tempdir is None:
+    if 'PSCRATCH' in os.environ:
+        args.tempdir = os.environ['PSCRATCH']  #- NERSC Perlmutter
+    elif 'CSCRATCH' in os.environ:
+        args.tempdir = os.environ['CSCRATCH']  #- NERSC Cori
+    elif 'SCRATCH' in os.environ:
+        args.tempdir = os.environ['SCRATCH']
+    else:
+        print('ERROR: must specify --tempdir or set $PSCRATCH, $CSCRATCH, or $SCRATCH')
+        sys.exit(1)
+
+if 'DESI_ROOT' in os.environ:
+    desiroot = os.environ['DESI_ROOT']+'/'
+else:
+    print('ERROR: $DESI_ROOT not yet; you likely need to run')
+    print('  source /global/cfs/cdirs/desi/software/desi_environment.sh master')
+    sys.exit(1)
+
+if args.outroot is None:
+    args.outroot = os.path.expandvars('$DESI_ROOT/survey/fiberassign/main')
+
+yearmonth = args.night[:6]
+
+if not os.path.exists(args.tempdir):
+
+    print('the root directory '+args.tempdir+' for where temporary output is meant to go does not exist; provide a different --tempdir argument')
+    sys.exit('the root directory '+args.tempdir+' for where temporary output is meant to go does not exist; provide a different --tempdir argument; exiting')
+
+#open exposures file
+exps = Table.read(desiroot+'spectro/redux/'+args.specprod+'/exposure_tables/'+yearmonth+'/exposure_table_'+args.night+'.csv')
+
+#check if tileid are in main
+tlm = Table.read(desiroot+'survey/ops/surveyops/trunk/ops/tiles-main.ecsv')
+sel = np.isin(exps['TILEID'],tlm['TILEID'])
+exps = exps[sel]
+
+
+#get the list of tileids observed on the last night
+tidl = np.unique(exps['TILEID'])
+
+print('looking at fiberassign files used on the night '+args.night)
+print('the '+str(len(tidl))+' tileids are:')
+print(tidl)
+
+
+if not os.path.exists(args.tempdir+'/fiberassign'):
+    os.makedirs(args.tempdir+'/fiberassign')
+    print('made '+args.tempdir+'/fiberassign')
+
+outdir = args.tempdir+'/fiberassign/rerun'
+if not os.path.exists(outdir):
+    os.mkdir(outdir)
+    print('made '+outdir)
+
+
+fol = [] #empty list to contain orginal fiberassign file names
+fnl = [] #empty list to contain new fiberassign file names
+
+for tid in tidl:
+    sel = exps['TILEID'] == tid
+    expid = exps[sel]['EXPID'][0] #just select one expid to get the fiberassign file
+    ff = 'fiberassign-'+str(tid).zfill(6)+'.fits.gz'
+    fn = desiroot+'spectro/data/'+args.night+'/'+str(expid).zfill(8)+'/'+ff
+    print('reproducing data for fiberassign file '+fn)
+    fol.append(fn)
+    fnl.append(outdir+'/'+str(tid).zfill(6)[:3]+'/fiberassign-'+str(tid).zfill(6)+'.fits.gz')
+    #system call run fiberassign
+    os.system('fba_rerun --infiberassign '+fn+' --outdir '+outdir+' --nosteps qa') #--dtver 1.1.1 
+
+from fiberassign.fba_rerun_io import fba_rerun_check
+docheck = True
+
+tids_passl = []
+if docheck:
+    for ii in range(0,len(fnl)):
+        dfn = outdir+'/'+str(tidl[ii])+'.diff'
+        if os.path.isfile(fnl[ii]):
+            fba_rerun_check(fol[ii], fnl[ii],dfn )  
+            if len(open(dfn).readlines())<1:
+                tids = np.genfromtxt(dfn,usecols = (3))
+                if len(tids) > 0:
+                    #tids = dd[3]
+                    sel = tids > 0
+                    if len(tids[sel]) > 0:
+                        print('found '+str(len(tids[sel]))+' positive targetid that are different')
+                        print('FOLLOW-UP NEEDED, DO NOT ALLOW ZDONE FOR TILEID '+str(tidl[ii])+'!!!')
+                    else:
+                        print('TILEID '+str(tidl[ii])+' PASSED') 
+                        tids_passl.append(tidl[ii])
+                else:
+                    print('TILEID '+str(tidl[ii])+' PASSED')          
+                    tids_passl.append(tidl[ii])
+            else:
+                print('TILEID '+str(tidl[ii])+' PASSED')          
+                tids_passl.append(tidl[ii])
+
+        else:
+            print('WHY IS THERE NO NEW FIBERASSIGN FILE FOR '+str(tidl[ii])+'!?!? (check above output for clues)')
+
+#move intermediate files for tiles that pass
+
+print('The number of tiles that is passed is '+str(len(tids_passl)))
+
+for tid in tids_passl:
+    mv_tiddir = os.path.join(args.outroot, str(tid).zfill(6)[:3])
+    if not os.path.isdir(mv_tiddir):
+        print("create {}".format(mv_tiddir))
+        os.makedirs(mv_tiddir)
+
+    for name in ["tiles", "sky", "gfa", "targ", "scnd", "too"]:        
+        fn = outdir+'/'+str(tid).zfill(6)[:3]+'/'+str(tid).zfill(6)+'-'+name+'.fits'
+        if os.path.isfile(fn):
+            mv_fn =os.path.join(mv_tiddir, os.path.basename(fn))
+            if os.path.exists(mv_fn) and not args.overwrite:
+                    print(f'Not overwriting {mv_fn}')
+            else:
+                if args.overwrite:
+                    print(f'WARNING: overwriting {mv_fn}')
+
+                print("moving {} to {}".format(fn, mv_fn))
+                shutil.move(fn, mv_fn)
+                # os.system("mv {} {}".format(fn, mv_fn))
+
+
+os.system(f"fix_permissions.sh {args.outroot}")
