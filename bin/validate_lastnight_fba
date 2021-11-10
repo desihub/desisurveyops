@@ -149,5 +149,9 @@ for tid in tids_passl:
                 shutil.move(fn, mv_fn)
                 # os.system("mv {} {}".format(fn, mv_fn))
 
-
+if len(tids_passl) == len(tidl):
+    print('SUCCESS all tiles ('+str(len(tidl))+') passed; quickly double check above that files were copied as expected')
+else:
+    print('FAIL!!! at lease one tile failed; investigate output above')
+    
 os.system(f"fix_permissions.sh {args.outroot}")
