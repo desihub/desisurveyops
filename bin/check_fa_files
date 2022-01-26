@@ -139,7 +139,7 @@ def main():
 
     # AR reporting errors
     print("")
-    print("============= MISSING FILES FOR {} TILES===============".format(sel_miss.sum()))
+    print("============= MISSING FILES FOR {} TILES ===============".format(sel_miss.sum()))
     miss[sel_miss].pprint_all()
     print("=======================================================")
     print("")
