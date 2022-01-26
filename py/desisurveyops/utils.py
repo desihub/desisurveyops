@@ -1,15 +1,19 @@
 #!/usr/bin/env python
   
 import os, sys
+import subprocess
 import numpy as np
 from astropy.io import fits
 from glob import glob
 import matplotlib.pyplot as plt
+from astropy.table import Table
 from astropy.time import Time
 import json
 import ephem
 import psycopg2
 import pandas as pd
+from desiutil.log import get_logger
+
 
 def get_outdir(verbose=False): 
     '''
@@ -235,3 +239,51 @@ def getexpidlist(night):
     return expidlist
 
 
+
+def get_fa_basename(tileid, name):
+    """
+    Small utility function to get file paths.
+
+    Args:
+        tileid: tileid (int)
+        name: "fafits", "fapng", "falog",
+                or "tile", "sky", "gfa", "targ",
+                or "scnd", "too" (str)
+
+    Returns:
+        The related fiberassign file name.
+    """
+    tileid_pad = "{:06d}".format(tileid)
+    if name == "fafits":
+        return "fiberassign-{}.fits.gz".format(tileid_pad)
+    elif name in ["fapng", "falog"]:
+        return "fiberassign-{}.{}".format(tileid_pad, name.replace("fa", ""))
+    else:
+        return "{}-{}.fits".format(tileid_pad, name)
+
+
+def get_fa_main_scndtoo_expect(tileid, program, falog):
+    """
+    Do we expect a TILEID-scnd.fits and TILEID-too.fits files for a Main tile?
+
+    Args:
+        tileid: a Main survey tileid (int)
+        program: "BACKUP", "BRIGHT", or "DARK" (str)
+        falog: full path to the fiberassign-TILEID.log file (str)
+
+    Returns:
+        exp_scnd: do we expect a TILEID-scnd.fits file? (bool)
+        exp_too: do we expect a TILEID-too.fits file? (bool)
+
+    """
+    # AR parse the fiberasign-TILEID.log file
+    lines = subprocess.check_output("grep written {}".format(falog), shell=True).decode("utf-8").replace("\t", " ").split("\n")
+    exp_scnd, exp_too = False, False
+    if program != "BACKUP":
+        exp_scnd = True
+    for line in lines:
+        line = line.split()
+        if len(line) >= 3:
+            if ("too" in line[2]) & ("no" not in line):
+                exp_too = True
+    return exp_scnd, exp_too
