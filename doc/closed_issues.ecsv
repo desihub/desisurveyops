@@ -3,8 +3,8 @@
 # datatype:
 # - {name: ISSUE, datatype: int32, description: Github desisurveyops issue number}
 # - {name: MINMAXNIGHTS, datatype: string, description: comma separated minimum/maximum nights}
-# - {name: EX_TILEID, datatype: string, description: example affected tileid}
-# - {name: EX_EXPID, datatype: string, description: example affected EXPID}
+# - {name: EX_TILEID, datatype: int32, description: example affected tileid}
+# - {name: EX_EXPID, datatype: int32, description: example affected EXPID}
 # - {name: PETALS, datatype: string, description: comma-separated list of affected PETAL_LOCs}
 # - {name: FIX_IN_ARCH, datatype: bool, description: is it fixed in archive}
 # - {name: SINGLE_EXP, datatype: bool, description: whether or not the issue only affected the single example expid}
@@ -12,4 +12,4 @@
 # meta: {EXTNAME: CLOSED_ISSUES}
 # schema: astropy-2.0
 ISSUE MINMAXNIGHTS EX_TILEID EX_EXPID PETALS FIX_IN_ARCH SINGLE_EXP COMMENT
-11 "20220106,20220106" "8" 10184 116955 False True "cosmic ray affected overscan; fixed in code"
+11 20220106,20220106 10184 116955 8 False True "cosmic ray affected overscan; fixed in code"
