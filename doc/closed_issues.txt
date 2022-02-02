@@ -1,4 +1,0 @@
-#documenting issues about tiles in desisurveyops that have been closed but not fixed at time of closing
-#columns:
-#issue_number,min_date-max_date,petal_affected_1-petal_affected_2(etc. up to n),example_tileid,example_expid,fixed_in_archive
-11,20220106-20220106,8,10184,116955,'n'
