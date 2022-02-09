@@ -13,3 +13,4 @@
 # schema: astropy-2.0
 ISSUE MINMAXNIGHTS EX_TILEID EX_EXPID PETALS FIX_IN_ARCH SINGLE_EXP COMMENT
 11 20220106,20220106 10184 116955 8 False True "cosmic ray affected overscan; fixed in code"
+20 20220205,20220205 4402 121487 8 False True "cosmic ray affected overscan"
