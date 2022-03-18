@@ -16,3 +16,4 @@ ISSUE MINMAXNIGHTS EX_TILEID EX_EXPID PETALS FIX_IN_ARCH SINGLE_EXP COMMENT
 20 20220205,20220205 4402 121487 8 False True "cosmic ray affected overscan"
 26 20220221,20220221 26071 123246 2 False True "bright star blasted P2, led to larger than usual sky residuals"
 19 20220202,20220202 7705 121147 8 False False "b8 noisier than usual on 20220202"
+11 20220106,20220106 10184 116955 8 False True "cosmic contaminated overscan and led to spurious redshifts"
