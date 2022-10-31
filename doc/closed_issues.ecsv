@@ -17,3 +17,4 @@ ISSUE MINMAXNIGHTS EX_TILEID EX_EXPID PETALS FIX_IN_ARCH SINGLE_EXP COMMENT
 26 20220221,20220221 26071 123246 2 False True "bright star blasted P2, led to larger than usual sky residuals"
 19 20220202,20220202 7705 121147 8 False False "b8 noisier than usual on 20220202"
 11 20220106,20220106 10184 116955 8 False True "cosmic contaminated overscan and led to spurious redshifts"
+47 20220509,20220509 3298 134023 3 False True "bad cosmic ray missing masking.  Now fixed, but not propagated to daily/archive."
