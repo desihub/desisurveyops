@@ -18,3 +18,8 @@ ISSUE MINMAXNIGHTS EX_TILEID EX_EXPID PETALS FIX_IN_ARCH SINGLE_EXP COMMENT
 19 20220202,20220202 7705 121147 8 False False "b8 noisier than usual on 20220202"
 11 20220106,20220106 10184 116955 8 False True "cosmic contaminated overscan and led to spurious redshifts"
 47 20220509,20220509 3298 134023 3 False True "bad cosmic ray missing masking.  Now fixed, but not propagated to daily/archive."
+74 20221031,20221112 1304 151010 0,1,2,3,4,5,6,7,8,9 False False "All tiles in this period affected by bad guiding.  The worst were marked bad and reprocessed, but every tile is affected at some level."
+78 20221121,20221121 25007 154146 0,1,2,3,4,5,6,7,8,9 False False "Unstable amplifiers on this night; CCDs take a long time to settle down after restarting.  We marked the worst exposures as bad but all are affected at some level.  Some petals are worse than others."
+79 20221121,20221121 10267 154164 0,1,2,3,4,5,6,7,8,9 False False "Unstable amplifiers on this night."
+79 20221123,20221123 3112 154511 0,1,2,3,4,5,6,7,8,9 False False "Unstable amplifiers on this night."
+88 20221209,20221209 22856 157134 0,1,2,3,4,5,6,7,8,9 False False "Unstable amplifiers following spectrograph restart on this night."
