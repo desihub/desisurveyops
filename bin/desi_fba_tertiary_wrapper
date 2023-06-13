@@ -48,7 +48,6 @@ def main():
 
     # AR some settings
     fadir = args.targdir
-    std_survey = "main"  # AR fiberassign settings, only for the standard stars
     hdr_survey = "special"  # AR what will be recorded in the fiberassign header
 
     # AR grab some fiberassign settings from TARGFN header
@@ -58,6 +57,20 @@ def main():
     obsconds = hdr["OBSCONDS"]
     sbprof = hdr["SBPROF"]
     goaltime = hdr["GOALTIME"]
+
+    # AR fiberassign settings, only for the standard stars
+    std_survey = "main"
+    if args.std_dtver == "2.2.0":
+        std_faprgrm = "BACKUP"
+        log.info("args.std_dtver=2.2.0 => using BACKUP stars for standard stars")
+    else:
+        if not obsconds in ["BRIGHT", "DARK"]:
+            msg = "obsconds={} => only BRIGHT or DARK authorized for std_dtver={}".format(
+                obsconds, sargs.std_dtver
+            )
+            log.error(msg)
+            raise ValueError(msg)
+        std_faprgrm = obsconds
 
     # AR tiles
     tilesfn = get_fn(args.prognum, "tiles", args.targdir)
@@ -98,12 +111,12 @@ def main():
         # AR rundate
         cmd = "{} --rundate {}".format(cmd, args.rundate)
         # AR tertiary program settings
-        cmd = "{} --program {} --sbprof {} --goaltime {}".format(
-            cmd, obsconds, sbprof, goaltime
+        cmd = "{} --sbprof {} --goaltime {}".format(
+            cmd, sbprof, goaltime
         )
         # AR standard stars settings
-        cmd = "{} --survey {} --dtver {} --targ_std_only".format(
-            cmd, std_survey, args.std_dtver
+        cmd = "{} --survey {} --program {} --dtver {} --targ_std_only".format(
+            cmd, std_survey, std_faprgrm, args.std_dtver
         )
         # AR no secondary
         cmd = "{} --nosteps scnd".format(cmd)
