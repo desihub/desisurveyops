@@ -120,8 +120,8 @@ def main():
         )
         # AR no secondary
         cmd = "{} --nosteps scnd".format(cmd)
-        # AR SURVEY and FAPRGRM header keywords
-        cmd = "{} --hdr_survey {} --hdr_faprgrm {}".format(cmd, hdr_survey, hdr_faprgrm)
+        # AR GOALTIME, SURVEY and FAPRGRM header keywords
+        cmd = "{} --goaltype {} --hdr_survey {} --hdr_faprgrm {}".format(cmd, obsconds, hdr_survey, hdr_faprgrm)
         # AR ToO file
         cmd = "{} --too_tile --custom_too_file {}".format(cmd, toofn)
         log.info(cmd)
