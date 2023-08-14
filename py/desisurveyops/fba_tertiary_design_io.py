@@ -152,7 +152,7 @@ def print_tertiary_settings_help():
     print(" - sbprof: 'ELG', 'BGS', or 'PSF'")
     print(" - goaltime: per-tile goal effective time in seconds")
     print(" - std_dtver: main desitarget catalog version to pick the standard stars")
-    print("    '1.1.0' if inside the ls-dr9 footprint")
+    print("    '1.1.1' if inside the ls-dr9 footprint")
     print("    '2.2.0' if outside the ls-dr9 footprint (to pick gaia stars)")
     print(" - np_rand_seed: numpy random seed, usually set to 1234")
     print("")
@@ -187,7 +187,9 @@ def assert_tertiary_settings(mydict):
     assert_isoformat_utc(mydict["rundate"])
     assert mydict["obsconds"] in ["BACKUP", "BRIGHT", "DARK"]
     assert mydict["sbprof"] in ["ELG", "BGS", "PSF"]
-    assert mydict["std_dtver"] in ["1.1.0", "2.2.0"]
+    # AR for PROGNUM=34, std_dtver was by mistake set to 1.1.0 instead of 1.1.1
+    if mydict["prognum"] != 34:
+        assert mydict["std_dtver"] in ["1.1.1", "2.2.0"]
 
 
 def get_fn(prognum, case, targdir):
