@@ -187,8 +187,8 @@ def assert_tertiary_settings(mydict):
     assert_isoformat_utc(mydict["rundate"])
     assert mydict["obsconds"] in ["BACKUP", "BRIGHT", "DARK"]
     assert mydict["sbprof"] in ["ELG", "BGS", "PSF"]
-    # AR for PROGNUM=34, std_dtver was by mistake set to 1.1.0 instead of 1.1.1
-    if mydict["prognum"] != 34:
+    # AR for PROGNUM=33, std_dtver was by mistake set to 1.1.0 instead of 1.1.1
+    if mydict["prognum"] != 33:
         assert mydict["std_dtver"] in ["1.1.1", "2.2.0"]
 
 
