@@ -1,0 +1,23 @@
+# overall settings
+settings:
+    prognum : 34
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0034"
+    ntile : 3
+    tileid_start : 83390
+    rundate : "2023-06-13T17:00:00+00:00"
+    obsconds : "BRIGHT"
+    sbprof : "BGS"
+    goaltime : 180
+    std_dtver : "2.2.0"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    PV_BRIGHT_TIER1 : {"PRIORITY_INIT" : 7000, "NGOAL" : 1, "CHECKER" : "AP", "FN" : "PV_targets_w_tiers.fits"}
+    PV_BRIGHT_TIER2 : {"PRIORITY_INIT" : 6000, "NGOAL" : 1, "CHECKER" : "AP", "FN" : "PV_targets_w_tiers.fits"}
+    PV_BRIGHT_TIER3 : {"PRIORITY_INIT" : 5000, "NGOAL" : 1, "CHECKER" : "AP", "FN" : "PV_targets_w_tiers.fits"}
+    DR10_BGS_BRIGHT : {"PRIORITY_INIT" : 2100, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "targets-bright-hp-X.fits"}
+    DR10_BGS_FAINT_HIP : {"PRIORITY_INIT" : 2100, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "targets-bright-hp-X.fits"}
+    DR10_BGS_FAINT : {"PRIORITY_INIT" : 2000, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "targets-bright-hp-X.fits"}
+    DR10_BGS_WISE : {"PRIORITY_INIT" : 2000, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "targets-bright-hp-X.fits"}
+    DR10_STD : {"PRIORITY_INIT" : 1000, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "targets-bright-hp-X.fits"}

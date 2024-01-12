@@ -1,0 +1,133 @@
+#!/usr/bin/env python
+
+import os
+import fitsio
+import numpy as np
+from astropy.io import fits
+from astropy.table import Table
+from desiutil.log import get_logger
+from fiberassign.fba_tertiary_io import get_toofn
+from desisurveyops.fba_tertiary_design_io import get_fn
+from argparse import ArgumentParser
+
+log = get_logger()
+
+
+def parse():
+    parser = ArgumentParser()
+    parser.add_argument("--prognum", help="tertiary PROGNUM", type=int, default=None)
+    parser.add_argument(
+        "--targdir", help="folder where everything is done", type=str, default=None
+    )
+    parser.add_argument(
+        "--rundate",
+        help="rundate (format: YYY-MM-DD-Thh:mm:ss+00:00",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--std_dtver",
+        help="DTVER for the standard stars (use 1.1.1 if inside the LS-DR9 footprint, 2.2.0 outside)",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--dry_run",
+        help="do not execute any command, just print on the prompt",
+        action="store_true",
+    )
+    args = parser.parse_args()
+    for kwargs in args._get_kwargs():
+        log.info("{} = {}".format(kwargs[0], kwargs[1]))
+    return args
+
+
+def main():
+
+    args = parse()
+
+    # AR some settings
+    fadir = args.targdir
+    hdr_survey = "special"  # AR what will be recorded in the fiberassign header
+
+    # AR grab some fiberassign settings from TARGFN header
+    targfn = get_fn(args.prognum, "targets", args.targdir)
+    hdr = fits.getheader(targfn, "TARGETS")
+    hdr_faprgrm = hdr["FAPRGRM"]
+    obsconds = hdr["OBSCONDS"]
+    sbprof = hdr["SBPROF"]
+    goaltime = hdr["GOALTIME"]
+
+    # AR fiberassign settings, only for the standard stars
+    std_survey = "main"
+    if args.std_dtver == "2.2.0":
+        std_faprgrm = "BACKUP"
+        log.info("args.std_dtver=2.2.0 => using BACKUP stars for standard stars")
+    else:
+        if not obsconds in ["BRIGHT", "DARK"]:
+            msg = "obsconds={} => only BRIGHT or DARK authorized for std_dtver={}".format(
+                obsconds, sargs.std_dtver
+            )
+            log.error(msg)
+            raise ValueError(msg)
+        std_faprgrm = obsconds
+
+    # AR tiles
+    tilesfn = get_fn(args.prognum, "tiles", args.targdir)
+    tiles = Table.read(tilesfn)
+    ntile = len(tiles)
+
+    # AR loop on tiles
+    for i in range(ntile):
+
+        # AR tile properties
+        tileid = tiles["TILEID"][i]
+        tilera, tiledec = tiles["RA"][i], tiles["DEC"][i]
+        tileha = tiles["DESIGNHA"][i]
+
+        # AR ToO files
+        toofn = get_toofn(args.prognum, tileid, targdir=args.targdir)
+        logfn = toofn.replace(".ecsv", ".log")
+        log.info("toofn = {}".format(toofn))
+
+        # AR fba_tertiary_too call
+        cmd = "fba_tertiary_too --tileid {} --tilera {} --tiledec {} --targdir {} --fadir {} --prognum {}".format(
+            tileid, tilera, tiledec, args.targdir, fadir, args.prognum
+        )
+        if i >= 1:
+            prev_tileids = ",".join(tiles["TILEID"][:i].astype(str))
+            cmd = "{} --previous_tileids {}".format(cmd, prev_tileids)
+        cmd = "{} > {} 2>&1".format(cmd, logfn)
+        log.info(cmd)
+        if not args.dry_run:
+            os.system(cmd)
+
+        # AR fba_launch call
+        cmd = "fba_launch --outdir {}".format(fadir)
+        # AR tiles
+        cmd = "{} --tileid {} --tilera {} --tiledec {} --ha {}".format(
+            cmd, tileid, tilera, tiledec, tileha
+        )
+        # AR rundate
+        cmd = "{} --rundate {}".format(cmd, args.rundate)
+        # AR tertiary program settings
+        cmd = "{} --sbprof {} --goaltime {}".format(
+            cmd, sbprof, goaltime
+        )
+        # AR standard stars settings
+        cmd = "{} --survey {} --program {} --dtver {} --targ_std_only".format(
+            cmd, std_survey, std_faprgrm, args.std_dtver
+        )
+        # AR no secondary
+        cmd = "{} --nosteps scnd".format(cmd)
+        # AR GOALTIME, SURVEY and FAPRGRM header keywords
+        cmd = "{} --goaltype {} --hdr_survey {} --hdr_faprgrm {}".format(cmd, obsconds, hdr_survey, hdr_faprgrm)
+        # AR ToO file
+        cmd = "{} --too_tile --custom_too_file {}".format(cmd, toofn)
+        log.info(cmd)
+        if not args.dry_run:
+            os.system(cmd)
+
+
+if __name__ == "__main__":
+    main()

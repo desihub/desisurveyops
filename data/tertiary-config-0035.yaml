@@ -1,0 +1,21 @@
+# overall settings
+settings:
+    prognum : 35
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0035"
+    ntile : 1
+    tileid_start : 83393
+    rundate : "2023-06-13T17:00:00+00:00"
+    obsconds : "DARK"
+    sbprof : "BGS"
+    goaltime : 1000
+    std_dtver : "2.2.0"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    PV_DARK_TIER1 : {"PRIORITY_INIT" : 7000, "NGOAL" : 1, "CHECKER" : "AP", "FN" : "PV_targets_w_tiers.fits"}
+    PV_DARK_TIER2 : {"PRIORITY_INIT" : 6000, "NGOAL" : 1, "CHECKER" : "AP", "FN" : "PV_targets_w_tiers.fits"}
+    PV_DARK_TIER3 : {"PRIORITY_INIT" : 5000, "NGOAL" : 1, "CHECKER" : "AP", "FN" : "PV_targets_w_tiers.fits"}
+    LOWZ_DARK_TIER1 : {"PRIORITY_INIT" : 7000, "NGOAL" : 1, "CHECKER" : "EDF", "FN" : "LOWZ_targets_w_tiers.fits"}
+    LOWZ_DARK_TIER2: {"PRIORITY_INIT" : 6000, "NGOAL" : 1, "CHECKER" : "EDF", "FN" : "LOWZ_targets_w_tiers.fits"}
+    LOWZ_DARK_TIER3: {"PRIORITY_INIT" : 5000, "NGOAL" : 1, "CHECKER" : "EDF", "FN" : "LOWZ_targets_w_tiers.fits"}

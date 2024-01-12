@@ -1,0 +1,20 @@
+# overall settings
+settings:
+    prognum : 33
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0033"
+    ntile : 24
+    tileid_start : 83366
+    rundate : "2023-05-30T17:00:00+00:00"
+    obsconds : "BRIGHT"
+    sbprof : "PSF"
+    goaltime : 300
+    std_dtver : "1.1.0"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    PACE_MEM_UMI : {"PRIORITY_INIT" : 5100, "NGOAL" : 6, "CHECKER" : "TSL", "FN" : "umi_desi2sel_4deg.fits"}
+    BRIGHT_PM_UMI : {"PRIORITY_INIT" : 5090, "NGOAL" : 6, "CHECKER" : "TSL", "FN" : "umi_desi2sel_4deg.fits"}
+    OBSERVED_UMI : {"PRIORITY_INIT" : 5008, "NGOAL" : 6, "CHECKER" : "TSL", "FN" : "umi_desi2sel_4deg.fits"}
+    FAINT_NOPM_UMI : {"PRIORITY_INIT" : 5007, "NGOAL" : 18, "CHECKER" : "TSL", "FN" : "umi_desi2sel_4deg.fits"}
+    FILLER : {"PRIORITY_INIT" : 5002, "NGOAL" : 1, "CHECKER" : "TSL", "FN" : "umi_desi2sel_4deg.fits"}
