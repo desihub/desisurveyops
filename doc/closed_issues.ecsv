@@ -24,3 +24,4 @@ ISSUE MINMAXNIGHTS EX_TILEID EX_EXPID PETALS FIX_IN_ARCH SINGLE_EXP COMMENT
 79 20221123,20221123 3112 154511 0,1,2,3,4,5,6,7,8,9 False False "Unstable amplifiers on this night."
 88 20221209,20221209 22856 157134 0,1,2,3,4,5,6,7,8,9 False False "Unstable amplifiers following spectrograph restart on this night."
 156 20231028,20231028 20542 202421 0,1,2,3,4,5,6,7,8,9 False True "Unstable amplifiers following spectrograph restart; we failed to catch this particular exposure."
+168 20231202,20231212 0 0 1 True False "We replaced z1 but ran it for 10 days with a problematic configuration that led to weird residuals near the amp boundary.  We eventually updated the timing file to fix the issue, and ended up marking all z1 observations during this time as bad and re-archiving and MTLing them."
