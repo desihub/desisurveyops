@@ -1,0 +1,26 @@
+# overall settings
+settings:
+    prognum : 37
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0037"
+    ntile : 20
+    tileid_start : 83424
+    rundate : "2024-02-15T17:00:00+00:00"
+    obsconds : "DARK"
+    sbprof : "ELG"
+    goaltime : 1000
+    std_dtver : "1.1.1"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    LBG_SUPRIME_NEW : {"PRIORITY_INIT" : 8000, "NGOAL" : 15, "CHECKER" : "AR", "FN" : "cosmos_yr3-lbg-suprime.fits"}
+    LBG_SUPRIME_2H_NEW: {"PRIORITY_INIT" : 7500, "NGOAL" : 8, "CHECKER" : "AR", "FN" : "cosmos_yr3-lbg-suprime.fits"}
+    LBG_HSC_NEW : {"PRIORITY_INIT" : 7000, "NGOAL" : 8, "CHECKER" : "AR", "FN" : "cosmos_yr3-lbg-hsc.fits"}
+    LBG_HSC_REOBS : {"PRIORITY_INIT" : 7000, "NGOAL" : 8, "CHECKER" : "AR", "FN" : "cosmos_yr3-lbg-hsc.fits"}
+    LBG_UNIONS_NEW : {"PRIORITY_INIT" : 6000, "NGOAL" : 8, "CHECKER" : "CP", "FN" : "cosmos_yr3-lbg-unions.fits"}
+    LBG_UNIONS_REOBS : {"PRIORITY_INIT" : 6000, "NGOAL" : 8, "CHECKER" : "CP", "FN" : "cosmos_yr3-lbg-unions.fits"}
+    LBG_SUPRIME_REOBS : {"PRIORITY_INIT" : 5000, "NGOAL" : 15, "CHECKER" : "AR", "FN" : "cosmos_yr3-lbg-suprime.fits"}
+    FILLER_GALFAINT : {"PRIORITY_INIT" : 4900, "NGOAL" : 3, "CHECKER" : "DJS", "FN" : "COSMOS-spare-galaxies-faint.fits"}
+    FILLER_PSFOUTL : {"PRIORITY_INIT" : 4900, "NGOAL" : 3, "CHECKER" : "DJS", "FN" : "COSMOS-spare-psf-outlier.fits"}
+    FILLER_GALBRGT : {"PRIORITY_INIT" : 4800, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-galaxies-bright.fits"}
+    FILLER_PSFSTAR : {"PRIORITY_INIT" : 4700, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-psf-stars.fits"}
