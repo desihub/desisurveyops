@@ -1,0 +1,17 @@
+# overall settings
+settings:
+    prognum : 38
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0038"
+    ntile : 25
+    tileid_start : 83444
+    rundate : "2024-03-06T17:00:56+00:00"
+    obsconds : "DARK"
+    sbprof : "ELG"
+    goaltime : 1000
+    std_dtver : "1.1.1"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    ELG_PRINCIPAL: {"PRIORITY_INIT" : 8000, "NGOAL" : 1, "CHECKER" : "RZ", "FN" : "cosmos_spectro_truth_targets.fits"}
+    ODIN_FILLER : {"PRIORITY_INIT" : 7000, "NGOAL" : 5, "CHECKER" : "AR", "FN" : "odin-n419-n501-unobs.fits"}
