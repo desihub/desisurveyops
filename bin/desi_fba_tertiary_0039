@@ -1,0 +1,205 @@
+#!/usr/bin/env python
+
+import os
+import fitsio
+import numpy as np
+from astropy.io import fits
+from astropy.table import Table, vstack
+from desiutil.log import get_logger
+from desiutil.redirect import stdouterr_redirected
+from desisurveyops.fba_tertiary_design_io import (
+    assert_environ_settings,
+    get_fn,
+    read_yaml,
+    assert_tertiary_settings,
+    get_tile_centers_rosette,
+    create_tiles_table,
+    creates_priority_table,
+    subsample_targets_avail,
+    finalize_target_table,
+    assert_files,
+    create_targets_assign,
+    plot_targets_assign,
+)
+from argparse import ArgumentParser
+
+# AR message to ensure that some key settings in the environment are correctly set                                                                                              
+# AR put it at the very top, so that it appears first, and is not redirected
+# AR    (=burried) in the log file
+assert_environ_settings()
+
+log = get_logger()
+
+
+def parse():
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--yamlfn",
+        help="path to the tertiary-config-PROGNUMPAD.yaml file",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--steps",
+        help="comma-separated list of steps to execute (default='tiles,priorities,targets,run,diagnosis')",
+        type=str,
+        default="tiles,priorities,targets,run,diagnosis",
+    )
+    parser.add_argument(
+        "--dry_run",
+        action="store_true",
+        help="for the 'run' step, only print the commands on the prompt",
+    )
+    parser.add_argument(
+        "--log-stdout",
+        "--log_stdout",
+        action="store_true",
+        help="log to stdout instead of redirecting to a file",
+    )
+    args = parser.parse_args()
+    for kwargs in args._get_kwargs():
+        log.info("{} = {}".format(kwargs[0], kwargs[1]))
+    return args
+
+
+# AR 3 tiles on a 11-pt rosette
+def create_tiles(tileid_start, ntile, obsconds, outfn):
+    field_ra, field_dec = 150.1, 2.182
+    npt = 3 # rosette points
+    tileids = np.arange(tileid_start, tileid_start + ntile, dtype=int)
+    tmpras, tmpdecs = get_tile_centers_rosette(field_ra, field_dec, npt=npt, rad=0.12)
+    tileras = np.tile(tmpras, ntile // npt + 1)
+    tiledecs = np.tile(tmpdecs, ntile // npt + 1)
+    tileras, tiledecs = tileras[:ntile], tiledecs[:ntile]
+    assert tileras.size == ntile
+    assert tiledecs.size == ntile
+    d = create_tiles_table(tileids, tileras, tiledecs, obsconds)
+    d.write(outfn)
+
+
+# AR "usual" priorities
+def create_priorities(yamlfn, outfn):
+    d = creates_priority_table(yamlfn)
+    # AR print
+    d.pprint_all()
+    for sample in np.unique(d["TERTIARY_TARGET"]):
+        sel = d["TERTIARY_TARGET"] == sample
+        log.info("priorites for {}: {}".format(sample, d["PRIORITY"][sel].tolist()))
+    d.write(outfn)
+
+# email from DJS from 3/17/24, 1:17 PM
+# COSMOS-spare-brightest.fits contains three samples:
+# - extended
+# - psf_not_main
+# - other
+# targets are ordered by:
+# - sample (extended, then psf_not_main, then other)
+# - increasing fibermag within each sample
+# we use here these properties to identify the samples
+#   it s bit fragile but works...
+def create_targets(yamlfn, outfn):
+    # AR input cat
+    config = read_yaml(yamlfn)
+    targdir = config["settings"]["targdir"]
+    samples = np.array(list(config["samples"].keys()))
+    infns = [config["samples"][sample]["FN"] for sample in samples]
+    assert np.unique(infns).size == 1
+    infn = infn = os.path.join(targdir, "inputcats", infns[0])
+
+    d = Table(fitsio.read(infn))
+
+    # first identify each sample
+    ii = np.where(np.diff(d["FIBERMAG"]) < 0)[0]
+    assert ii.size == 2
+    all_ii = np.arange(len(d), dtype=int)
+    mysels = {
+        "EXTENDED" : all_ii <= ii[0],
+        "PSFNOTMS" : (all_ii > ii[0]) & (all_ii <= ii[1]),
+        "OTHER" : all_ii > ii[1],
+    }
+
+    # then split each sample in 10 fibermag bins
+    nbin = 10
+    d["TERTIARY_TARGET"] = np.zeros(len(d), dtype=object)
+    for name in mysels:
+        ii = np.where(mysels[name])[0]
+        for j in range(nbin):
+            jmin = int(ii.size / nbin) * j
+            if j == nbin - 1:
+                jmax = ii.size
+            else:
+                jmax = int(ii.size / nbin) * (j + 1)
+            jj = ii[jmin:jmax]
+            assert np.all(d["TERTIARY_TARGET"][jj] == 0)
+            d["TERTIARY_TARGET"][jj] = "{}_Q{}".format(name, j)
+    d["TERTIARY_TARGET"] = d["TERTIARY_TARGET"].astype(str)
+
+    d["ORIG_ROW"] = np.arange(len(d), dtype=int)
+    d["ORIG_FN"] = infn
+    keep_keys = ["RA", "DEC", "PMRA", "PMDEC", "REF_EPOCH", "ORIG_ROW", "ORIG_FN", "TERTIARY_TARGET"]
+    d = d[keep_keys]  # AR re-order columns at the same time as selecting
+
+    # AR finalize
+    d = finalize_target_table(d, yamlfn)
+    d.meta["RANDSEED"] = read_yaml(yamlfn)["settings"]["np_rand_seed"]
+    d.write(outfn)
+
+
+def main():
+
+    # AR read + assert settings
+    mydict = read_yaml(args.yamlfn)["settings"]
+    assert_tertiary_settings(mydict)
+    prognum, targdir = mydict["prognum"], mydict["targdir"]
+
+    # AR set random seed (for SUBPRIORITY reproducibility)
+    np.random.seed(mydict["np_rand_seed"])
+
+    # AR tiles file
+    if "tiles" in args.steps.split(","):
+        tilesfn = get_fn(prognum, "tiles", targdir)
+        log.info("run create_tiles() to generate {}".format(tilesfn))
+        create_tiles(
+            mydict["tileid_start"], mydict["ntile"], mydict["obsconds"], tilesfn
+        )
+
+    # AR priorities file
+    if "priorities" in args.steps.split(","):
+        priofn = get_fn(prognum, "priorities", targdir)
+        log.info("run create_priorities() to generate {}".format(priofn))
+        create_priorities(args.yamlfn, priofn)
+
+    # AR targets file
+    if "targets" in args.steps.split(","):
+        targfn = get_fn(prognum, "targets", targdir)
+        log.info("run create_targets() to generate {}".format(targfn))
+        create_targets(args.yamlfn, targfn)
+
+    # AR sanity checks + run
+    if "run" in args.steps.split(","):
+        assert_files(prognum, targdir)
+        cmd = "desi_fba_tertiary_wrapper --prognum {} --targdir {} --rundate {} --std_dtver {}".format(
+            prognum, targdir, mydict["rundate"], mydict["std_dtver"]
+        )
+        if args.dry_run:
+            cmd = "{} --dry_run".format(cmd)
+        log.info(cmd)
+        os.system(cmd)
+
+    # AR diagnosis
+    if "diagnosis" in args.steps.split(","):
+        create_targets_assign(prognum, targdir)
+        plot_targets_assign(prognum, targdir)
+
+
+if __name__ == "__main__":
+
+    args = parse()
+
+    if args.log_stdout:
+        main()
+    else:
+        _ = read_yaml(args.yamlfn)["settings"]
+        logfn = get_fn(_["prognum"], "log", _["targdir"])
+        with stdouterr_redirected(to=logfn):
+            main()
