@@ -1,0 +1,45 @@
+# overall settings
+settings:
+    prognum : 39
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0039"
+    ntile : 3
+    tileid_start : 83469
+    rundate : "2024-03-23T17:00:00+00:00"
+    obsconds : "BRIGHT"
+    sbprof : "PSF"
+    goaltime : 60
+    std_dtver : "1.1.1"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    EXTENDED_Q0 : {"PRIORITY_INIT" : 8010, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    EXTENDED_Q1 : {"PRIORITY_INIT" : 8009, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    EXTENDED_Q2 : {"PRIORITY_INIT" : 8008, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    EXTENDED_Q3 : {"PRIORITY_INIT" : 8007, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    EXTENDED_Q4 : {"PRIORITY_INIT" : 8006, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    EXTENDED_Q5 : {"PRIORITY_INIT" : 8005, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    EXTENDED_Q6 : {"PRIORITY_INIT" : 8004, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    EXTENDED_Q7 : {"PRIORITY_INIT" : 8003, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    EXTENDED_Q8 : {"PRIORITY_INIT" : 8002, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    EXTENDED_Q9 : {"PRIORITY_INIT" : 8001, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    PSFNOTMS_Q0 : {"PRIORITY_INIT" : 7010, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    PSFNOTMS_Q1 : {"PRIORITY_INIT" : 7009, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    PSFNOTMS_Q2 : {"PRIORITY_INIT" : 7008, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    PSFNOTMS_Q3 : {"PRIORITY_INIT" : 7007, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    PSFNOTMS_Q4 : {"PRIORITY_INIT" : 7006, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    PSFNOTMS_Q5 : {"PRIORITY_INIT" : 7005, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    PSFNOTMS_Q6 : {"PRIORITY_INIT" : 7004, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    PSFNOTMS_Q7 : {"PRIORITY_INIT" : 7003, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    PSFNOTMS_Q8 : {"PRIORITY_INIT" : 7002, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    PSFNOTMS_Q9 : {"PRIORITY_INIT" : 7001, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    OTHER_Q0 : {"PRIORITY_INIT" : 6010, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    OTHER_Q1 : {"PRIORITY_INIT" : 6009, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    OTHER_Q2 : {"PRIORITY_INIT" : 6008, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    OTHER_Q3 : {"PRIORITY_INIT" : 6007, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    OTHER_Q4 : {"PRIORITY_INIT" : 6006, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    OTHER_Q5 : {"PRIORITY_INIT" : 6005, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    OTHER_Q6 : {"PRIORITY_INIT" : 6004, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    OTHER_Q7 : {"PRIORITY_INIT" : 6003, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    OTHER_Q8 : {"PRIORITY_INIT" : 6002, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
+    OTHER_Q9 : {"PRIORITY_INIT" : 6001, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "COSMOS-spare-brightest.fits"}
