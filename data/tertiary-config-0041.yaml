@@ -1,0 +1,22 @@
+# overall settings
+settings:
+    prognum : 41
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0041"
+    ntile : 4
+    tileid_start : 83475
+    rundate : "2024-07-10T17:00:00+00:00"
+    obsconds : "DARK"
+    sbprof : "ELG"
+    goaltime : 1000
+    std_dtver : "1.1.1"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    CFIS_LYA : {"PRIORITY_INIT" : 9000, "NGOAL" : 1, "CHECKER" : "CY", "FN" : "new_qso_lya__eq_stripe_targets-20240710-nomainqso.fits"}
+    DES_MLY3_HI : {"PRIORITY_INIT" : 8000, "NGOAL" : 1, "CHECKER" : "NW", "FN" : "des_mly3.fits"}
+    DES_MLY3_LO : {"PRIORITY_INIT" : 7500, "NGOAL" : 1, "CHECKER" : "NW", "FN" : "des_mly3.fits"}
+    DES_MLY3_FILLER : {"PRIORITY_INIT" : 6000, "NGOAL" : 1, "CHECKER" : "NW", "FN" : "des_mly3.fits"}
+    DES_MLY3_FILLER2 : {"PRIORITY_INIT" : 5500, "NGOAL" : 1, "CHECKER" : "NW", "FN" : "des_mly3.fits"}
+    DES_MLY3_FILLER3 : {"PRIORITY_INIT" : 5000, "NGOAL" : 1, "CHECKER" : "NW", "FN" : "des_mly3.fits"}
+    DES_MLY3_FILLER4 : {"PRIORITY_INIT" : 4500, "NGOAL" : 1, "CHECKER" : "NW", "FN" : "des_mly3.fits"}
