@@ -3,7 +3,7 @@ on:
   schedule:
     # Scheduled time day 1 of month, 15:33 UTC
     # - cron: 33 15 1 * *
-    - cron: 50 12 13 * *
+    - cron: 59 14 13 * *
 
 jobs:
   create_issue:
@@ -38,7 +38,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TITLE: Monthly Ops tasks for ${{ env.THEMONTH }}
-          ASSIGNEES: sybenzvi, geordie666
+          ASSIGNEES: sybenzvi
           LABELS: monthlyops
           BODY: |
             ### MonthlyOps Tasks
