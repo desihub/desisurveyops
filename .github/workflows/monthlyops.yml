@@ -1,9 +1,8 @@
 name: Monthly Ops
 on:
   schedule:
-    # Scheduled time day 1 of month, 15:33 UTC
-    # - cron: 33 15 1 * *
-    - cron: 59 14 13 * *
+    # Scheduled time: day 1 of month, 15:33 UTC / 07:33 PST
+    - cron: 33 15 1 * *
 
 jobs:
   create_issue:
