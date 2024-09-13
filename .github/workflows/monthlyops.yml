@@ -1,0 +1,57 @@
+name: Monthly Ops
+on:
+  schedule:
+    # Scheduled time day 1 of month, 15:33 UTC
+    # - cron: 33 15 1 * *
+    - cron: 50 12 13 * *
+
+jobs:
+  create_issue:
+    name: Monthly Ops
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Set the month
+        run: echo "THEMONTH=$(date +'%Y-%m')" >> $GITHUB_ENV
+      - name: Create monthly tasks issue
+        run: |
+          if [[ $CLOSE_PREVIOUS == true ]]; then
+            previous_issue_number=$(gh issue list \
+              --label "$LABELS" \
+              --json number \
+              --jq '.[0].number')
+            if [[ -n $previous_issue_number ]]; then
+              gh issue close "$previous_issue_number"
+              gh issue unpin "$previous_issue_number"
+            fi
+          fi
+          new_issue_url=$(gh issue create \
+            --title "$TITLE" \
+            --assignee "$ASSIGNEES" \
+            --label "$LABELS" \
+            --body "$BODY")
+          if [[ $PINNED == true ]]; then
+            gh issue pin "$new_issue_url"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: Monthly Ops tasks for ${{ env.THEMONTH }}
+          ASSIGNEES: sybenzvi, geordie666
+          LABELS: monthlyops
+          BODY: |
+            ### MonthlyOps Tasks
+
+            Survey operations that need to be completed every month. See the [DESI SurveyOps wiki](https://desi.lbl.gov/trac/wiki/SurveyOps/MonthlyOps) for details and the [Monthly Survey Ops](https://github.com/orgs/desihub/projects/52) project for past issues and tasks.
+            
+            - [ ] Review survey progress
+            - [ ] Review status of problematic exposures/tiles
+            - [ ] Test for fiberassign ancillary files
+            - [ ] Review redshift distributions stacked across tiles for the month
+            - [ ] Update thresholds for QA metrics used by Nightwatch
+            - [ ] Review open Nightwatch and desisurveyops tickets
+
+            ### Add Discussion Below
+          PINNED: false
+          CLOSE_PREVIOUS: false
