@@ -2,7 +2,6 @@
 
 import os
 from desisurvey import forecast
-from importlib import reload
 import matplotlib.pyplot as plt
 
 from desiutil.log import get_logger
@@ -38,8 +37,6 @@ _ = os.system("svn up $SURVEYOPS/ops")
 os.environ['DESISURVEY_OUTPUT'] = ns.desisurveyoutput
 
 plt.clf()
-
-reload(forecast)
 
 # ADM local location of config-main-nominal.yaml file.
 cfgfile = '../data/config-main-nominal.yaml'
