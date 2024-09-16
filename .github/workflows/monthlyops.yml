@@ -46,7 +46,7 @@ jobs:
             
             - [ ] Review survey progress
             - [ ] Review status of problematic exposures/tiles
-	    - [ ] Check for tiles with missing QA
+            - [ ] Check for tiles with missing QA
             - [ ] Test for fiberassign ancillary files
             - [ ] Review redshift distributions stacked across tiles for the month
             - [ ] Update thresholds for QA metrics used by Nightwatch
