@@ -9,7 +9,7 @@ log = get_logger()
 
 from argparse import ArgumentParser
 ap = ArgumentParser(description=("Generates monthly status plot. For example:"
-                    "make_monthly_plot 20240725 20240826 $SCRATCH")
+                    " make_monthly_plot 20240725 20240826 $SCRATCH")
                     )
 ap.add_argument("nightbegin",
                 help=("First night of interest (YYYYMMDD). Typically a month "
@@ -19,7 +19,9 @@ ap.add_argument("nightend",
                 help=("Final night of interest (YYYYMMDD). Typically today.")
                 )
 ap.add_argument("desisurveyoutput",
-                help=("Directory to write plots and ephemeris files")
+                help=("Directory to write plots and ephemerides file. The "
+                "ephemerides file will be cached in this directory (so the code "
+                "will run faster if you use a consistent desisurveyoutput).")
                 )
 
 ns = ap.parse_args()
