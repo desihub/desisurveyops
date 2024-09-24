@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+
+import os
+from desisurvey import forecast
+import matplotlib.pyplot as plt
+
+from desiutil.log import get_logger
+log = get_logger()
+
+from argparse import ArgumentParser
+ap = ArgumentParser(description=("Generates monthly status plot. For example:"
+                    " make_monthly_plot 20240725 20240826 $SCRATCH")
+                    )
+ap.add_argument("nightbegin",
+                help=("First night of interest (YYYYMMDD). Typically a month "
+                "before nightend.")
+                )
+ap.add_argument("nightend",
+                help=("Final night of interest (YYYYMMDD). Typically today.")
+                )
+ap.add_argument("desisurveyoutput",
+                help=("Directory to write plots and ephemerides file. The "
+                "ephemerides file will be cached in this directory (so the code "
+                "will run faster if you use a consistent desisurveyoutput).")
+                )
+
+ns = ap.parse_args()
+
+# ADM $SURVEYOPS environment variable must be defined.
+surveyopsdir = os.environ.get('SURVEYOPS')
+if surveyopsdir is None:
+    msg = '$SURVEYOPS environment variable is not defined!'
+    log.critical(msg)
+    raise NameError(msg)
+
+log.info('Updating $SURVEYOPS/ops directory...')
+_ = os.system("svn up $SURVEYOPS/ops")
+
+os.environ['DESISURVEY_OUTPUT'] = ns.desisurveyoutput
+
+plt.clf()
+
+# ADM local location of config-main-nominal.yaml file.
+cfgfile = '../data/config-main-nominal.yaml'
+log.info(f'Using local cfgfile in {cfgfile}')
+
+# ADM run the code.
+forecast.summarize_daterange(ns.nightbegin, ns.nightend, cfgfile=cfgfile,
+                             surveyopsdir=surveyopsdir)
+
+# ADM make the plot.
+p = forecast.forecast_plots(cfgfile=cfgfile, surveyopsdir=surveyopsdir,
+                            nownight=ns.nightbegin, return_plot=True)
+
+plotfn = os.path.join(ns.desisurveyoutput, f'{ns.nightbegin}.png')
+log.info(f'Writing monthly status plot to {plotfn}')
+p.savefig(plotfn)
