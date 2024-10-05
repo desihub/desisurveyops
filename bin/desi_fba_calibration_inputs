@@ -94,7 +94,6 @@ def main():
             raise ValueError(msg)
         d = get_calibration_targets(
             args.prognum,
-            args.targdir,
             checker=args.checker,
             radius=args.radius,
             dtver=args.dtver,

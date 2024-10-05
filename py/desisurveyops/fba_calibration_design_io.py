@@ -200,7 +200,6 @@ def get_calibration_priorities(program):
 
 def get_calibration_targets(
     prognum,
-    targdir,
     priofn=None,
     checker="AR",
     radius=3,
