@@ -36,6 +36,12 @@ def parse():
         action="store_true",
     )
     parser.add_argument(
+        "--only_tileid",
+        help="run for only a single tile (mode used for the calibration tiles; verify beforehand that previous tileids have already been designed!",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
         "--dry_run",
         help="do not execute any command, just print on the prompt",
         action="store_true",
@@ -82,7 +88,11 @@ def main():
     ntile = len(tiles)
 
     # AR loop on tiles
-    for i in range(ntile):
+    if args.only_tileid:
+        ii = [np.where(tiles["TILEID"] == args.only_tileid)[0][0]]
+    else:
+        ii = np.arange(ntile, dtype=int)
+    for i in ii:
 
         # AR tile properties
         tileid = tiles["TILEID"][i]
