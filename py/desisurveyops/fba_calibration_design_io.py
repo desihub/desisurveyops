@@ -12,7 +12,7 @@ from desitarget.targets import encode_targetid
 from desitarget.targetmask import desi_mask, bgs_mask, mws_mask, scnd_mask
 from fiberassign.fba_tertiary_io import get_priofn, get_targfn
 from fiberassign.utils import Logger
-from desisurveyops.fba_tertiary_design_io import create_tiles_table
+from desisurveyops.fba_tertiary_design_io import create_tiles_table, format_pmradec_refepoch
 
 # AR https://desi.lbl.gov/trac/wiki/SurveyOps/CalibrationFields
 
@@ -200,14 +200,13 @@ def get_calibration_priorities(program):
     return d
 
 
-def get_calibration_targets(
+def get_main_primary_targets(
     prognum,
     program,
     field_ra,
     field_dec,
     radius,
     priofn=None,
-    checker="AR",
     dtver="1.1.1",
 ):
 
@@ -245,25 +244,11 @@ def get_calibration_targets(
 
     # AR create table
     d = Table()
-    # AR header
-    d.meta["EXTNAME"] = "TARGETS"
-    d.meta["FAPRGRM"] = "tertiary{}".format(prognum)
-    d.meta["OBSCONDS"] = program
-    assert program in ["BRIGHT", "DARK"]
-    d.meta["SBPROF"] = "ELG" if program == "DARK" else "BGS"
-    d.meta["GOALTIME"] = 1000.0 if program == "DARK" else 180.0
-    # AR if useful..
     d.meta["TARG"] = hpdir
-
-    # AR TARGETID, CHECKER
-    d["TARGETID"] = encode_targetid(
-        release=8888, brickid=prognum, objid=np.arange(len(targ))
-    )
-    d["CHECKER"] = checker
 
     # AR TERTIARY_TARGET
     dtype = "|S{}".format(np.max([len(x) for x in prios["TERTIARY_TARGET"]]))
-    d["TERTIARY_TARGET"] = np.array(["-" for i in range(len(d))], dtype=dtype)
+    d["TERTIARY_TARGET"] = np.array(["-" for i in range(len(targ))], dtype=dtype)
     myprios = -99 + np.zeros(len(d))
     for tertiary_target in np.unique(prios["TERTIARY_TARGET"]):
         if tertiary_target[:5] == "DESI_":
@@ -323,11 +308,8 @@ def get_calibration_targets(
     # AR other columns
     for key in ["RA", "DEC", "PMRA", "PMDEC", "REF_EPOCH", "SUBPRIORITY"]:
         d[key] = targ[key]
-    sel = (~np.isfinite(d["REF_EPOCH"])) | (d["REF_EPOCH"] == 0)
-    assert (d["PMRA"][sel] != 0).sum() == 0
-    assert (d["PMDEC"][sel] != 0).sum() == 0
-    d["REF_EPOCH"][sel] = 2015.5
 
+    # AR rename with ORIG_ prefix some columns to keep the original information
     for key in [
         "TARGETID",
         "DESI_TARGET",
@@ -337,5 +319,40 @@ def get_calibration_targets(
         "PRIORITY_INIT",
     ]:
         d["ORIG_{}".format(key)] = targ[key]
+
+    return d
+
+
+def finalize_calibration_target_table(
+    d,
+    prognum,
+    program,
+    checker="AR",
+):
+
+    # AR TARGETID, CHECKER
+    d["TARGETID"] = encode_targetid(
+        release=8888, brickid=prognum, objid=np.arange(len(d))
+    )
+    d["CHECKER"] = checker
+
+    # AR put TARGETID, CHECKER first, for ~backwards-compatibility
+    keys = ["TARGETID", "CHECKER"] + [_ for _ in d.colnames if _ not in ["TARGETID", "CHECKER"]]
+    d = d[keys]
+
+    # AR pmra, pmdec, ref_epoch
+    d = format_pmradec_refepoch(d)
+
+    # AR subpriority
+    if "SUBPRIORITY" not in d.colnames:
+        d["SUBPRIORITY"] = np.random.uniform(size=len(d))
+
+    # AR header
+    d.meta["EXTNAME"] = "TARGETS"
+    d.meta["FAPRGRM"] = "tertiary{}".format(prognum)
+    d.meta["OBSCONDS"] = program
+    assert program in ["BRIGHT", "DARK"]
+    d.meta["SBPROF"] = "ELG" if program == "DARK" else "BGS"
+    d.meta["GOALTIME"] = 1000.0 if program == "DARK" else 180.0
 
     return d

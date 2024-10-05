@@ -6,7 +6,8 @@ from desisurveyops.fba_calibration_design_io import (
     get_calibration_settings,
     get_calibration_tiles,
     get_calibration_priorities,
-    get_calibration_targets,
+    get_main_primary_targets,
+    finalize_calibration_target_table,
 )
 from argparse import ArgumentParser
 
@@ -93,15 +94,23 @@ def main():
             msg = "{} already exists; exiting".format(outfn)
             log.error(msg)
             raise ValueError(msg)
-        d = get_calibration_targets(
+        # AR retrieve main primary targets
+        d = get_main_primary_targets(
             args.prognum,
             program,
             field_ra,
             field_dec,
             args.radius,
-            checker=args.checker,
             dtver=args.dtver,
         )
+        # AR do all the proper formatting things
+        d = finalize_calibration_target_table(
+            d,
+            args.prognum,
+            program,
+            checker=args.checker,
+        )
+        # AR write
         d.write(outfn)
 
 
