@@ -32,6 +32,10 @@ def parse():
         default=None,
     )
     parser.add_argument(
+        "--add_main_too",
+        action="store_true",
+    )
+    parser.add_argument(
         "--dry_run",
         help="do not execute any command, just print on the prompt",
         action="store_true",
@@ -124,6 +128,9 @@ def main():
         cmd = "{} --goaltype {} --hdr_survey {} --hdr_faprgrm {}".format(cmd, obsconds, hdr_survey, hdr_faprgrm)
         # AR ToO file
         cmd = "{} --too_tile --custom_too_file {}".format(cmd, toofn)
+        if args.add_main_too:
+            maintoofn = os.path.join(os.getenv("DESI_SURVEYOPS"), "mtl", "main", "ToO", "ToO.ecsv")
+            cmd = "{},{}".format(cmd, maintoofn)
         log.info(cmd)
         if not args.dry_run:
             os.system(cmd)
