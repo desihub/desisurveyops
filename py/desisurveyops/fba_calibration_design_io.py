@@ -200,14 +200,14 @@ def get_calibration_priorities(program):
 
 def get_calibration_targets(
     prognum,
+    program,
+    field_ra,
+    field_dec,
+    radius,
     priofn=None,
     checker="AR",
-    radius=3,
     dtver="1.1.1",
 ):
-
-    # AR program + field center
-    program, field_ra, field_dec, _, _ = get_calibration_settings(prognum)
 
     # AR tertiary priorities
     if priofn is not None:

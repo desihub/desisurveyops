@@ -92,10 +92,15 @@ def main():
             msg = "{} already exists; exiting".format(outfn)
             log.error(msg)
             raise ValueError(msg)
+        # AR program + field center
+        program, field_ra, field_dec, _, _ = get_calibration_settings(args.prognum)
         d = get_calibration_targets(
             args.prognum,
+            program,
+            field_ra,
+            field_dec,
+            args.radius,
             checker=args.checker,
-            radius=args.radius,
             dtver=args.dtver,
         )
         d.write(outfn)
