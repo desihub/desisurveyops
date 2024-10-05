@@ -168,10 +168,7 @@ def get_fba_calibration_tiles(prognum, targdir):
     return d
 
 
-def get_fba_calibration_priorities(prognum, targdir):
-
-    # AR program
-    program, _, _, _, _ = get_calibration_settings(prognum)
+def get_fba_calibration_priorities(prognum, targdir, program):
 
     # AR keys
     keys = ["TERTIARY_TARGET", "NUMOBS_DONE_MIN", "NUMOBS_DONE_MAX", "PRIORITY"]
