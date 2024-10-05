@@ -12,6 +12,7 @@ from desitarget.targets import encode_targetid
 from desitarget.targetmask import desi_mask, bgs_mask, mws_mask, scnd_mask
 from fiberassign.fba_tertiary_io import get_priofn, get_targfn
 from fiberassign.utils import Logger
+from desisurveyops.fba_tertiary_design_io import create_tiles_table
 
 # AR https://desi.lbl.gov/trac/wiki/SurveyOps/CalibrationFields
 
@@ -110,34 +111,6 @@ def get_tile_centers(field_ra, field_dec, ntile):
     return ras, decs
 
 
-# AR adapted from https://github.com/desihub/desisurvey/blob/94b02bdae04137526bf98dcec0dca8bd29a231d3/py/desisurvey/tileqa.py#L525-L554
-def get_ebv_meds(tiles):
-    nside = 512
-    theta, phi = healpy.pix2ang(nside, np.arange(12 * nside**2))
-    la, ba = phi * 180.0 / np.pi, 90 - theta * 180.0 / np.pi
-    from desiutil import dust
-
-    ebva = dust.ebv(
-        la, ba, frame="galactic", mapdir=os.getenv("DUST_DIR") + "/maps", scaling=1
-    )
-    if isinstance(tiles, Table):
-        ra = tiles["RA"].data
-        dec = tiles["DEC"].data
-    else:
-        ra = tiles["RA"]
-        dec = tiles["DEC"]
-    coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame="icrs")
-    coordgal = coord.galactic
-    lt, bt = coordgal.l.value, coordgal.b.value
-    uvt = lb2uv(lt, bt)
-    fprad = 1.605
-    ebv_meds = np.zeros(len(tiles))
-    for i in range(len(tiles)):
-        ind = healpy.query_disc(nside, uvt[i], fprad * np.pi / 180.0)
-        ebv_meds[i] = np.median(ebva[ind])
-    return ebv_meds
-
-
 def get_fba_calibration_tiles(prognum):
 
     # AR tiles list settings
@@ -145,6 +118,7 @@ def get_fba_calibration_tiles(prognum):
         prognum
     )
     ntile = tileid_end - tileid_start + 1
+    tileids = np.arange(tileid_start, tileid_end + 1, dtype=int)
     log.info(
         "will define {} tiles (TILEID={:06d}-{:06d})".format(
             ntile, tileid_start, tileid_end
@@ -152,18 +126,10 @@ def get_fba_calibration_tiles(prognum):
     )
 
     # AR no ra wrapping needed for the calibration field centers
-    ras, decs = get_tile_centers(field_ra, field_dec, ntile)
-    # AR round to 3 digits
-    ras, decs = ras.round(3), decs.round(3)
+    tileras, tiledecs = get_tile_centers(field_ra, field_dec, ntile)
 
     # AR create + write table
-    d = Table()
-    d["TILEID"] = np.arange(tileid_start, tileid_end + 1, dtype=int)
-    d["RA"], d["DEC"] = ras, decs
-    d["PROGRAM"] = program
-    d["IN_DESI"] = True
-    d["EBV_MED"] = get_ebv_meds(d).round(3)
-    d["DESIGNHA"] = 0
+    d = create_tiles_table(tileids, tileras, tiledecs, program)
 
     return d
 
