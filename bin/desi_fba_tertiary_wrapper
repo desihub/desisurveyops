@@ -33,6 +33,7 @@ def parse():
     )
     parser.add_argument(
         "--add_main_too",
+        help="add targets from the $DESI_SURVEYOPS/mtl/main/ToO/ToO.ecsv file",
         action="store_true",
     )
     parser.add_argument(
