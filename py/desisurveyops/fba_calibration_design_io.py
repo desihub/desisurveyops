@@ -138,7 +138,7 @@ def get_ebv_meds(tiles):
     return ebv_meds
 
 
-def get_fba_calibration_tiles(prognum, targdir):
+def get_fba_calibration_tiles(prognum):
 
     # AR tiles list settings
     program, field_ra, field_dec, tileid_start, tileid_end = get_calibration_settings(
@@ -168,7 +168,7 @@ def get_fba_calibration_tiles(prognum, targdir):
     return d
 
 
-def get_fba_calibration_priorities(prognum, targdir, program):
+def get_fba_calibration_priorities(prognum, program):
 
     # AR keys
     keys = ["TERTIARY_TARGET", "NUMOBS_DONE_MIN", "NUMOBS_DONE_MAX", "PRIORITY"]

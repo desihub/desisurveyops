@@ -70,7 +70,7 @@ def main():
             msg = "{} already exists; exiting".format(outfn)
             log.error(msg)
             raise ValueError(msg)
-        d = get_fba_calibration_tiles(args.prognum, args.targdir)
+        d = get_fba_calibration_tiles(args.prognum)
         d.write(outfn)
 
     if "priorities" in args.steps.split(","):
@@ -82,7 +82,7 @@ def main():
             raise ValueError(msg)
         # AR program
         program, _, _, _, _ = get_calibration_settings(args.prognum)
-        d = get_fba_calibration_priorities(args.prognum, args.targdir, program)
+        d = get_fba_calibration_priorities(args.prognum, program)
         d.write(outfn)
 
     if "targets" in args.steps.split(","):
