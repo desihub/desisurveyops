@@ -111,12 +111,14 @@ def get_tile_centers(field_ra, field_dec, ntile):
     return ras, decs
 
 
-def get_calibration_tiles(prognum):
+def get_calibration_tiles(
+    program,
+    field_ra,
+    field_dec,
+    tileid_start,
+    tileid_end
+):
 
-    # AR tiles list settings
-    program, field_ra, field_dec, tileid_start, tileid_end = get_calibration_settings(
-        prognum
-    )
     ntile = tileid_end - tileid_start + 1
     tileids = np.arange(tileid_start, tileid_end + 1, dtype=int)
     log.info(
