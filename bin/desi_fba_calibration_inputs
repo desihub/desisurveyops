@@ -82,7 +82,7 @@ def main():
             raise ValueError(msg)
         # AR program
         program, _, _, _, _ = get_calibration_settings(args.prognum)
-        d = get_calibration_priorities(args.prognum, program)
+        d = get_calibration_priorities(program)
         d.write(outfn)
 
     if "targets" in args.steps.split(","):

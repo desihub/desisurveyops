@@ -134,7 +134,7 @@ def get_calibration_tiles(prognum):
     return d
 
 
-def get_calibration_priorities(prognum, program):
+def get_calibration_priorities(program):
 
     # AR keys
     keys = ["TERTIARY_TARGET", "NUMOBS_DONE_MIN", "NUMOBS_DONE_MAX", "PRIORITY"]
