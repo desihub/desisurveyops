@@ -42,6 +42,11 @@ def parse():
         default=None,
     )
     parser.add_argument(
+        "--forcetileid",
+        help="run fba_launch with the --forcetiled option; use with caution!",
+        action="store_true",
+    )
+    parser.add_argument(
         "--dry_run",
         help="do not execute any command, just print on the prompt",
         action="store_true",
@@ -141,6 +146,11 @@ def main():
         if args.add_main_too:
             maintoofn = os.path.join(os.getenv("DESI_SURVEYOPS"), "mtl", "main", "ToO", "ToO.ecsv")
             cmd = "{},{}".format(cmd, maintoofn)
+        # AR force tileid?
+        # AR    ! use with caution !
+        # AR    (for cases where tiles are re-designed after having been svn-committed)
+        if args.forcetileid:
+            cmd = "{} --forcetileid y".format(cmd)
         log.info(cmd)
         if not args.dry_run:
             os.system(cmd)
