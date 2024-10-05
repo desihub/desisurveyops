@@ -1,0 +1,82 @@
+#!/usr/bin/env python
+
+import os
+from fiberassign.utils import Logger
+from desisurveyops.fba_calibration_design_io import (
+    fba_calibration_tiles,
+    fba_calibration_priorities,
+    fba_calibration_targets,
+)
+from argparse import ArgumentParser
+
+# AR https://desi.lbl.gov/trac/wiki/SurveyOps/CalibrationFields
+
+log = Logger.get()
+
+valid_steps = ["tiles", "priorities", "targets"]
+
+
+def parse():
+    parser = ArgumentParser(
+        description="Creates {targdir}/tertiary-tiles-{prognumpad}.ecsv, {targdir}/tertiary-priorities-{prognumpad}.ecsv, {targdir}/tertiary-targets-{prognumpad}.fits"
+    )
+    parser.add_argument("--prognum", help="tertiary PROGNUM", type=int)
+    parser.add_argument(
+        "--targdir",
+        help="output folder; for an official design, it should be $DESI_ROOT/fiberassign/special/tertiary/{prognumpad} (default=None)",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--steps",
+        help="comma-separated values (e.g., tiles,priorities,targets)",
+        type=str,
+    )
+    parser.add_argument("--checker", help="checker column (e.g., AR)", type=str)
+    parser.add_argument(
+        "--radius",
+        help="we select targets up that distance (in degree) from the field center (default=3)",
+        type=float,
+        default=3,
+    )
+    parser.add_argument(
+        "--dtver",
+        help="desitarget catalog version (default=1.1.1)",
+        type=str,
+        default="1.1.1",
+    )
+    args = parser.parse_args()
+    # AR valid steps
+    for step in args.steps.split(","):
+        if step not in valid_steps:
+            msg = "non-valid step = {}; exiting".format(step)
+            log.error(msg)
+            raise ValueError(msg)
+    # AR print arguments
+    for kwargs in args._get_kwargs():
+        log.info("{} = {}".format(kwargs[0], kwargs[1]))
+    return args
+
+
+def main():
+
+    args = parse()
+
+    if "tiles" in args.steps.split(","):
+        fba_calibration_tiles(args.prognum, args.targdir)
+
+    if "priorities" in args.steps.split(","):
+        fba_calibration_priorities(args.prognum, args.targdir)
+
+    if "targets" in args.steps.split(","):
+        fba_calibration_targets(
+            args.prognum,
+            args.targdir,
+            checker=args.checker,
+            radius=args.radius,
+            dtver=args.dtver,
+        )
+
+
+if __name__ == "__main__":
+    main()
