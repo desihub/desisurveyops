@@ -138,15 +138,7 @@ def get_ebv_meds(tiles):
     return ebv_meds
 
 
-def fba_calibration_tiles(prognum, targdir):
-
-    # AR output file
-    outfn = os.path.join(targdir, "tertiary-tiles-{:04d}.ecsv".format(prognum))
-    log.info("outfn = {}".format(outfn))
-    if os.path.isfile(outfn):
-        msg = "{} already exists; exiting".format(outfn)
-        log.error(msg)
-        raise ValueError(msg)
+def get_fba_calibration_tiles(prognum, targdir):
 
     # AR tiles list settings
     program, field_ra, field_dec, tileid_start, tileid_end = get_calibration_settings(
@@ -172,18 +164,11 @@ def fba_calibration_tiles(prognum, targdir):
     d["IN_DESI"] = True
     d["EBV_MED"] = get_ebv_meds(d).round(3)
     d["DESIGNHA"] = 0
-    d.write(outfn)
+
+    return d
 
 
-def fba_calibration_priorities(prognum, targdir):
-
-    # AR output file
-    outfn = get_priofn(prognum, targdir=targdir)
-    log.info("outfn = {}".format(outfn))
-    if os.path.isfile(outfn):
-        msg = "{} already exists; exiting".format(outfn)
-        log.error(msg)
-        raise ValueError(msg)
+def get_fba_calibration_priorities(prognum, targdir):
 
     # AR program
     program, _, _, _, _ = get_calibration_settings(prognum)
@@ -247,25 +232,16 @@ def fba_calibration_priorities(prognum, targdir):
     d0 = d[d["NUMOBS_DONE_MIN"] == 0]
     assert len(d0) == np.unique(d0["TERTIARY_TARGET"]).size
 
-    # AR write table
-    d.write(outfn)
+    return d
 
 
-def fba_calibration_targets(
+def get_fba_calibration_targets(
     prognum,
     targdir,
     checker="AR",
     radius=3,
     dtver="1.1.1",
 ):
-
-    # AR output file
-    outfn = get_targfn(prognum, targdir=targdir)
-    log.info("outfn = {}".format(outfn))
-    if os.path.isfile(outfn):
-        msg = "{} already exists; exiting".format(outfn)
-        log.error(msg)
-        raise ValueError(msg)
 
     # AR tertiary priorities
     fn = get_priofn(prognum, targdir=targdir)
@@ -395,4 +371,4 @@ def fba_calibration_targets(
     ]:
         d["ORIG_{}".format(key)] = targ[key]
 
-    d.write(outfn)
+    return d

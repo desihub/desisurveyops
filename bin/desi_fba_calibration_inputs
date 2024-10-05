@@ -3,9 +3,9 @@
 import os
 from fiberassign.utils import Logger
 from desisurveyops.fba_calibration_design_io import (
-    fba_calibration_tiles,
-    fba_calibration_priorities,
-    fba_calibration_targets,
+    get_fba_calibration_tiles,
+    get_fba_calibration_priorities,
+    get_fba_calibration_targets,
 )
 from argparse import ArgumentParser
 
@@ -63,19 +63,40 @@ def main():
     args = parse()
 
     if "tiles" in args.steps.split(","):
-        fba_calibration_tiles(args.prognum, args.targdir)
+        outfn = os.path.join(args.targdir, "tertiary-tiles-{:04d}.ecsv".format(args.prognum))
+        log.info("outfn = {}".format(outfn))
+        if os.path.isfile(outfn):
+            msg = "{} already exists; exiting".format(outfn)
+            log.error(msg)
+            raise ValueError(msg)
+        d = get_fba_calibration_tiles(args.prognum, args.targdir)
+        d.write(outfn)
 
     if "priorities" in args.steps.split(","):
-        fba_calibration_priorities(args.prognum, args.targdir)
+        outfn = get_priofn(argsprognum, targdir=args.targdir)
+        log.info("outfn = {}".format(outfn))
+        if os.path.isfile(outfn):
+            msg = "{} already exists; exiting".format(outfn)
+            log.error(msg)
+            raise ValueError(msg)
+        d = get_fba_calibration_priorities(args.prognum, args.targdir)
+        d.write(outfn)
 
     if "targets" in args.steps.split(","):
-        fba_calibration_targets(
+        outfn = get_targfn(args.prognum, targdir=args.targdir)
+        log.info("outfn = {}".format(outfn))
+        if os.path.isfile(outfn):
+            msg = "{} already exists; exiting".format(outfn)
+            log.error(msg)
+            raise ValueError(msg)
+        d = get_fba_calibration_targets(
             args.prognum,
             args.targdir,
             checker=args.checker,
             radius=args.radius,
             dtver=args.dtver,
         )
+        d.write(outfn)
 
 
 if __name__ == "__main__":
