@@ -100,7 +100,7 @@ def get_calibration_settings(prognum):
 
 
 # AR
-def get_tile_centers(field_ra, field_dec, ntile):
+def get_calibration_tile_centers(field_ra, field_dec, ntile):
     # AR offsets in degrees
     offset_ras = np.array([0, 0.048, 0, -0.048, 0, 0, 1.000, 0, 0])
     offset_decs = np.array([0, 0, 1.000, 0, -1.000, 0.048, 0, -0.048, -1.000])
@@ -128,7 +128,7 @@ def get_calibration_tiles(
     )
 
     # AR no ra wrapping needed for the calibration field centers
-    tileras, tiledecs = get_tile_centers(field_ra, field_dec, ntile)
+    tileras, tiledecs = get_calibration_tile_centers(field_ra, field_dec, ntile)
 
     # AR create + write table
     d = create_tiles_table(tileids, tileras, tiledecs, program)
