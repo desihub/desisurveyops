@@ -111,7 +111,7 @@ def get_tile_centers(field_ra, field_dec, ntile):
     return ras, decs
 
 
-def get_fba_calibration_tiles(prognum):
+def get_calibration_tiles(prognum):
 
     # AR tiles list settings
     program, field_ra, field_dec, tileid_start, tileid_end = get_calibration_settings(
@@ -134,7 +134,7 @@ def get_fba_calibration_tiles(prognum):
     return d
 
 
-def get_fba_calibration_priorities(prognum, program):
+def get_calibration_priorities(prognum, program):
 
     # AR keys
     keys = ["TERTIARY_TARGET", "NUMOBS_DONE_MIN", "NUMOBS_DONE_MAX", "PRIORITY"]
@@ -198,7 +198,7 @@ def get_fba_calibration_priorities(prognum, program):
     return d
 
 
-def get_fba_calibration_targets(
+def get_calibration_targets(
     prognum,
     targdir,
     checker="AR",
