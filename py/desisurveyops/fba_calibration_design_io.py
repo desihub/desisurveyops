@@ -201,19 +201,22 @@ def get_calibration_priorities(program):
 def get_calibration_targets(
     prognum,
     targdir,
+    priofn=None,
     checker="AR",
     radius=3,
     dtver="1.1.1",
 ):
 
-    # AR tertiary priorities
-    fn = get_priofn(prognum, targdir=targdir)
-    prios = Table.read(fn)
-    # AR cutting on NUMOBS_DONE_MIN=0
-    prios = prios[prios["NUMOBS_DONE_MIN"] == 0]
-
     # AR program + field center
     program, field_ra, field_dec, _, _ = get_calibration_settings(prognum)
+
+    # AR tertiary priorities
+    if priofn is not None:
+        prios = Table.read(priofn)
+    else:
+        prios = get_calibration_priorities(program)
+    # AR cutting on NUMOBS_DONE_MIN=0
+    prios = prios[prios["NUMOBS_DONE_MIN"] == 0]
 
     # AR desitarget targets
     hpdir = os.path.join(
