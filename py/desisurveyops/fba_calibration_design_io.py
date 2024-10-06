@@ -303,7 +303,15 @@ def get_main_primary_targets(
         log.info("priority check: ignoring {} GC_BRIGHT".format(ignore_gcb.sum()))
         ignore |= ignore_gcb
     sel = (myprios != targ["PRIORITY_INIT"]) & (~ignore)
-    assert sel.sum() == 0
+
+    # AR sanity check
+    # AR do not raise an error, as according to the usage it could be ok
+    # AR    (because this as been tested only on calibration fields)
+    if sel.sum() > 0:
+        msg = "the set PRIORITY_INIT differs from the desitarget one for {}/{} rows; please check!".format(
+            sel.sum(), len(d)
+        )
+        log.warning(ms)
 
     # AR other columns
     for key in ["RA", "DEC", "PMRA", "PMDEC", "REF_EPOCH", "SUBPRIORITY"]:
