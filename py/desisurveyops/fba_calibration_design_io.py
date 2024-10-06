@@ -9,6 +9,7 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 import healpy as hp
 from desisurvey.tileqa import lb2uv
+from desimodel.focalplane.geometry import get_tile_radius_deg
 from desimodel.footprint import tiles2pix, is_point_in_desi
 from desitarget.io import read_targets_in_hp
 from desitarget.targets import encode_targetid
@@ -207,11 +208,15 @@ def get_main_primary_targets(
     program,
     field_ras,
     field_decs,
-    radius,
+    radius=None,
     do_ignore_gcb=False,
     priofn=None,
     dtver="1.1.1",
 ):
+
+    # AR default to desi tile radius
+    if radius is None:
+        radius = get_tile_radius_deg()
 
     # AR tertiary priorities
     if priofn is not None:

@@ -104,7 +104,7 @@ def main():
             program,
             field_ra,
             field_dec,
-            args.radius,
+            radius=args.radius,
             do_ignore_gcb=do_ignore_gcb,
             dtver=args.dtver,
         )
