@@ -24,6 +24,23 @@ log = Logger.get()
 
 # AR settings
 def get_calibration_settings(prognum):
+    """
+    Retrieves the calibration program properties for a given prognum.
+
+    Args:
+        prognum: prognum (int)
+
+    Returns:
+        program: "DARK" or "BRIGHT" (str)
+        field_ra: R.A. center of the calibration field (float)
+        field_dec: Dec. center of the calibration field (float)
+        tileid_start: first TILEID of the calibration program (int)
+        tileid_end: last TILEID of the calibration program (int)
+
+    Notes:
+        Source: https://desi.lbl.gov/trac/wiki/SurveyOps/CalibrationFields
+        So far the allowed prognums are 5,6,7,8,9,10,11,12.
+    """
     # AR XMMLSS DARK
     if prognum == 5:
         program, field_ra, field_dec, tileid_start, tileid_end = (
@@ -105,6 +122,21 @@ def get_calibration_settings(prognum):
 
 # AR
 def get_calibration_tile_centers(field_ra, field_dec, ntile):
+    """
+    Get the tile centers for a calibration program.
+
+    Args:
+        field_ra: R.A. center of the calibration field (float)
+        field_dec: Dec. center of the calibration field (float)
+        ntile: number of tiles (int)
+
+    Returns:
+        ras: R.A. of the tiles (np.array of floats)
+        decs: Dec. of the tiles (np.array of floats)
+
+    Notes:
+        Source: https://desi.lbl.gov/trac/wiki/SurveyOps/CalibrationFields
+    """
     # AR offsets in degrees
     offset_ras = np.array([0, 0.048, 0, -0.048, 0, 0, 1.000, 0, 0])
     offset_decs = np.array([0, 0, 1.000, 0, -1.000, 0.048, 0, -0.048, -1.000])
@@ -116,6 +148,21 @@ def get_calibration_tile_centers(field_ra, field_dec, ntile):
 
 
 def get_calibration_tiles(program, field_ra, field_dec, tileid_start, tileid_end):
+    """
+    Generate the tiles table for a calibration program.
+
+    Args:
+        program: "DARK" or "BRIGHT" (str)
+        field_ra: R.A. center of the calibration field (float)
+        field_dec: Dec. center of the calibration field (float)
+        tileid_start: first TILEID of the calibration program (int)
+        tileid_end: last TILEID of the calibration program (int)
+
+    Returns:
+        d: a Table() structure properly formatted for the tertiary program,
+            created with the desisurveyops.fba_tertiary_design_io.create_tiles_table()
+            function (Table() structure)
+    """
 
     ntile = tileid_end - tileid_start + 1
     tileids = np.arange(tileid_start, tileid_end + 1, dtype=int)
@@ -135,6 +182,20 @@ def get_calibration_tiles(program, field_ra, field_dec, tileid_start, tileid_end
 
 
 def get_main_primary_priorities(program):
+    """
+    Retrieve a priority scheme in the "tertiary-spirit" from the DESI Main primary targets.
+
+    Args:
+        program: "DARK" or "BRIGHT" (str)
+
+    Returns:
+        d: a Table() structure properly formatted for the tertiary program,
+            i.e. with columns TERTIARY_TARGET,NUMOBS_DONE_MIN,NUMOBS_DONE_MAX,
+            PRIORITY (Table() structure)
+    Notes:
+        The approach is to define a TERTIARY_TARGET class for each DESI Main
+            primary target class.
+    """
 
     # AR keys
     keys = ["TERTIARY_TARGET", "NUMOBS_DONE_MIN", "NUMOBS_DONE_MAX", "PRIORITY"]
@@ -207,6 +268,28 @@ def get_main_primary_targets(
     priofn=None,
     dtver="1.1.1",
 ):
+    """
+    Read the DESI Main primary targets inside a set of field positions.
+
+    Args:
+        program: "DARK" or "BRIGHT" (str)
+        field_ras: R.A. center of the calibration field (float or np.array() of floats)
+        field_decs: Dec. center of the calibration field (float or np.array() of floats)
+        radius (optional, defaults to the DESI tile radius): radius in deg. to query around
+            the field centers (float)
+        do_ignore_gcb (optional, defaults to False): ignore the GC_BRIGHT targets; this
+            is used for PROGNUM=8 (bool)
+        priofn (optional, defaults to the get_main_primary_priorities() output): filename
+            with a priority scheme properly formatted for the tertiary programs (str)
+        dtver (optional, defaults to 1.1.1): main desitarget catalog version (str)
+
+    Returns:
+        d: a Table() structure with these columns:
+            TERTIARY_TARGET: generated in the function
+            RA,DEC,PMRA,PMDEC,REF_EPOCH,SUBPRIORITY: copied from the desitarget catalogs
+            ORIG_{TARGETID,DESI_TARGET,BGS_TARGET,MWS_TARGET,SCND_TARGET,PRIORITY_INIT}: copied
+                from the desitarget catalogs
+    """
 
     # AR default to desi tile radius
     if radius is None:
@@ -356,6 +439,23 @@ def finalize_calibration_target_table(
     program,
     checker="AR",
 ):
+    """
+    Properly format a table for the tertiary use.
+
+    Args:
+        d: a Table() array
+
+    Returns:
+        d: a Table() array with:
+            these columns: TARGETID,CHECKER (and SUPRIORITY if not present)
+            clean PMRA, PMDEC, REF_EPOCH values
+            these header keywords: EXTNAME,FAPRGRM,OBSCONDS,SBPROF,GOALTIME
+
+    Notes:
+        Close to desisurveyops.fba_tertiary_design_io.finalize_target_table()
+            but as yaml files were not used for calibration programs,
+            need to have this version.
+    """
 
     # AR TARGETID, CHECKER
     d["TARGETID"] = encode_targetid(
