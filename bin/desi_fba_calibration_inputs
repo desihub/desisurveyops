@@ -70,30 +70,18 @@ def main():
     if "tiles" in args.steps.split(","):
         outfn = os.path.join(args.targdir, "tertiary-tiles-{:04d}.ecsv".format(args.prognum))
         log.info("outfn = {}".format(outfn))
-        if os.path.isfile(outfn):
-            msg = "{} already exists; exiting".format(outfn)
-            log.error(msg)
-            raise ValueError(msg)
         d = get_calibration_tiles(program, field_ra, field_dec, tileid_start, tileid_end)
         d.write(outfn)
 
     if "priorities" in args.steps.split(","):
         outfn = get_priofn(argsprognum, targdir=args.targdir)
         log.info("outfn = {}".format(outfn))
-        if os.path.isfile(outfn):
-            msg = "{} already exists; exiting".format(outfn)
-            log.error(msg)
-            raise ValueError(msg)
         d = get_main_primary_priorities(program)
         d.write(outfn)
 
     if "targets" in args.steps.split(","):
         outfn = get_targfn(args.prognum, targdir=args.targdir)
         log.info("outfn = {}".format(outfn))
-        if os.path.isfile(outfn):
-            msg = "{} already exists; exiting".format(outfn)
-            log.error(msg)
-            raise ValueError(msg)
         # AR corner case for prognum=8...
         if args.prognum == 8:
             do_ignore_gcb = True
