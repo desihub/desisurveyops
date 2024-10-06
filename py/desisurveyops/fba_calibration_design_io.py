@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 
 import os
+from glob import glob
 import numpy as np
+import fitsio
 from astropy.table import Table
 from astropy.coordinates import SkyCoord
 from astropy import units as u
-import healpy
+import healpy as hp
 from desisurvey.tileqa import lb2uv
-from desitarget.io import read_targets_in_cap
+from desimodel.footprint import tiles2pix, is_point_in_desi
+from desitarget.io import read_targets_in_hp
 from desitarget.targets import encode_targetid
 from desitarget.targetmask import desi_mask, bgs_mask, mws_mask, scnd_mask
 from fiberassign.fba_tertiary_io import get_priofn, get_targfn
@@ -202,8 +205,8 @@ def get_calibration_priorities(program):
 
 def get_main_primary_targets(
     program,
-    field_ra,
-    field_dec,
+    field_ras,
+    field_decs,
     radius,
     do_ignore_gcb=False,
     priofn=None,
@@ -219,6 +222,8 @@ def get_main_primary_targets(
     prios = prios[prios["NUMOBS_DONE_MIN"] == 0]
 
     # AR desitarget targets
+    # AR do not use high-level desitarget.io routines, because we want to allow
+    # AR    the possibility to query several tiles with a custom radius
     hpdir = os.path.join(
         os.getenv("DESI_TARGET"),
         "catalogs",
@@ -229,8 +234,21 @@ def get_main_primary_targets(
         "resolve",
         program.lower(),
     )
-    radecrad = [field_ra, field_dec, radius]
-    targ = Table(read_targets_in_cap(hpdir, radecrad, quick=True))
+    # AR get the file nside
+    fn = sorted(glob(os.path.join(hpdir, "targets-{}-hp-*fits".format(program.lower()))))[0]
+    nside = fitsio.read_header(fn, 1)["FILENSID"]
+    # AR get the list of pixels overlapping the tiles
+    tiles = Table()
+    if isinstance(field_ras, float):
+        tiles["RA"], tiles["DEC"] = [field_ras], [field_decs]
+    else:
+        tiles["RA"], tiles["DEC"] = field_ras, field_decs
+    pixs = tiles2pix(nside, tiles=tiles, radius=radius)
+    # AR read the targets in these healpix pixels
+    targ = Table(read_targets_in_hp(hpdir, nside, pixs, quick=True))
+    # AR cut on actual radius
+    sel = is_point_in_desi(tiles, targ["RA"], targ["DEC"], radius=radius)
+    targ = targ[sel]
 
     # AR remove STD_BRIGHT,STD_FAINT
     # AR    as those will also be included in the fba_launch
