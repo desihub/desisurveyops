@@ -413,7 +413,7 @@ def get_main_primary_targets(
         msg = "the set PRIORITY_INIT differs from the desitarget one for {}/{} rows; please check!".format(
             sel.sum(), len(d)
         )
-        log.warning(ms)
+        log.warning(msg)
 
     # AR other columns
     for key in ["RA", "DEC", "PMRA", "PMDEC", "REF_EPOCH", "SUBPRIORITY"]:
