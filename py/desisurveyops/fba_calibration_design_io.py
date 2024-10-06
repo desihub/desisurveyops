@@ -137,7 +137,7 @@ def get_calibration_tiles(
     return d
 
 
-def get_calibration_priorities(program):
+def get_main_primary_priorities(program):
 
     # AR keys
     keys = ["TERTIARY_TARGET", "NUMOBS_DONE_MIN", "NUMOBS_DONE_MAX", "PRIORITY"]
@@ -219,7 +219,7 @@ def get_main_primary_targets(
     if priofn is not None:
         prios = Table.read(priofn)
     else:
-        prios = get_calibration_priorities(program)
+        prios = get_main_primary_priorities(program)
     # AR cutting on NUMOBS_DONE_MIN=0
     prios = prios[prios["NUMOBS_DONE_MIN"] == 0]
 

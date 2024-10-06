@@ -5,7 +5,7 @@ from fiberassign.utils import Logger
 from desisurveyops.fba_calibration_design_io import (
     get_calibration_settings,
     get_calibration_tiles,
-    get_calibration_priorities,
+    get_main_primary_priorities,
     get_main_primary_targets,
     finalize_calibration_target_table,
 )
@@ -84,7 +84,7 @@ def main():
             msg = "{} already exists; exiting".format(outfn)
             log.error(msg)
             raise ValueError(msg)
-        d = get_calibration_priorities(program)
+        d = get_main_primary_priorities(program)
         d.write(outfn)
 
     if "targets" in args.steps.split(","):
