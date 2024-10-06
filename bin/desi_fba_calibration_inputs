@@ -94,13 +94,18 @@ def main():
             msg = "{} already exists; exiting".format(outfn)
             log.error(msg)
             raise ValueError(msg)
+        # AR corner case for prognum=8...
+        if args.prognum == 8:
+            do_ignore_gcb = True
+        else:
+            do_ignore_gcb = False
         # AR retrieve main primary targets
         d = get_main_primary_targets(
-            args.prognum,
             program,
             field_ra,
             field_dec,
             args.radius,
+            do_ignore_gcb=do_ignore_gcb,
             dtver=args.dtver,
         )
         # AR do all the proper formatting things

@@ -201,11 +201,11 @@ def get_calibration_priorities(program):
 
 
 def get_main_primary_targets(
-    prognum,
     program,
     field_ra,
     field_dec,
     radius,
+    do_ignore_gcb=False,
     priofn=None,
     dtver="1.1.1",
 ):
@@ -298,7 +298,7 @@ def get_main_primary_targets(
         )
     )
     ignore = (ignore_std) | (ignore_wd)
-    if prognum == 8:
+    if do_ignore_gcb:
         ignore_gcb = (targ["SCND_TARGET"] & scnd_mask["GC_BRIGHT"]) > 0
         log.info("priority check: ignoring {} GC_BRIGHT".format(ignore_gcb.sum()))
         ignore |= ignore_gcb
