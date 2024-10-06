@@ -5,10 +5,7 @@ from glob import glob
 import numpy as np
 import fitsio
 from astropy.table import Table
-from astropy.coordinates import SkyCoord
-from astropy import units as u
 import healpy as hp
-from desisurvey.tileqa import lb2uv
 from desimodel.focalplane.geometry import get_tile_radius_deg
 from desimodel.footprint import tiles2pix, is_point_in_desi
 from desitarget.io import read_targets_in_hp
