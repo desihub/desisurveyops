@@ -13,7 +13,10 @@ from desitarget.targets import encode_targetid
 from desitarget.targetmask import desi_mask, bgs_mask, mws_mask, scnd_mask
 from fiberassign.fba_tertiary_io import get_priofn, get_targfn
 from fiberassign.utils import Logger
-from desisurveyops.fba_tertiary_design_io import create_tiles_table, format_pmradec_refepoch
+from desisurveyops.fba_tertiary_design_io import (
+    create_tiles_table,
+    format_pmradec_refepoch,
+)
 
 # AR https://desi.lbl.gov/trac/wiki/SurveyOps/CalibrationFields
 
@@ -112,13 +115,7 @@ def get_calibration_tile_centers(field_ra, field_dec, ntile):
     return ras, decs
 
 
-def get_calibration_tiles(
-    program,
-    field_ra,
-    field_dec,
-    tileid_start,
-    tileid_end
-):
+def get_calibration_tiles(program, field_ra, field_dec, tileid_start, tileid_end):
 
     ntile = tileid_end - tileid_start + 1
     tileids = np.arange(tileid_start, tileid_end + 1, dtype=int)
@@ -237,7 +234,9 @@ def get_main_primary_targets(
         program.lower(),
     )
     # AR get the file nside
-    fn = sorted(glob(os.path.join(hpdir, "targets-{}-hp-*fits".format(program.lower()))))[0]
+    fn = sorted(
+        glob(os.path.join(hpdir, "targets-{}-hp-*fits".format(program.lower())))
+    )[0]
     nside = fitsio.read_header(fn, 1)["FILENSID"]
     # AR get the list of pixels overlapping the tiles
     tiles = Table()
@@ -365,7 +364,9 @@ def finalize_calibration_target_table(
     d["CHECKER"] = checker
 
     # AR put TARGETID, CHECKER first, for ~backwards-compatibility
-    keys = ["TARGETID", "CHECKER"] + [_ for _ in d.colnames if _ not in ["TARGETID", "CHECKER"]]
+    keys = ["TARGETID", "CHECKER"] + [
+        _ for _ in d.colnames if _ not in ["TARGETID", "CHECKER"]
+    ]
     d = d[keys]
 
     # AR pmra, pmdec, ref_epoch

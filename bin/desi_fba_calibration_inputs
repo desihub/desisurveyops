@@ -65,12 +65,18 @@ def main():
     args = parse()
 
     # AR general properties
-    program, field_ra, field_dec, tileid_start, tileid_end = get_calibration_settings(args.prognum)
+    program, field_ra, field_dec, tileid_start, tileid_end = get_calibration_settings(
+        args.prognum
+    )
 
     if "tiles" in args.steps.split(","):
-        outfn = os.path.join(args.targdir, "tertiary-tiles-{:04d}.ecsv".format(args.prognum))
+        outfn = os.path.join(
+            args.targdir, "tertiary-tiles-{:04d}.ecsv".format(args.prognum)
+        )
         log.info("outfn = {}".format(outfn))
-        d = get_calibration_tiles(program, field_ra, field_dec, tileid_start, tileid_end)
+        d = get_calibration_tiles(
+            program, field_ra, field_dec, tileid_start, tileid_end
+        )
         d.write(outfn)
 
     if "priorities" in args.steps.split(","):
