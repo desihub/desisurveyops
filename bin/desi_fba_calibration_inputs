@@ -2,6 +2,7 @@
 
 import os
 from fiberassign.utils import Logger
+from desisurveyops.fba_tertiary_design_io import get_fn
 from desisurveyops.fba_calibration_design_io import (
     get_calibration_settings,
     get_calibration_tiles,
@@ -70,9 +71,7 @@ def main():
     )
 
     if "tiles" in args.steps.split(","):
-        outfn = os.path.join(
-            args.targdir, "tertiary-tiles-{:04d}.ecsv".format(args.prognum)
-        )
+        outfn = get_fn(prognum, "tiles", args.targdir)
         log.info("outfn = {}".format(outfn))
         d = get_calibration_tiles(
             program, field_ra, field_dec, tileid_start, tileid_end
@@ -80,13 +79,13 @@ def main():
         d.write(outfn)
 
     if "priorities" in args.steps.split(","):
-        outfn = get_priofn(argsprognum, targdir=args.targdir)
+        outfn = get_fn(prognum, "priorities", args.targdir)
         log.info("outfn = {}".format(outfn))
         d = get_main_primary_priorities(program)
         d.write(outfn)
 
     if "targets" in args.steps.split(","):
-        outfn = get_targfn(args.prognum, targdir=args.targdir)
+        outfn = get_fn(prognum, "targets", args.targdir)
         log.info("outfn = {}".format(outfn))
         # AR corner case for prognum=8...
         if args.prognum == 8:
