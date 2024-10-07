@@ -183,27 +183,33 @@ def get_calibration_tiles(program, field_ra, field_dec, tileid_start, tileid_end
 
 def get_main_primary_priorities(program):
     """
-    Retrieve a priority scheme in the "tertiary-spirit" from the DESI Main primary targets.
+    Retrieve the simplified list of target classes and associated PRIORITY_INIT values
+        from the DESI Main primary targets.
 
     Args:
         program: "DARK" or "BRIGHT" (str)
 
+
     Returns:
-        d: a Table() structure properly formatted for the tertiary program,
-            i.e. with columns TERTIARY_TARGET,NUMOBS_DONE_MIN,NUMOBS_DONE_MAX,
-            PRIORITY (Table() structure)
+        names: (tertiary-adapted) names of the target classes (np.array() of str)
+        initprios: PRIORITY_INIT values for names (np.array() of int)
+        calib_or_nonstds: is the target class from calibration and other non-standard targets, like sky (np.array() of bool)
+
     Notes:
         The approach is to define a TERTIARY_TARGET class for each DESI Main
             primary target class.
+        We parse the following masks: desi_mask, mws_mask, bgs_mask, scnd_mask.
+        The names are built as "{prefix}_{target_class}", where prefix is desi, mws, bgs, scnd
+        The observation scheme for the calib_or_nonstds=True is non-standard,
+            so one may want to treat them in a custom way in some tertiary designs
+            (note that the standard stars are independently picked in fba_launch anyway).
+        The list of calib_or_nonstds=True DARK targets is:
+            DESI_SKY,DESI_STD_FAINT,DESI_STD_WD,DESI_SUPP_SKY,DESI_NO_TARGET,DESI_NEAR_BRIGHT_OBJECT,DESI_SCND_ANY
+            MWS_GAIA_STD_FAINT,MWS_GAIA_STD_WD
+        The list of calib_or_nonstds=True BRIGHT targets is:
+            DESI_SKY,DESI_STD_WD,DESI_STD_BRIGHT,DESI_SUPP_SKY,DESI_NO_TARGET,DESI_NEAR_BRIGHT_OBJECT,DESI_SCND_ANY
+            MWS_GAIA_STD_WD,MWS_GAIA_STD_BRIGHT
     """
-
-    # AR keys
-    keys = ["TERTIARY_TARGET", "NUMOBS_DONE_MIN", "NUMOBS_DONE_MAX", "PRIORITY"]
-
-    # AR note: STD_BRIGHT,STD_FAINT have no priorities
-    # AR       we assign them PRIORITY=3000
-    desi_mask["STD_BRIGHT"].priorities["UNOBS"] = 3000
-    desi_mask["STD_FAINT"].priorities["UNOBS"] = 3000
 
     # AR we discard some names
     black_names = {}
@@ -216,47 +222,23 @@ def get_main_primary_priorities(program):
         ]
 
     # AR loop on masks
-    myd = {key: [] for key in keys}
+    names, initprios, calib_or_nonstds = [], [], []
     for prefix, mask in zip(
         ["DESI", "MWS", "BGS", "SCND"],
         [desi_mask, mws_mask, bgs_mask, scnd_mask],
     ):
-        names = [name for name in mask.names() if name not in black_names[prefix]]
-        for name in names:
+        mask_names = [name for name in mask.names() if name not in black_names[prefix]]
+        for name in mask_names:
             if program in mask[name].obsconditions:
-                if "UNOBS" in mask[name].priorities:
-                    if mask[name].priorities["UNOBS"] == 0:
-                        myd["TERTIARY_TARGET"].append("{}_{}".format(prefix, name))
-                        myd["NUMOBS_DONE_MIN"].append(0)
-                        myd["NUMOBS_DONE_MAX"].append(99)
-                        myd["PRIORITY"].append(mask[name].priorities["UNOBS"])
-                    else:
-                        #
-                        myd["TERTIARY_TARGET"].append("{}_{}".format(prefix, name))
-                        myd["NUMOBS_DONE_MIN"].append(0)
-                        myd["NUMOBS_DONE_MAX"].append(0)
-                        myd["PRIORITY"].append(mask[name].priorities["UNOBS"])
-                        #
-                        myd["TERTIARY_TARGET"].append("{}_{}".format(prefix, name))
-                        myd["NUMOBS_DONE_MIN"].append(1)
-                        myd["NUMOBS_DONE_MAX"].append(98)
-                        myd["PRIORITY"].append(5000 + mask[name].priorities["UNOBS"])
-                        #
-                        myd["TERTIARY_TARGET"].append("{}_{}".format(prefix, name))
-                        myd["NUMOBS_DONE_MIN"].append(99)
-                        myd["NUMOBS_DONE_MAX"].append(99)
-                        myd["PRIORITY"].append(5000 + mask[name].priorities["UNOBS"])
+                names.append("{}_{}".format(prefix, name))
+                initprios.append(mask[name].priorities["UNOBS"] if "UNOBS" in mask[name].priorities else None)
+                calib_or_nonstds.append("UNOBS" not in mask[name].priorities)
 
-    # AR create table
-    d = Table()
-    for key in keys:
-        d[key] = myd[key]
+    names = np.array(names)
+    initprios = np.array(initprios)
+    calib_or_nonstds = np.array(calib_or_nonstds)
 
-    # AR assert there are no duplicated names
-    d0 = d[d["NUMOBS_DONE_MIN"] == 0]
-    assert len(d0) == np.unique(d0["TERTIARY_TARGET"]).size
-
-    return d
+    return names, initprios, calib_or_nonstds
 
 
 def get_main_primary_targets(

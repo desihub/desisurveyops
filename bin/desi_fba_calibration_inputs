@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import os
+from astropy.table import Table
+import numpy as np
 from fiberassign.utils import Logger
 from desisurveyops.fba_tertiary_design_io import get_fn
 from desisurveyops.fba_calibration_design_io import (
@@ -69,7 +71,49 @@ def create_tiles(program, field_ra, field_dec, tileid_start, tileid_end, outfn):
 
 
 def create_priorities(program, outfn):
-    d = get_main_primary_priorities(program)
+
+    # AR get the tertiary properties of the DESI Main primary targets
+    # AR note: STD_BRIGHT,STD_FAINT have no priorities
+    # AR       we assign them PRIORITY=3000
+    names, initprios, calib_or_nonstds = get_main_primary_priorities(program)
+    initprios[names == "DESI_STD_BRIGHT"] = 3000
+    initprios[names == "DESI_STD_FAINT"] = 3000
+
+    keys = ["TERTIARY_TARGET", "NUMOBS_DONE_MIN", "NUMOBS_DONE_MAX", "PRIORITY"]
+    # AR we favor re-observations vs. first observations
+    # AR loop on masks
+    myd = {key: [] for key in keys}
+    for name, initprio, calib_or_nonstd in zip(names, initprios, calib_or_nonstds):
+        if initprio is not None:
+            if initprio == 0:
+                myd["TERTIARY_TARGET"].append(name)
+                myd["NUMOBS_DONE_MIN"].append(0)
+                myd["NUMOBS_DONE_MAX"].append(99)
+                myd["PRIORITY"].append(initprio)
+            else:
+                #
+                myd["TERTIARY_TARGET"].append(name)
+                myd["NUMOBS_DONE_MIN"].append(0)
+                myd["NUMOBS_DONE_MAX"].append(0)
+                myd["PRIORITY"].append(initprio)
+                #
+                myd["TERTIARY_TARGET"].append(name)
+                myd["NUMOBS_DONE_MIN"].append(1)
+                myd["NUMOBS_DONE_MAX"].append(98)
+                myd["PRIORITY"].append(5000 + initprio)
+                #
+                myd["TERTIARY_TARGET"].append(name)
+                myd["NUMOBS_DONE_MIN"].append(99)
+                myd["NUMOBS_DONE_MAX"].append(99)
+                myd["PRIORITY"].append(5000 + initprio)
+    # AR create table
+    d = Table()
+    for key in keys:
+        d[key] = myd[key]
+    # AR assert there are no duplicated names
+    d0 = d[d["NUMOBS_DONE_MIN"] == 0]
+    assert len(d0) == np.unique(d0["TERTIARY_TARGET"]).size
+
     d.write(outfn)
 
 
