@@ -61,6 +61,44 @@ def parse():
     return args
 
 
+def create_tiles(program, field_ra, field_dec, tileid_start, tileid_end, outfn):
+    d = get_calibration_tiles(
+        program, field_ra, field_dec, tileid_start, tileid_end
+    )
+    d.write(outfn)
+
+
+def create_priorities(program, outfn):
+    d = get_main_primary_priorities(program)
+    d.write(outfn)
+
+
+def create_targets(prognum, program, field_ra, field_dec, radius, dtver, checker, outfn):
+    # AR corner case for prognum=8...
+    if prognum == 8:
+        do_ignore_gcb = True
+    else:
+        do_ignore_gcb = False
+    # AR retrieve main primary targets
+    d = get_main_primary_targets(
+        program,
+        field_ra,
+        field_dec,
+        radius=radius,
+        do_ignore_gcb=do_ignore_gcb,
+        dtver=dtver,
+    )
+    # AR do all the proper formatting things
+    d = finalize_calibration_target_table(
+        d,
+        prognum,
+        program,
+        checker=checker,
+    )
+    # AR write
+    d.write(outfn)
+
+
 def main():
 
     args = parse()
@@ -71,45 +109,23 @@ def main():
     )
 
     if "tiles" in args.steps.split(","):
-        outfn = get_fn(prognum, "tiles", args.targdir)
-        log.info("outfn = {}".format(outfn))
-        d = get_calibration_tiles(
-            program, field_ra, field_dec, tileid_start, tileid_end
+        tilesfn = get_fn(args.prognum, "tiles", args.targdir)
+        log.info("run create_tiles() to generate {}".format(tilesfn))
+        create_tiles(
+            program, field_ra, field_dec, tileid_start, tileid_end, tilesfn
         )
-        d.write(outfn)
 
     if "priorities" in args.steps.split(","):
-        outfn = get_fn(prognum, "priorities", args.targdir)
-        log.info("outfn = {}".format(outfn))
-        d = get_main_primary_priorities(program)
-        d.write(outfn)
+        priofn = get_fn(args.prognum, "priorities", args.targdir)
+        log.info("run create_priorities() to generate {}".format(priofn))
+        create_priorities(program, priofn)
 
     if "targets" in args.steps.split(","):
-        outfn = get_fn(prognum, "targets", args.targdir)
-        log.info("outfn = {}".format(outfn))
-        # AR corner case for prognum=8...
-        if args.prognum == 8:
-            do_ignore_gcb = True
-        else:
-            do_ignore_gcb = False
-        # AR retrieve main primary targets
-        d = get_main_primary_targets(
-            program,
-            field_ra,
-            field_dec,
-            radius=args.radius,
-            do_ignore_gcb=do_ignore_gcb,
-            dtver=args.dtver,
+        targfn = get_fn(args.prognum, "targets", args.targdir)
+        log.info("run create_targets() to generate {}".format(targfn))
+        create_targets(
+            args.prognum, program, field_ra, field_dec, args.radius, args.dtver, args.checker, targfn
         )
-        # AR do all the proper formatting things
-        d = finalize_calibration_target_table(
-            d,
-            args.prognum,
-            program,
-            checker=args.checker,
-        )
-        # AR write
-        d.write(outfn)
 
 
 if __name__ == "__main__":
