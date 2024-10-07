@@ -117,7 +117,13 @@ def create_priorities(program, outfn):
     d.write(outfn)
 
 
-def create_targets(prognum, program, field_ra, field_dec, radius, dtver, checker, outfn):
+def create_targets(prognum, program, field_ra, field_dec, radius, dtver, checker, priofn, outfn):
+
+    # AR
+    d = Table.read(priofn)
+    sel = d["NUMOBS_DONE_MIN"] == 0
+    tertiary_targets, initprios = d["TERTIARY_TARGET"][sel], d["PRIORITY"][sel]
+
     # AR corner case for prognum=8...
     if prognum == 8:
         do_ignore_gcb = True
@@ -128,6 +134,8 @@ def create_targets(prognum, program, field_ra, field_dec, radius, dtver, checker
         program,
         field_ra,
         field_dec,
+        tertiary_targets=tertiary_targets,
+        initprios=initprios,
         radius=radius,
         do_ignore_gcb=do_ignore_gcb,
         dtver=dtver,
@@ -165,10 +173,11 @@ def main():
         create_priorities(program, priofn)
 
     if "targets" in args.steps.split(","):
+        priofn = get_fn(args.prognum, "priorities", args.targdir)
         targfn = get_fn(args.prognum, "targets", args.targdir)
         log.info("run create_targets() to generate {}".format(targfn))
         create_targets(
-            args.prognum, program, field_ra, field_dec, args.radius, args.dtver, args.checker, targfn
+            args.prognum, program, field_ra, field_dec, args.radius, args.dtver, args.checker, priofn, targfn
         )
 
 

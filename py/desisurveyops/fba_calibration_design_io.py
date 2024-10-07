@@ -245,9 +245,10 @@ def get_main_primary_targets(
     program,
     field_ras,
     field_decs,
+    tertiary_targets=None,
+    initprios=None,
     radius=None,
     do_ignore_gcb=False,
-    priofn=None,
     dtver="1.1.1",
 ):
     """
@@ -257,6 +258,8 @@ def get_main_primary_targets(
         program: "DARK" or "BRIGHT" (str)
         field_ras: R.A. center of the calibration field (float or np.array() of floats)
         field_decs: Dec. center of the calibration field (float or np.array() of floats)
+        tertiary_targets (optional, defaults to get_main_primary_priorities()): (tertiary-adapted) names of the target classes (np.array() of str)
+        initprios (optional, defaults to get_main_primary_priorities()): PRIORITY_INIT values for names (np.array() of int)
         radius (optional, defaults to the DESI tile radius): radius in deg. to query around
             the field centers (float)
         do_ignore_gcb (optional, defaults to False): ignore the GC_BRIGHT targets; this
@@ -277,13 +280,14 @@ def get_main_primary_targets(
     if radius is None:
         radius = get_tile_radius_deg()
 
-    # AR tertiary priorities
-    if priofn is not None:
-        prios = Table.read(priofn)
+    # AR tertiary names + priorities
+    if tertiary_targets is not None:
+        assert initprios is not None
     else:
-        prios = get_main_primary_priorities(program)
-    # AR cutting on NUMOBS_DONE_MIN=0
-    prios = prios[prios["NUMOBS_DONE_MIN"] == 0]
+        assert initprios is None
+        tertiary_targets, initprios, calib_or_nonstds = get_main_primary_priorities(program)
+    sel = np.array([_ is not None for _ in initprios])
+    tertiary_targets, initprios = tertiary_targets[sel], initprios[sel]
 
     # AR desitarget targets
     # AR do not use high-level desitarget.io routines, because we want to allow
@@ -331,10 +335,12 @@ def get_main_primary_targets(
     d.meta["TARG"] = hpdir
 
     # AR TERTIARY_TARGET
-    dtype = "|S{}".format(np.max([len(x) for x in prios["TERTIARY_TARGET"]]))
+    # AR loop on np.unique(tertiary_targets), for backwards-reproducibility
+    dtype = "|S{}".format(np.max([len(x) for x in tertiary_targets]))
     d["TERTIARY_TARGET"] = np.array(["-" for i in range(len(targ))], dtype=dtype)
     myprios = -99 + np.zeros(len(d))
-    for tertiary_target in np.unique(prios["TERTIARY_TARGET"]):
+    ii = tertiary_targets.argsort()
+    for tertiary_target, initprio in zip(tertiary_targets[ii], initprios[ii]):
         if tertiary_target[:5] == "DESI_":
             name, dtkey, mask = tertiary_target[5:], "DESI_TARGET", desi_mask
         if tertiary_target[:4] == "BGS_":
@@ -343,14 +349,13 @@ def get_main_primary_targets(
             name, dtkey, mask = tertiary_target[4:], "MWS_TARGET", mws_mask
         if tertiary_target[:5] == "SCND_":
             name, dtkey, mask = tertiary_target[5:], "SCND_TARGET", scnd_mask
-        prio = prios["PRIORITY"][prios["TERTIARY_TARGET"] == tertiary_target][0]
-        sel = ((targ[dtkey] & mask[name]) > 0) & (myprios < prio)
+        sel = ((targ[dtkey] & mask[name]) > 0) & (myprios < initprio)
         # AR assuming all secondaries have OVERRIDE=False
         # AR i.e. a primary target will keep its properties if it
         # AR also is a secondary
         if dtkey == "SCND_TARGET":
             sel &= targ["DESI_TARGET"] == desi_mask["SCND_ANY"]
-        myprios[sel] = prio
+        myprios[sel] = initprio
         d["TERTIARY_TARGET"][sel] = tertiary_target
 
     # AR verify that all rows got assigned a TERTIARY_TARGET
@@ -364,7 +369,7 @@ def get_main_primary_targets(
     # AR            from MWS_BROAD,MWS_MAIN_BLUE..
     # AR except for (6) GC_BRIGHT in COSMOS/BRIGHT (same reason as above)
     myprios = -99 + np.zeros(len(d))
-    for t, p in zip(prios["TERTIARY_TARGET"], prios["PRIORITY"]):
+    for t, p in zip(tertiary_targets, initprios):
         myprios[d["TERTIARY_TARGET"] == t] = p
     ignore_std = np.in1d(
         d["TERTIARY_TARGET"].astype(str), ["DESI_STD_BRIGHT", "DESI_STD_FAINT"]
