@@ -65,9 +65,7 @@ def parse():
 
 
 def create_tiles(program, field_ra, field_dec, tileid_start, tileid_end, outfn):
-    d = get_calibration_tiles(
-        program, field_ra, field_dec, tileid_start, tileid_end
-    )
+    d = get_calibration_tiles(program, field_ra, field_dec, tileid_start, tileid_end)
     d.write(outfn)
 
 
@@ -118,7 +116,9 @@ def create_priorities(program, outfn):
     d.write(outfn)
 
 
-def create_targets(prognum, program, field_ra, field_dec, radius, dtver, checker, priofn, outfn):
+def create_targets(
+    prognum, program, field_ra, field_dec, radius, dtver, checker, priofn, outfn
+):
 
     # AR
     d = Table.read(priofn)
@@ -191,9 +191,7 @@ def main():
     if "tiles" in args.steps.split(","):
         tilesfn = get_fn(args.prognum, "tiles", args.targdir)
         log.info("run create_tiles() to generate {}".format(tilesfn))
-        create_tiles(
-            program, field_ra, field_dec, tileid_start, tileid_end, tilesfn
-        )
+        create_tiles(program, field_ra, field_dec, tileid_start, tileid_end, tilesfn)
 
     if "priorities" in args.steps.split(","):
         priofn = get_fn(args.prognum, "priorities", args.targdir)
@@ -205,7 +203,15 @@ def main():
         targfn = get_fn(args.prognum, "targets", args.targdir)
         log.info("run create_targets() to generate {}".format(targfn))
         create_targets(
-            args.prognum, program, field_ra, field_dec, args.radius, args.dtver, args.checker, priofn, targfn
+            args.prognum,
+            program,
+            field_ra,
+            field_dec,
+            args.radius,
+            args.dtver,
+            args.checker,
+            priofn,
+            targfn,
         )
 
 

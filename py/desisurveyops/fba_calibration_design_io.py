@@ -178,7 +178,9 @@ def get_calibration_tiles(program, field_ra, field_dec, tileid_start, tileid_end
     # AR create + write table
     # AR for backwards-compatibility reasons, we set here
     # AR    IN_DESI=True (instead of the usual IN_DESI=1
-    d = create_tiles_table(tileids, tileras, tiledecs, program, in_desis=np.ones(ntile, dtype=bool))
+    d = create_tiles_table(
+        tileids, tileras, tiledecs, program, in_desis=np.ones(ntile, dtype=bool)
+    )
 
     return d
 
@@ -233,7 +235,11 @@ def get_main_primary_priorities(program):
         for name in mask_names:
             if program in mask[name].obsconditions:
                 names.append("{}_{}".format(prefix, name))
-                initprios.append(mask[name].priorities["UNOBS"] if "UNOBS" in mask[name].priorities else None)
+                initprios.append(
+                    mask[name].priorities["UNOBS"]
+                    if "UNOBS" in mask[name].priorities
+                    else None
+                )
                 calib_or_nonstds.append("UNOBS" not in mask[name].priorities)
 
     names = np.array(names)
@@ -354,7 +360,9 @@ def get_main_primary_targets_names(
         assert initprios is not None
     else:
         assert initprios is None
-        tertiary_targets, initprios, calib_or_nonstds = get_main_primary_priorities(program)
+        tertiary_targets, initprios, calib_or_nonstds = get_main_primary_priorities(
+            program
+        )
     sel = np.array([_ is not None for _ in initprios])
     tertiary_targets, initprios = tertiary_targets[sel], initprios[sel]
 
@@ -395,9 +403,7 @@ def get_main_primary_targets_names(
     myprios = -99 + np.zeros(len(targ))
     for t, p in zip(tertiary_targets, initprios):
         myprios[names == t] = p
-    ignore_std = np.in1d(
-        names.astype(str), ["DESI_STD_BRIGHT", "DESI_STD_FAINT"]
-    )
+    ignore_std = np.in1d(names.astype(str), ["DESI_STD_BRIGHT", "DESI_STD_FAINT"])
     log.info(
         "priority_check: ignoring {} DESI_STD_BRIGHT|DESI_STD_FAINT".format(
             ignore_std.sum()
