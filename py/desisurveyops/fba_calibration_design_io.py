@@ -176,7 +176,9 @@ def get_calibration_tiles(program, field_ra, field_dec, tileid_start, tileid_end
     tileras, tiledecs = get_calibration_tile_centers(field_ra, field_dec, ntile)
 
     # AR create + write table
-    d = create_tiles_table(tileids, tileras, tiledecs, program)
+    # AR for backwards-compatibility reasons, we set here
+    # AR    IN_DESI=True (instead of the usual IN_DESI=1
+    d = create_tiles_table(tileids, tileras, tiledecs, program, in_desis=np.ones(ntile, dtype=bool))
 
     return d
 
