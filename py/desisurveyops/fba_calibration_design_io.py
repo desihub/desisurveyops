@@ -245,11 +245,9 @@ def get_main_primary_targets(
     program,
     field_ras,
     field_decs,
-    tertiary_targets=None,
-    initprios=None,
     radius=None,
-    do_ignore_gcb=False,
     dtver="1.1.1",
+    remove_stds=False,
 ):
     """
     Read the DESI Main primary targets inside a set of field positions.
@@ -258,40 +256,26 @@ def get_main_primary_targets(
         program: "DARK" or "BRIGHT" (str)
         field_ras: R.A. center of the calibration field (float or np.array() of floats)
         field_decs: Dec. center of the calibration field (float or np.array() of floats)
-        tertiary_targets (optional, defaults to get_main_primary_priorities()): (tertiary-adapted) names of the target classes (np.array() of str)
-        initprios (optional, defaults to get_main_primary_priorities()): PRIORITY_INIT values for names (np.array() of int)
         radius (optional, defaults to the DESI tile radius): radius in deg. to query around
             the field centers (float)
-        do_ignore_gcb (optional, defaults to False): ignore the GC_BRIGHT targets; this
-            is used for PROGNUM=8 (bool)
-        priofn (optional, defaults to the get_main_primary_priorities() output): filename
-            with a priority scheme properly formatted for the tertiary programs (str)
         dtver (optional, defaults to 1.1.1): main desitarget catalog version (str)
+        remove_stds (optional, defaults to False): remove STD_{BRIGHT,FAINT} targets (bool)
 
     Returns:
-        d: a Table() structure with these columns:
-            TERTIARY_TARGET: generated in the function
-            RA,DEC,PMRA,PMDEC,REF_EPOCH,SUBPRIORITY: copied from the desitarget catalogs
-            ORIG_{TARGETID,DESI_TARGET,BGS_TARGET,MWS_TARGET,SCND_TARGET,PRIORITY_INIT}: copied
-                from the desitarget catalogs
+        d: a Table() structure with the regular desitarget.io functions formatting.
+
+    Notes:
+        There is no high-level desitarget.io routines doing that, because we want to allow
+            the possibility to query several tiles with a custom radius.
+        The remove_stds argument is in case one wants to remove standard stars,
+            as those can be independently picked up by fba_launch.
     """
 
     # AR default to desi tile radius
     if radius is None:
         radius = get_tile_radius_deg()
 
-    # AR tertiary names + priorities
-    if tertiary_targets is not None:
-        assert initprios is not None
-    else:
-        assert initprios is None
-        tertiary_targets, initprios, calib_or_nonstds = get_main_primary_priorities(program)
-    sel = np.array([_ is not None for _ in initprios])
-    tertiary_targets, initprios = tertiary_targets[sel], initprios[sel]
-
-    # AR desitarget targets
-    # AR do not use high-level desitarget.io routines, because we want to allow
-    # AR    the possibility to query several tiles with a custom radius
+    # AR desitarget folder
     hpdir = os.path.join(
         os.getenv("DESI_TARGET"),
         "catalogs",
@@ -302,11 +286,13 @@ def get_main_primary_targets(
         "resolve",
         program.lower(),
     )
+
     # AR get the file nside
     fn = sorted(
         glob(os.path.join(hpdir, "targets-{}-hp-*fits".format(program.lower())))
     )[0]
     nside = fitsio.read_header(fn, 1)["FILENSID"]
+
     # AR get the list of pixels overlapping the tiles
     tiles = Table()
     if isinstance(field_ras, float):
@@ -314,31 +300,67 @@ def get_main_primary_targets(
     else:
         tiles["RA"], tiles["DEC"] = field_ras, field_decs
     pixs = tiles2pix(nside, tiles=tiles, radius=radius)
-    # AR read the targets in these healpix pixels
-    targ = Table(read_targets_in_hp(hpdir, nside, pixs, quick=True))
-    # AR cut on actual radius
-    sel = is_point_in_desi(tiles, targ["RA"], targ["DEC"], radius=radius)
-    targ = targ[sel]
 
-    # AR remove STD_BRIGHT,STD_FAINT
+    # AR read the targets in these healpix pixels
+    d = Table(read_targets_in_hp(hpdir, nside, pixs, quick=True))
+    d.meta["TARG"] = hpdir
+
+    # AR cut on actual radius
+    sel = is_point_in_desi(tiles, d["RA"], d["DEC"], radius=radius)
+    d = d[sel]
+
+    # AR remove STD_BRIGHT,STD_FAINT?
     # AR    as those will also be included in the fba_launch
     # AR    call with the --targ_std_only argument
-    names = ["STD_BRIGHT", "STD_FAINT"]
-    reject = np.zeros(len(targ), dtype=bool)
-    for name in names:
-        reject |= (targ["DESI_TARGET"] & desi_mask[name]) > 0
-    print("removing {} names={} targets".format(reject.sum(), ",".join(names)))
-    targ = targ[~reject]
+    if remove_stds:
+        names = ["STD_BRIGHT", "STD_FAINT"]
+        reject = np.zeros(len(d), dtype=bool)
+        for name in names:
+            reject |= (d["DESI_TARGET"] & desi_mask[name]) > 0
+        print("removing {} names={} targets".format(reject.sum(), ",".join(names)))
+        d = d[~reject]
 
-    # AR create table
-    d = Table()
-    d.meta["TARG"] = hpdir
+    return d
+
+
+def get_main_primary_targets_names(
+    targ,
+    program,
+    tertiary_targets=None,
+    initprios=None,
+    do_ignore_gcb=False,
+):
+    """
+    Get the TERTIARY_TARGET values for the DESI Main primary targets.
+
+    Args:
+        targ: Table() array with the DESI Main primary targets;
+            typically output of get_main_primary_targets() (Table() array)
+        program: "DARK" or "BRIGHT" (str)
+        tertiary_targets (optional, defaults to get_main_primary_priorities()):
+            (tertiary-adapted) names of the target classes (np.array() of str)
+        initprios (optional, defaults to get_main_primary_priorities()): PRIORITY_INIT values for names (np.array() of int)
+        do_ignore_gcb (optional, defaults to False): ignore the GC_BRIGHT targets for the sanity check; this
+            is used for PROGNUM=8 (bool)
+
+    Returns:
+        names: the TERTIARY_TARGET values (np.array() of str)
+    """
+
+    # AR tertiary names + priorities
+    if tertiary_targets is not None:
+        assert initprios is not None
+    else:
+        assert initprios is None
+        tertiary_targets, initprios, calib_or_nonstds = get_main_primary_priorities(program)
+    sel = np.array([_ is not None for _ in initprios])
+    tertiary_targets, initprios = tertiary_targets[sel], initprios[sel]
 
     # AR TERTIARY_TARGET
     # AR loop on np.unique(tertiary_targets), for backwards-reproducibility
     dtype = "|S{}".format(np.max([len(x) for x in tertiary_targets]))
-    d["TERTIARY_TARGET"] = np.array(["-" for i in range(len(targ))], dtype=dtype)
-    myprios = -99 + np.zeros(len(d))
+    names = np.array(["-" for i in range(len(targ))], dtype=dtype)
+    myprios = -99 + np.zeros(len(targ))
     ii = tertiary_targets.argsort()
     for tertiary_target, initprio in zip(tertiary_targets[ii], initprios[ii]):
         if tertiary_target[:5] == "DESI_":
@@ -356,10 +378,10 @@ def get_main_primary_targets(
         if dtkey == "SCND_TARGET":
             sel &= targ["DESI_TARGET"] == desi_mask["SCND_ANY"]
         myprios[sel] = initprio
-        d["TERTIARY_TARGET"][sel] = tertiary_target
+        names[sel] = tertiary_target
 
     # AR verify that all rows got assigned a TERTIARY_TARGET
-    assert (d["TERTIARY_TARGET"] == "").sum() == 0
+    assert (names.astype(str) == "-").sum() == 0
 
     # AR verify that we set for PRIORITY_INIT the same values as in desitarget
     # AR except for STD_BRIGHT,STD_FAINT
@@ -368,11 +390,11 @@ def get_main_primary_targets(
     # AR            1998 is higher than their primary_priority, 1400-1500
     # AR            from MWS_BROAD,MWS_MAIN_BLUE..
     # AR except for (6) GC_BRIGHT in COSMOS/BRIGHT (same reason as above)
-    myprios = -99 + np.zeros(len(d))
+    myprios = -99 + np.zeros(len(targ))
     for t, p in zip(tertiary_targets, initprios):
-        myprios[d["TERTIARY_TARGET"] == t] = p
+        myprios[names == t] = p
     ignore_std = np.in1d(
-        d["TERTIARY_TARGET"].astype(str), ["DESI_STD_BRIGHT", "DESI_STD_FAINT"]
+        names.astype(str), ["DESI_STD_BRIGHT", "DESI_STD_FAINT"]
     )
     log.info(
         "priority_check: ignoring {} DESI_STD_BRIGHT|DESI_STD_FAINT".format(
@@ -398,26 +420,11 @@ def get_main_primary_targets(
     # AR    (because this as been tested only on calibration fields)
     if sel.sum() > 0:
         msg = "the set PRIORITY_INIT differs from the desitarget one for {}/{} rows; please check!".format(
-            sel.sum(), len(d)
+            sel.sum(), len(targ)
         )
         log.warning(msg)
 
-    # AR other columns
-    for key in ["RA", "DEC", "PMRA", "PMDEC", "REF_EPOCH", "SUBPRIORITY"]:
-        d[key] = targ[key]
-
-    # AR rename with ORIG_ prefix some columns to keep the original information
-    for key in [
-        "TARGETID",
-        "DESI_TARGET",
-        "BGS_TARGET",
-        "MWS_TARGET",
-        "SCND_TARGET",
-        "PRIORITY_INIT",
-    ]:
-        d["ORIG_{}".format(key)] = targ[key]
-
-    return d
+    return names
 
 
 def finalize_calibration_target_table(
