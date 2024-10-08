@@ -402,7 +402,7 @@ def get_main_primary_targets_names(
     # AR except for (6) GC_BRIGHT in COSMOS/BRIGHT (same reason as above)
     myprios = -99 + np.zeros(len(targ))
     for t, p in zip(tertiary_targets, initprios):
-        myprios[names == t] = p
+        myprios[names.astype(str) == t] = p
     ignore_std = np.in1d(names.astype(str), ["DESI_STD_BRIGHT", "DESI_STD_FAINT"])
     log.info(
         "priority_check: ignoring {} DESI_STD_BRIGHT|DESI_STD_FAINT".format(
