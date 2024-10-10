@@ -32,6 +32,28 @@ def parse():
         default=None,
     )
     parser.add_argument(
+        "--add_main_too",
+        help="add targets from the $DESI_SURVEYOPS/mtl/main/ToO/ToO.ecsv file",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--only_tileid",
+        help="run for only a single tile (mode used for the calibration tiles; verify beforehand that previous tileids have already been designed!",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--forcetileid",
+        help="run fba_launch with the --forcetiled option; use with caution!",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--custom_too_development",
+        help="is this for development? (allows args.custom_too_file to be outside of $DESI_SURVEYOPS)",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
         "--dry_run",
         help="do not execute any command, just print on the prompt",
         action="store_true",
@@ -78,7 +100,11 @@ def main():
     ntile = len(tiles)
 
     # AR loop on tiles
-    for i in range(ntile):
+    if args.only_tileid:
+        ii = [np.where(tiles["TILEID"] == args.only_tileid)[0][0]]
+    else:
+        ii = np.arange(ntile, dtype=int)
+    for i in ii:
 
         # AR tile properties
         tileid = tiles["TILEID"][i]
@@ -124,7 +150,19 @@ def main():
         cmd = "{} --goaltype {} --hdr_survey {} --hdr_faprgrm {}".format(cmd, obsconds, hdr_survey, hdr_faprgrm)
         # AR ToO file
         cmd = "{} --too_tile --custom_too_file {}".format(cmd, toofn)
+        if args.add_main_too:
+            maintoofn = os.path.join(os.getenv("DESI_SURVEYOPS"), "mtl", "main", "ToO", "ToO.ecsv")
+            cmd = "{},{}".format(cmd, maintoofn)
+        # AR force tileid?
+        # AR    ! use with caution !
+        # AR    (for cases where tiles are re-designed after having been svn-committed)
+        if args.forcetileid:
+            cmd = "{} --forcetileid y".format(cmd)
         log.info(cmd)
+        # AR custom_too_development?
+        # AR    use for testing the design
+        if args.custom_too_development:
+            cmd = "{} --custom_too_development".format(cmd)
         if not args.dry_run:
             os.system(cmd)
 

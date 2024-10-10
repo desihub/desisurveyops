@@ -1,0 +1,219 @@
+#!/usr/bin/env python
+
+import os
+from astropy.table import Table
+import numpy as np
+from fiberassign.utils import Logger
+from desisurveyops.fba_tertiary_design_io import get_fn
+from desisurveyops.fba_calibration_design_io import (
+    get_calibration_settings,
+    get_calibration_tiles,
+    get_main_primary_priorities,
+    get_main_primary_targets,
+    get_main_primary_targets_names,
+    finalize_calibration_target_table,
+)
+from argparse import ArgumentParser
+
+# AR https://desi.lbl.gov/trac/wiki/SurveyOps/CalibrationFields
+
+log = Logger.get()
+
+valid_steps = ["tiles", "priorities", "targets"]
+
+
+def parse():
+    parser = ArgumentParser(
+        description="Creates {targdir}/tertiary-tiles-{prognumpad}.ecsv, {targdir}/tertiary-priorities-{prognumpad}.ecsv, {targdir}/tertiary-targets-{prognumpad}.fits"
+    )
+    parser.add_argument("--prognum", help="tertiary PROGNUM", type=int)
+    parser.add_argument(
+        "--targdir",
+        help="output folder; for an official design, it should be $DESI_ROOT/fiberassign/special/tertiary/{prognumpad} (default=None)",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--steps",
+        help="comma-separated values (e.g., tiles,priorities,targets)",
+        type=str,
+    )
+    parser.add_argument("--checker", help="checker column (e.g., AR)", type=str)
+    parser.add_argument(
+        "--radius",
+        help="we select targets up that distance (in degree) from the field center (default=3)",
+        type=float,
+        default=3,
+    )
+    parser.add_argument(
+        "--dtver",
+        help="desitarget catalog version (default=1.1.1)",
+        type=str,
+        default="1.1.1",
+    )
+    args = parser.parse_args()
+    # AR valid steps
+    for step in args.steps.split(","):
+        if step not in valid_steps:
+            msg = "non-valid step = {}; exiting".format(step)
+            log.error(msg)
+            raise ValueError(msg)
+    # AR print arguments
+    for kwargs in args._get_kwargs():
+        log.info("{} = {}".format(kwargs[0], kwargs[1]))
+    return args
+
+
+def create_tiles(program, field_ra, field_dec, tileid_start, tileid_end, outfn):
+    d = get_calibration_tiles(program, field_ra, field_dec, tileid_start, tileid_end)
+    d.write(outfn)
+
+
+def create_priorities(program, outfn):
+
+    # AR get the tertiary properties of the DESI Main primary targets
+    # AR note: STD_BRIGHT,STD_FAINT have no priorities
+    # AR       we assign them PRIORITY=3000
+    names, initprios, calib_or_nonstds = get_main_primary_priorities(program)
+    initprios[names == "DESI_STD_BRIGHT"] = 3000
+    initprios[names == "DESI_STD_FAINT"] = 3000
+
+    keys = ["TERTIARY_TARGET", "NUMOBS_DONE_MIN", "NUMOBS_DONE_MAX", "PRIORITY"]
+    # AR we favor re-observations vs. first observations
+    # AR loop on masks
+    myd = {key: [] for key in keys}
+    for name, initprio, calib_or_nonstd in zip(names, initprios, calib_or_nonstds):
+        if initprio is not None:
+            if initprio == 0:
+                myd["TERTIARY_TARGET"].append(name)
+                myd["NUMOBS_DONE_MIN"].append(0)
+                myd["NUMOBS_DONE_MAX"].append(99)
+                myd["PRIORITY"].append(initprio)
+            else:
+                #
+                myd["TERTIARY_TARGET"].append(name)
+                myd["NUMOBS_DONE_MIN"].append(0)
+                myd["NUMOBS_DONE_MAX"].append(0)
+                myd["PRIORITY"].append(initprio)
+                #
+                myd["TERTIARY_TARGET"].append(name)
+                myd["NUMOBS_DONE_MIN"].append(1)
+                myd["NUMOBS_DONE_MAX"].append(98)
+                myd["PRIORITY"].append(5000 + initprio)
+                #
+                myd["TERTIARY_TARGET"].append(name)
+                myd["NUMOBS_DONE_MIN"].append(99)
+                myd["NUMOBS_DONE_MAX"].append(99)
+                myd["PRIORITY"].append(5000 + initprio)
+    # AR create table
+    d = Table()
+    for key in keys:
+        d[key] = myd[key]
+    # AR assert there are no duplicated names
+    d0 = d[d["NUMOBS_DONE_MIN"] == 0]
+    assert len(d0) == np.unique(d0["TERTIARY_TARGET"]).size
+
+    d.write(outfn)
+
+
+def create_targets(
+    prognum, program, field_ra, field_dec, radius, dtver, checker, priofn, outfn
+):
+
+    # AR
+    d = Table.read(priofn)
+    sel = d["NUMOBS_DONE_MIN"] == 0
+    tertiary_targets, initprios = d["TERTIARY_TARGET"][sel], d["PRIORITY"][sel]
+
+    # AR corner case for prognum=8...
+    if prognum == 8:
+        do_ignore_gcb = True
+    else:
+        do_ignore_gcb = False
+
+    # AR retrieve main primary targets
+    d = get_main_primary_targets(
+        program,
+        field_ra,
+        field_dec,
+        radius=radius,
+        remove_stds=True,
+    )
+
+    # AR get the TERTIARY_TARGET values
+    d["TERTIARY_TARGET"] = get_main_primary_targets_names(
+        d,
+        program,
+        tertiary_targets=tertiary_targets,
+        initprios=initprios,
+        do_ignore_gcb=do_ignore_gcb,
+    )
+
+    # AR columns we keep
+    keys = ["TERTIARY_TARGET", "RA", "DEC", "PMRA", "PMDEC", "REF_EPOCH", "SUBPRIORITY"]
+
+    # AR rename with ORIG_ prefix some columns to keep the original information
+    # AR    + keep then
+    for key in [
+        "TARGETID",
+        "DESI_TARGET",
+        "BGS_TARGET",
+        "MWS_TARGET",
+        "SCND_TARGET",
+        "PRIORITY_INIT",
+    ]:
+        d[key].name = "ORIG_{}".format(key)
+        keys.append("ORIG_{}".format(key))
+
+    # AR cut on columns
+    d = d[keys]
+
+    # AR do all the proper formatting things
+    d = finalize_calibration_target_table(
+        d,
+        prognum,
+        program,
+        checker=checker,
+    )
+    # AR write
+    d.write(outfn)
+
+
+def main():
+
+    args = parse()
+
+    # AR general properties
+    program, field_ra, field_dec, tileid_start, tileid_end = get_calibration_settings(
+        args.prognum
+    )
+
+    if "tiles" in args.steps.split(","):
+        tilesfn = get_fn(args.prognum, "tiles", args.targdir)
+        log.info("run create_tiles() to generate {}".format(tilesfn))
+        create_tiles(program, field_ra, field_dec, tileid_start, tileid_end, tilesfn)
+
+    if "priorities" in args.steps.split(","):
+        priofn = get_fn(args.prognum, "priorities", args.targdir)
+        log.info("run create_priorities() to generate {}".format(priofn))
+        create_priorities(program, priofn)
+
+    if "targets" in args.steps.split(","):
+        priofn = get_fn(args.prognum, "priorities", args.targdir)
+        targfn = get_fn(args.prognum, "targets", args.targdir)
+        log.info("run create_targets() to generate {}".format(targfn))
+        create_targets(
+            args.prognum,
+            program,
+            field_ra,
+            field_dec,
+            args.radius,
+            args.dtver,
+            args.checker,
+            priofn,
+            targfn,
+        )
+
+
+if __name__ == "__main__":
+    main()
