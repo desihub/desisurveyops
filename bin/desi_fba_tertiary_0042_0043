@@ -1,0 +1,278 @@
+#!/usr/bin/env python
+
+import os
+import fitsio
+import numpy as np
+from astropy.io import fits
+from astropy.table import Table, vstack
+from desiutil.log import get_logger
+from desiutil.redirect import stdouterr_redirected
+from desisurveyops.fba_tertiary_design_io import (
+    assert_environ_settings,
+    get_fn,
+    read_yaml,
+    assert_tertiary_settings,
+    get_tile_centers_grid,
+    create_tiles_table,
+    create_empty_priority_dict,
+    finalize_target_table,
+    assert_files,
+    create_targets_assign,
+    plot_targets_assign,
+)
+from desisurveyops.fba_calibration_design_io import (
+    get_main_primary_priorities,
+    get_main_primary_targets,
+    get_main_primary_targets_names,
+    finalize_calibration_target_table,
+)
+from argparse import ArgumentParser
+
+# AR message to ensure that some key settings in the environment are correctly set
+# AR put it at the very top, so that it appears first, and is not redirected
+# AR    (=burried) in the log file
+assert_environ_settings()
+
+log = get_logger()
+
+
+def parse():
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--yamlfn",
+        help="path to the tertiary-config-PROGNUMPAD.yaml file",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--steps",
+        help="comma-separated list of steps to execute (default='tiles,priorities,targets,run,diagnosis')",
+        type=str,
+        default="tiles,priorities,targets,run,diagnosis",
+    )
+    parser.add_argument(
+        "--dry_run",
+        action="store_true",
+        help="for the 'run' step, only print the commands on the prompt",
+    )
+    parser.add_argument(
+        "--log-stdout",
+        "--log_stdout",
+        action="store_true",
+        help="log to stdout instead of redirecting to a file",
+    )
+    args = parser.parse_args()
+    for kwargs in args._get_kwargs():
+        log.info("{} = {}".format(kwargs[0], kwargs[1]))
+    return args
+
+
+# AR 20 tiles, on a grid
+# AR https://desisurvey.slack.com/archives/C01HNN87Y7J/p1727826184813679
+# AR same for BRIGHT/DARK
+def create_tiles(tileid_start, ntile, obsconds, outfn):
+    ras = [15.0, 30.0, 45.0, 60.0, 75.0]
+    decs = [-23.0, -28.0, -33.0, -38.0]
+    tileras, tiledecs = [], []
+    for ra in ras:
+        for dec in decs:
+            tileras.append(ra)
+            tiledecs.append(dec)
+    tileras, tiledecs = np.array(tileras), np.array(tiledecs)
+    tileids = np.arange(tileid_start, tileid_start + ntile, dtype=int)
+    assert tileras.size == ntile
+    assert tiledecs.size == ntile
+    d = create_tiles_table(tileids, tileras, tiledecs, obsconds)
+    d.write(outfn)
+
+
+# AR pick the desi main primary targets ones
+# AR restrict to the TERTIARY_TARGET names listed in the yamlfn
+# AR    (those include all primary targets in the considered tiles, actually)
+def create_priorities(yamlfn, outfn):
+    # AR read the requested settings
+    mydict = read_yaml(yamlfn)["settings"]
+
+    # AR grab all desi primary (tertiary) names
+    program = mydict["obsconds"]
+
+    # AR cut on the requested ones
+    mydict = read_yaml(yamlfn)["samples"]
+    samples = list(mydict.keys())
+
+    # AR small sanity check (i.e. we set the PRIORITY_INIT as in desitarget)
+    names, initprios, calib_or_nonstds = get_main_primary_priorities(program)
+    ii = [np.where(names == sample)[0][0] for sample in samples]
+    names, initprios, calib_or_nonstds = names[ii], initprios[ii], calib_or_nonstds[ii]
+    for sample, initprio in zip(samples, initprios):
+        if initprio is not None:
+            assert mydict[sample]["PRIORITY_INIT"] == initprio
+
+    # AR simple scheme, one observation per target
+    keys = ["TERTIARY_TARGET", "NUMOBS_DONE_MIN", "NUMOBS_DONE_MAX", "PRIORITY"]
+    myd = {key: [] for key in keys}
+    for sample in samples:
+        #
+        myd["TERTIARY_TARGET"].append(sample)
+        myd["NUMOBS_DONE_MIN"].append(0)
+        myd["NUMOBS_DONE_MAX"].append(0)
+        myd["PRIORITY"].append(mydict[sample]["PRIORITY_INIT"])
+        #
+        myd["TERTIARY_TARGET"].append(sample)
+        myd["NUMOBS_DONE_MIN"].append(1)
+        myd["NUMOBS_DONE_MAX"].append(99)
+        myd["PRIORITY"].append(2)
+
+    # AR create table
+    d = Table()
+    for key in keys:
+        d[key] = myd[key]
+
+    # AR print
+    d.pprint_all()
+    for sample in np.unique(d["TERTIARY_TARGET"]):
+        sel = d["TERTIARY_TARGET"] == sample
+        log.info("priorites for {}: {}".format(sample, d["PRIORITY"][sel].tolist()))
+    d.write(outfn)
+
+
+# AR a bit "unusual" approach, as we create here the input targs catalog
+# AR  (whereas usually it is provided beforehand)
+# AR the reason is because we retrieve the targets with get_main_primary_targets()...
+# AR the lines of code to retrieve the targets etc are the same than in bin/desi_fba_calibration_inputs
+# AR    except we query for 1 DESI radius (and not 3 degrees)
+def create_targets(yamlfn, outfn):
+
+    # AR input cat
+    mydict = read_yaml(yamlfn)["settings"]
+    prognum, targdir, program = mydict["prognum"], mydict["targdir"], mydict["obsconds"]
+    mydict = read_yaml(yamlfn)["samples"]
+    samples = np.array(list(mydict.keys()))
+    initprios = np.array([mydict[sample]["PRIORITY_INIT"] for sample in samples])
+    fns = np.unique([mydict[sample]["FN"] for sample in samples])
+    assert np.all(
+        fns
+        == np.array(
+            [
+                "tertiary{}-input-targs.fits".format(prognum),
+            ]
+        )
+    )
+    checkers = np.unique([mydict[sample]["CHECKER"] for sample in samples])
+    assert checkers.size == 1
+    checker = checkers[0]
+
+    # AR tilesfn
+    fn = get_fn(prognum, "tiles", targdir)
+    tiles = Table.read(fn)
+
+    # AR retrieve main primary targets
+    d = get_main_primary_targets(
+        program,
+        tiles["RA"],
+        tiles["DEC"],
+        radius=None,  # AR: defaults to DESI radius
+        remove_stds=False,
+    )
+    # AR write an inputs/ catalog, in case..
+    d.write(
+        os.path.join(targdir, "inputs", "tertiary{}-input-targs.fits".format(prognum))
+    )
+
+    # AR get the TERTIARY_TARGET values
+    d["TERTIARY_TARGET"] = get_main_primary_targets_names(
+        d,
+        program,
+        tertiary_targets=samples,
+        initprios=initprios,
+    )
+
+    # AR columns we keep
+    keys = ["TERTIARY_TARGET", "RA", "DEC", "PMRA", "PMDEC", "REF_EPOCH", "SUBPRIORITY"]
+
+    # AR rename with ORIG_ prefix some columns to keep the original information
+    # AR    + keep then
+    for key in [
+        "TARGETID",
+        "DESI_TARGET",
+        "BGS_TARGET",
+        "MWS_TARGET",
+        "SCND_TARGET",
+        "PRIORITY_INIT",
+    ]:
+        d[key].name = "ORIG_{}".format(key)
+        keys.append("ORIG_{}".format(key))
+
+    # AR cut on columns
+    d = d[keys]
+
+    # AR do all the proper formatting things
+    d = finalize_calibration_target_table(
+        d,
+        prognum,
+        program,
+        checker=checker,
+    )
+
+    # AR write
+    d.write(outfn)
+
+
+def main():
+
+    # AR read + assert settings
+    mydict = read_yaml(args.yamlfn)["settings"]
+    assert_tertiary_settings(mydict)
+    prognum, targdir = mydict["prognum"], mydict["targdir"]
+
+    # AR set random seed (for SUBPRIORITY reproducibility)
+    np.random.seed(mydict["np_rand_seed"])
+
+    # AR tiles file
+    if "tiles" in args.steps.split(","):
+        tilesfn = get_fn(prognum, "tiles", targdir)
+        log.info("run create_tiles() to generate {}".format(tilesfn))
+        create_tiles(
+            mydict["tileid_start"], mydict["ntile"], mydict["obsconds"], tilesfn
+        )
+
+    # AR priorities file
+    if "priorities" in args.steps.split(","):
+        priofn = get_fn(prognum, "priorities", targdir)
+        log.info("run create_priorities() to generate {}".format(priofn))
+        create_priorities(args.yamlfn, priofn)
+
+    # AR targets file
+    if "targets" in args.steps.split(","):
+        targfn = get_fn(prognum, "targets", targdir)
+        log.info("run create_targets() to generate {}".format(targfn))
+        create_targets(args.yamlfn, targfn)
+
+    # AR sanity checks + run
+    if "run" in args.steps.split(","):
+        assert_files(prognum, targdir)
+        cmd = "desi_fba_tertiary_wrapper --prognum {} --targdir {} --rundate {} --std_dtver {}".format(
+            prognum, targdir, mydict["rundate"], mydict["std_dtver"]
+        )
+        if args.dry_run:
+            cmd = "{} --dry_run".format(cmd)
+        log.info(cmd)
+        os.system(cmd)
+
+    # AR diagnosis
+    if "diagnosis" in args.steps.split(","):
+        create_targets_assign(prognum, targdir)
+        plot_targets_assign(prognum, targdir)
+
+
+if __name__ == "__main__":
+
+    args = parse()
+
+    if args.log_stdout:
+        main()
+    else:
+        _ = read_yaml(args.yamlfn)["settings"]
+        logfn = get_fn(_["prognum"], "log", _["targdir"])
+        with stdouterr_redirected(to=logfn):
+            main()
