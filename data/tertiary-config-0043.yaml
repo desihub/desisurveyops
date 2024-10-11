@@ -1,0 +1,26 @@
+# overall settings
+settings:
+    prognum : 43
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0043"
+    ntile : 20
+    tileid_start : 83499
+    rundate : "2024-10-09T17:00:56+00:00"
+    obsconds : "BRIGHT"
+    sbprof : "BGS"
+    goaltime : 300
+    std_dtver : "1.1.1"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    DESI_STD_BRIGHT :   {"PRIORITY_INIT" : 3000, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary43-input-targs.fits"}
+    MWS_MWS_WD :        {"PRIORITY_INIT" : 2998, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary43-input-targs.fits"}
+    BGS_BGS_FAINT_HIP : {"PRIORITY_INIT" : 2100, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary43-input-targs.fits"}
+    BGS_BGS_BRIGHT :    {"PRIORITY_INIT" : 2100, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary43-input-targs.fits"}
+    BGS_BGS_WISE :      {"PRIORITY_INIT" : 2000, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary43-input-targs.fits"}
+    BGS_BGS_FAINT :     {"PRIORITY_INIT" : 2000, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary43-input-targs.fits"}
+    MWS_MWS_NEARBY :    {"PRIORITY_INIT" : 1600, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary43-input-targs.fits"}
+    MWS_MWS_BHB :       {"PRIORITY_INIT" : 1550, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary43-input-targs.fits"}
+    MWS_MWS_MAIN_RED :  {"PRIORITY_INIT" : 1500, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary43-input-targs.fits"} 
+    MWS_MWS_MAIN_BLUE : {"PRIORITY_INIT" : 1500, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary43-input-targs.fits"} 
+    MWS_MWS_BROAD :     {"PRIORITY_INIT" : 1400, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary43-input-targs.fits"} 

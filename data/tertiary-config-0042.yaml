@@ -1,0 +1,23 @@
+# overall settings
+settings:
+    prognum : 42
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0042"
+    ntile : 20
+    tileid_start : 83479
+    rundate : "2024-10-09T17:00:56+00:00"
+    obsconds : "DARK"
+    sbprof : "ELG"
+    goaltime : 1000
+    std_dtver : "1.1.1"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    DESI_STD_FAINT :    {"PRIORITY_INIT" : 3500, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary42-input-targs.fits"}
+    DESI_QSO :          {"PRIORITY_INIT" : 3400, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary42-input-targs.fits"}
+    DESI_LRG :          {"PRIORITY_INIT" : 3200, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary42-input-targs.fits"}
+    DESI_ELG_HIP :      {"PRIORITY_INIT" : 3200, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary42-input-targs.fits"}
+    DESI_ELG_LOP :      {"PRIORITY_INIT" : 3100, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary42-input-targs.fits"}
+    DESI_ELG :          {"PRIORITY_INIT" : 3000, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary42-input-targs.fits"}
+    MWS_MWS_WD :        {"PRIORITY_INIT" : 2998, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary42-input-targs.fits"}
+    MWS_MWS_BHB:        {"PRIORITY_INIT" : 1550, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "tertiary42-input-targs.fits"}
