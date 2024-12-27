@@ -1,0 +1,26 @@
+# overall settings
+settings:
+    prognum : 44
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0044"
+    ntile : 30
+    tileid_start : 83519
+    rundate : "2024-12-20T17:01:03+00:00"
+    obsconds : "DARK"
+    sbprof : "ELG"
+    goaltime : 1000
+    std_dtver : "1.1.1"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    STAR_SK_IBIS : {"PRIORITY_INIT" : 9000, "NGOAL" : 1, "CHECKER" : "SK", "FN" : "LowFe_and_Giants-clean.fits"}
+    HIZ_IBIS : {"PRIORITY_INIT" : 8100, "NGOAL" : 8, "CHECKER" : "AR/DJS/HE", "FN" : "ibis-xmm-ar-djs-he.fits"}
+    HIZ1H_IBIS : {"PRIORITY_INIT" : 8000, "NGOAL" : 4, "CHECKER" : "AR/DJS/HE", "FN" : "ibis-xmm-ar-djs-he.fits"}
+    STAR_AD_IBIS : {"PRIORITY_INIT" : 7000, "NGOAL" : 2, "CHECKER" : "AD", "FN" : "XMM_ADSTARS_TARGETS.fits "}
+    LBG_REOBS_HIP : {"PRIORITY_INIT" : 6200, "NGOAL" : 8, "CHECKER" : "CY", "FN" : "re_obs_for_lbg_lya.fits"}
+    LBG_REOBS_MIDP : {"PRIORITY_INIT" : 6100, "NGOAL" : 8, "CHECKER" : "CY", "FN" : "re_obs_for_lbg_lya.fits"}
+    LBG_REOBS_LOP : {"PRIORITY_INIT" : 6000, "NGOAL" : 8, "CHECKER" : "CY", "FN" : "re_obs_for_lbg_lya.fits"}
+    FILLER_GALFAINT : {"PRIORITY_INIT" : 5300, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "XMM-spare-brightest-v2.fits"}
+    FILLER_PSFOUTL : {"PRIORITY_INIT" : 5200, "NGOAL" : 3, "CHECKER" : "DJS", "FN" : "XMM-spare-brightest-v2.fits"}
+    FILLER_PSFSTAR_HIP : {"PRIORITY_INIT" : 5100, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "XMM-spare-brightest-v2.fits"}
+    FILLER_PSFSTAR_LOP : {"PRIORITY_INIT" : 5000, "NGOAL" : 1, "CHECKER" : "DJS", "FN" : "XMM-spare-brightest-v2.fits"}
