@@ -1,0 +1,22 @@
+# overall settings
+settings:
+    prognum : 45
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0045"
+    ntile : 10
+    tileid_start : 83549
+    rundate : "2025-01-03T17:00:53+00:00"
+    obsconds : "DARK"
+    sbprof : "PSF"
+    goaltime : 1800
+    std_dtver : "2.2.0"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    LOFESTAR : {"PRIORITY_INIT" : 5000, "NGOAL" : 4, "CHECKER" : "AD/SK", "FN" : "M31_TERTIARYTARGETS_LOFESTAR_v3.fits"}
+    STAR     : {"PRIORITY_INIT" : 4000, "NGOAL" : 3, "CHECKER" : "AD/SK", "FN" : "M31_TERTIARYTARGETS_STAR.fits"}
+    STARBKP  : {"PRIORITY_INIT" : 4000, "NGOAL" : 1, "CHECKER" : "AD/SK", "FN" : "M31_TERTIARYTARGETS_STARBKP.fits"}
+    BRIGHT   : {"PRIORITY_INIT" : 3000, "NGOAL" : 1, "CHECKER" : "AD/SK", "FN" : "M31_TERTIARYTARGETS_BRIGHT.fits"}
+    BRIGHT2  : {"PRIORITY_INIT" : 3000, "NGOAL" : 1, "CHECKER" : "AD/SK", "FN" : "M31_TERTIARYTARGETS_BRIGHT2.fits"}
+    KNOWN    : {"PRIORITY_INIT" : 3000, "NGOAL" : 2, "CHECKER" : "AD/SK", "FN" : "M31_TERTIARYTARGETS_KNOWN.fits"}
+    QSO      : {"PRIORITY_INIT" : 3000, "NGOAL" : 2, "CHECKER" : "AD/SK", "FN" : "M31_TERTIARYTARGETS_QSO.fits"}
