@@ -1,0 +1,300 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# YBL: this file is largely modified from Anand's desi_fba_tertiary_wrapper
+# in surveyops repo, see
+# https://github.com/desihub/desisurveyops/blob/c9c9206e8d0b2b0acaf73ae5078376c98dbf66fa/bin/desi_fba_tertiary_wrapper
+
+import os
+from re import A
+import sys
+import subprocess
+import numpy as np
+import importlib
+from argparse import ArgumentParser
+from astropy.io import fits
+from astropy.table import Table
+from desiutil.log import get_logger
+from desiutil.redirect import stdouterr_redirected
+from desisurveyops.fba_tertiary_design_io import (
+    assert_environ_settings,
+    get_fn,
+    read_yaml,
+    assert_tertiary_settings,
+    assert_files,
+    create_targets_assign,
+    plot_targets_assign,
+    TertiaryDesignBase
+)
+from fiberassign.fba_tertiary_io import get_toofn
+
+
+# AR message to ensure that some key settings in the environment are correctly set
+# AR put it at the very top, so that it appears first, and is not redirected
+# AR    (=burried) in the log file
+assert_environ_settings()
+logger = get_logger()
+
+
+def parse_args():
+    parser = ArgumentParser()
+    # Tertiary design arguments
+    parser.add_argument(
+        "--yaml-file-path", '-yfp', '-yamlfn', # for backward compatibility
+        help="path to the tertiary-config-PROGNUMPAD.yaml file",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        '--workflow', '-w', help='workflow to execute (default=all)', type=str,
+        choices=['design', 'fba_assign', 'all'], default='all',
+        required=True
+    )
+    parser.add_argument(
+        "--design-file-path",
+        "-dfp",
+        help="Path to the specific design implementation file",
+        type=str,
+        # required=True,
+    )
+    parser.add_argument(
+        "--diagnosis", '-diag',
+        help="run the diagnosis step",
+        action="store_true",
+    )
+    # FBA arguments
+    parser.add_argument(
+        "--std_dtver",
+        help="DTVER for the standard stars (use 1.1.1 if inside the LS-DR9 footprint, 2.2.0 outside)",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--add_main_too",
+        help="add targets from the $DESI_SURVEYOPS/mtl/main/ToO/ToO.ecsv file",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--only_tileid",
+        help="run for only a single tile (mode used for the calibration tiles; verify beforehand that previous tileids have already been designed!",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--forcetileid",
+        help="run fba_launch with the --forcetiled option; use with caution!",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--custom_too_development",
+        help="is this for development? (allows args.custom_too_file to be outside of $DESI_SURVEYOPS)",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--dry_run",
+        help="do not execute any command, just print on the prompt",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--design-steps", "-ds",
+        help="space-separated list of steps to execute for fiber-assign (default=[tiles,priorities,targets])",
+        type=str,
+        nargs="+",
+        default=["tiles", "priorities", "targets"],
+    )
+    parser.add_argument(
+        "--log-stdout",
+        action="store_true",
+        help="log to stdout instead of redirecting to a file",
+    )
+    args = parser.parse_args()
+    for k, v in args._get_kwargs():
+        logger.info("{} = {}".format(k, v))
+    return args
+
+
+def import_design_module(design_file):
+    spec = importlib.util.spec_from_file_location("design_module", design_file)
+    design_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(design_module)
+    return design_module
+
+
+def execute_tertiary_design(args):
+    # import the tile design module
+    design_module = import_design_module(args.design_file_path)
+    if not hasattr(design_module, 'TertiaryDesign'):
+        # check if the design module contains the TertiaryDesign class
+        raise ValueError("The design module must contain a class named 'TertiaryDesign'")
+    if not issubclass(design_module.TertiaryDesign, TertiaryDesignBase):
+        raise ValueError("The design class must be a subclass of TertiaryDesignBase")
+    ttdesign = design_module.TertiaryDesign(args.yaml_file_path)
+    # AR read + assert settings
+    mydict = read_yaml(args.yaml_file_path)["settings"]
+    assert_tertiary_settings(mydict)
+    prognum, targdir = mydict["prognum"], mydict["targdir"]
+
+    # AR set random seed (for SUBPRIORITY reproducibility)
+    np.random.seed(mydict["np_rand_seed"])
+
+    # AR tiles file
+    if "tiles" in args.design_steps:
+        tilesfn = get_fn(prognum, "tiles", targdir)
+        logger.info("run create_tiles() to generate {}".format(tilesfn))
+        ttdesign.create_tiles(tilesfn)
+
+    # AR priorities file
+    if "priorities" in args.design_steps:
+        priofn = get_fn(prognum, "priorities", targdir)
+        logger.info("run create_priorities() to generate {}".format(priofn))
+        ttdesign.create_priorities(priofn)
+
+    # AR targets file
+    if "targets" in args.design_steps:
+        targfn = get_fn(prognum, "targets", targdir)
+        logger.info("run create_targets() to generate {}".format(targfn))
+        ttdesign.create_targets(targfn)
+
+
+def execute_fba_assign(args):
+    """This function must be called after the tertiary design has been done.
+    The function will loop over the tiles and call fba_tertiary_too and fba_launch
+    """
+    # load necessary settings from the yaml file
+    ttsetting = read_yaml(args.yaml_file_path)["settings"]
+    rundate = ttsetting["rundate"]
+    targdir = ttsetting["targdir"]
+    prognum = ttsetting["prognum"]
+    
+    assert_files(prognum, targdir)
+    # AR some settings
+    fadir = targdir
+    hdr_survey = "special"  # AR what will be recorded in the fiberassign header
+
+    # AR grab some fiberassign settings from TARGFN header
+    targfn = get_fn(prognum, "targets", targdir)
+    hdr = fits.getheader(targfn, "TARGETS")
+    hdr_faprgrm = hdr["FAPRGRM"]
+    obsconds = hdr["OBSCONDS"]
+    sbprof = hdr["SBPROF"]
+    goaltime = hdr["GOALTIME"]
+
+    # AR fiberassign settings, only for the standard stars
+    std_survey = "main"
+    if args.std_dtver == "2.2.0":
+        std_faprgrm = "BACKUP"
+        logger.info("args.std_dtver=2.2.0 => using BACKUP stars for standard stars")
+    else:
+        if not obsconds in ["BRIGHT", "DARK"]:
+            msg = (
+                "obsconds={} => only BRIGHT or DARK authorized for std_dtver={}".format(
+                    obsconds, args.std_dtver
+                )
+            )
+            logger.error(msg)
+            raise ValueError(msg)
+        std_faprgrm = obsconds
+
+    # AR tiles
+    tilesfn = get_fn(prognum, "tiles", targdir)
+    tiles = Table.read(tilesfn)
+    ntile = len(tiles)
+
+    # AR loop on tiles
+    if args.only_tileid:
+        tile_idx = [np.where(tiles["TILEID"] == args.only_tileid)[0][0]]
+    else:
+        tile_idx = np.arange(ntile, dtype=int)
+    for i in tile_idx:
+        # AR tile properties
+        tileid = tiles["TILEID"][i]
+        tilera, tiledec = tiles["RA"][i], tiles["DEC"][i]
+        tileha = tiles["DESIGNHA"][i]
+
+        # AR ToO files
+        toofn = get_toofn(prognum, tileid, targdir=targdir)
+        logfn = toofn.replace(".ecsv", ".logger")
+        logger.info("toofn = {}".format(toofn))
+
+        # AR fba_tertiary_too call
+        ftt_cmd = [
+            "fba_tertiary_too",
+            f"--tileid {tileid}",
+            f"--tilera {tilera}",
+            f"--tiledec {tiledec}",
+            f"--targdir {targdir}",
+            f"--fadir {fadir}",
+            f"--prognum {prognum}",
+        ]
+        if i >= 1:
+            prev_tileids = ",".join(tiles["TILEID"][:i].astype(str))
+            ftt_cmd.append(f"--previous_tileids {prev_tileids}")
+        # cmd = "{} > {} 2>&1".format(cmd, logfn)
+        # switch the above command with subprocess call and direct output
+        logger.info(ftt_cmd)
+        if not args.dry_run:
+            with open(logfn, "a+") as fp:
+                out = subprocess.run(ftt_cmd, stderr=subprocess.STDOUT, stdout=fp)
+
+        # AR fba_launch call
+        fl_cmd = [
+            "fba_launch",
+            f"--outdir {fadir}",
+            # tiles
+            f"--tileid {tileid}",
+            f"--tilera {tilera}",
+            f"--tiledec {tiledec}",
+            f"--ha {tileha}",
+            # date
+            f"--rundate {rundate}",
+            # tertiary program settings
+            f"--sbprof {sbprof} --goaltime {goaltime}",
+            # standard stars
+            f"--survey {std_survey}",
+            f"--program {std_faprgrm}",
+            f"--dtver {args.std_dtver}",
+            "--targ_std_only",
+            # no secondary targets
+            "--nosteps scnd",
+            # GOALTIME, SURVEY and FAPRGRM header keywords
+            f"--goaltype {obsconds} --hdr_survey {hdr_survey} --hdr_faprgrm {hdr_faprgrm}",
+        ]
+        # Add ToO file
+        all_toofn = toofn
+        if args.add_main_too:
+            maintoofn = os.path.join(
+                os.getenv("DESI_SURVEYOPS"), "mtl", "main", "ToO", "ToO.ecsv"
+            )
+            all_toofn += f",{maintoofn}"
+        fl_cmd.append(f"--too_tile --custom_too_file {all_toofn}")
+        # AR force tileid?
+        # AR    ! use with caution !
+        # AR    (for cases where tiles are re-designed after having been svn-committed)
+        if args.forcetileid:
+            fl_cmd.append("--forcetileid y")
+        logger.info(fl_cmd)
+        # AR custom_too_development?
+        # AR    use for testing the design
+        if args.custom_too_development:
+            fl_cmd.append("--custom_too_development")
+        if not args.dry_run:
+            with open(logfn, "a+") as fp:
+                out = subprocess.run(fl_cmd, stderr=subprocess.STDOUT, stdout=fp)
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    logfn = sys.stdout
+    ttsetting = read_yaml(args.yaml_file_path)["settings"]
+    prognum, targdir = ttsetting["prognum"], ttsetting["targdir"]
+    if not args.log_stdout:
+        logfn = get_fn(prognum, "log", targdir)
+    # use desiutils API to redirect stdout and stderr to a log file
+    with stdouterr_redirected(to=logfn):
+        if args.workflow in ("design", "all"):
+            execute_tertiary_design(args)
+        if args.workflow in ("fba_assign", "all"):
+            execute_fba_assign(args)
+    if args.diagnosis:
+        # AR diagnosis
+        create_targets_assign(prognum, targdir)
+        plot_targets_assign(prognum, targdir)

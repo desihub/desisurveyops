@@ -8,6 +8,7 @@ import yaml
 import fitsio
 import healpy as hp
 import numpy as np
+from abc import ABC, abstractmethod
 from astropy.table import Table, vstack
 from astropy.io import fits
 from astropy.coordinates import SkyCoord, Longitude
@@ -40,6 +41,37 @@ from matplotlib import gridspec
 from matplotlib.ticker import MultipleLocator
 
 log = get_logger()
+
+
+class TertiaryDesignBase(ABC):
+    """Placeholder for the specific tertiary design class.
+    The implemented class must be named TertiaryDesign and be a subclass of TertiaryDesignBase.
+    User can provide these parameters to be used later:
+    yamlfp (str):
+        The path to the yaml file containing the tertiary design configuration.
+    
+    And implement the following methods that only reference self.yamlfp and self.logger
+    the user can provide the yamlfp in the create_* methods separately:
+    create_tiles()
+    create_priorities()
+    create_targets()
+    """
+
+    # def __init__(self, yamlfn: str, desi_logger: logging.Logger):        
+    #     self.yamlfn = yamlfn
+    #     self.logger = desi_logger
+
+    @abstractmethod
+    def create_tiles(self, outfp: str, yamlfp=None):
+        pass
+
+    @abstractmethod
+    def create_priorities(self, outfp: str, yamlfp=None):
+        pass
+
+    @abstractmethod
+    def create_targets(self, outfp: str, yamlfp=None):
+        pass
 
 
 def get_environ_settings_ref():
