@@ -62,12 +62,12 @@ def parse_args():
         action="store_true",
     )
     # FBA arguments
-    parser.add_argument(
-        "--std_dtver",
-        help="DTVER for the standard stars (use 1.1.1 if inside the LS-DR9 footprint, 2.2.0 outside)",
-        type=str,
-        default=None,
-    )
+    # parser.add_argument(
+    #     "--std_dtver",
+    #     help="DTVER for the standard stars (use 1.1.1 if inside the LS-DR9 footprint, 2.2.0 outside)",
+    #     type=str,
+    #     default=None,
+    # )
     parser.add_argument(
         "--add_main_too",
         help="add targets from the $DESI_SURVEYOPS/mtl/main/ToO/ToO.ecsv file",
@@ -164,6 +164,7 @@ def execute_fba_assign(args):
     rundate = ttsetting["rundate"]
     targdir = ttsetting["targdir"]
     prognum = ttsetting["prognum"]
+    std_dtver = ttsetting["std_dtver"]
     
     assert_files(prognum, targdir)
     # AR some settings
@@ -180,14 +181,14 @@ def execute_fba_assign(args):
 
     # AR fiberassign settings, only for the standard stars
     std_survey = "main"
-    if args.std_dtver == "2.2.0":
+    if std_dtver == "2.2.0":
         std_faprgrm = "BACKUP"
-        logger.info("args.std_dtver=2.2.0 => using BACKUP stars for standard stars")
+        logger.info("std_dtver=2.2.0 => using BACKUP stars for standard stars")
     else:
         if not obsconds in ["BRIGHT", "DARK"]:
             msg = (
                 "obsconds={} => only BRIGHT or DARK authorized for std_dtver={}".format(
-                    obsconds, args.std_dtver
+                    obsconds, std_dtver
                 )
             )
             logger.error(msg)
@@ -212,51 +213,53 @@ def execute_fba_assign(args):
 
         # AR ToO files
         toofn = get_toofn(prognum, tileid, targdir=targdir)
-        logfn = toofn.replace(".ecsv", ".logger")
+        logfn = toofn.replace(".ecsv", ".log")
         logger.info("toofn = {}".format(toofn))
 
         # AR fba_tertiary_too call
         ftt_cmd = [
             "fba_tertiary_too",
-            f"--tileid {tileid}",
-            f"--tilera {tilera}",
-            f"--tiledec {tiledec}",
-            f"--targdir {targdir}",
-            f"--fadir {fadir}",
-            f"--prognum {prognum}",
+            "--tileid", str(tileid),
+            "--tilera", str(tilera),
+            "--tiledec", str(tiledec),
+            "--targdir", targdir,
+            "--fadir", fadir,
+            "--prognum", str(prognum),
         ]
         if i >= 1:
             prev_tileids = ",".join(tiles["TILEID"][:i].astype(str))
-            ftt_cmd.append(f"--previous_tileids {prev_tileids}")
+            ftt_cmd.extend(["--previous_tileids", prev_tileids])
         # cmd = "{} > {} 2>&1".format(cmd, logfn)
         # switch the above command with subprocess call and direct output
-        logger.info(ftt_cmd)
+        logger.info("Running command: {}".format(" ".join(ftt_cmd)))
         if not args.dry_run:
             with open(logfn, "a+") as fp:
-                out = subprocess.run(ftt_cmd, stderr=subprocess.STDOUT, stdout=fp)
+                result = subprocess.run(ftt_cmd, stderr=subprocess.STDOUT, stdout=fp)
+                if result.returncode != 0:
+                    logger.error(f"Error executing fba_tertiary_too: {result.stderr}")
 
         # AR fba_launch call
         fl_cmd = [
             "fba_launch",
-            f"--outdir {fadir}",
+            "--outdir", fadir,
             # tiles
-            f"--tileid {tileid}",
-            f"--tilera {tilera}",
-            f"--tiledec {tiledec}",
-            f"--ha {tileha}",
+            "--tileid", str(tileid),
+            "--tilera", str(tilera),
+            "--tiledec", str(tiledec),
+            "--ha", str(tileha),
             # date
-            f"--rundate {rundate}",
+            "--rundate", rundate,
             # tertiary program settings
-            f"--sbprof {sbprof} --goaltime {goaltime}",
+            "--sbprof", sbprof, "--goaltime", str(goaltime),
             # standard stars
-            f"--survey {std_survey}",
-            f"--program {std_faprgrm}",
-            f"--dtver {args.std_dtver}",
+            "--survey", std_survey,
+            "--program", std_faprgrm,
+            "--dtver", std_dtver,
             "--targ_std_only",
             # no secondary targets
-            "--nosteps scnd",
+            "--nosteps", "scnd",
             # GOALTIME, SURVEY and FAPRGRM header keywords
-            f"--goaltype {obsconds} --hdr_survey {hdr_survey} --hdr_faprgrm {hdr_faprgrm}",
+            "--goaltype", obsconds, "--hdr_survey", hdr_survey, "--hdr_faprgrm", hdr_faprgrm,
         ]
         # Add ToO file
         all_toofn = toofn
@@ -265,21 +268,22 @@ def execute_fba_assign(args):
                 os.getenv("DESI_SURVEYOPS"), "mtl", "main", "ToO", "ToO.ecsv"
             )
             all_toofn += f",{maintoofn}"
-        fl_cmd.append(f"--too_tile --custom_too_file {all_toofn}")
+        fl_cmd.extend(["--too_tile", "--custom_too_file", all_toofn])
         # AR force tileid?
         # AR    ! use with caution !
         # AR    (for cases where tiles are re-designed after having been svn-committed)
         if args.forcetileid:
-            fl_cmd.append("--forcetileid y")
-        logger.info(fl_cmd)
+            fl_cmd.extend(["--forcetileid", "y"])
         # AR custom_too_development?
         # AR    use for testing the design
         if args.custom_too_development:
             fl_cmd.append("--custom_too_development")
+        logger.info("Running command: {}".format(" ".join(fl_cmd)))
         if not args.dry_run:
             with open(logfn, "a+") as fp:
-                out = subprocess.run(fl_cmd, stderr=subprocess.STDOUT, stdout=fp)
-
+                result = subprocess.run(fl_cmd, stderr=subprocess.STDOUT, stdout=fp)
+                if result.returncode != 0:
+                    logger.error(f"Error executing fba_launch: {result.stderr}")
 
 if __name__ == "__main__":
     args = parse_args()
