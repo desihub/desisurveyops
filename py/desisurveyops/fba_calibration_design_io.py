@@ -191,7 +191,7 @@ def get_main_primary_priorities(program):
         from the DESI Main primary targets.
 
     Args:
-        program: "DARK" or "BRIGHT" (str)
+        program: "DARK" or "BRIGHT" or "BACKUP" (str)
 
 
     Returns:
@@ -213,7 +213,10 @@ def get_main_primary_priorities(program):
         The list of calib_or_nonstds=True BRIGHT targets is:
             DESI_SKY,DESI_STD_WD,DESI_STD_BRIGHT,DESI_SUPP_SKY,DESI_NO_TARGET,DESI_NEAR_BRIGHT_OBJECT,DESI_SCND_ANY
             MWS_GAIA_STD_WD,MWS_GAIA_STD_BRIGHT
+        20250212: "BACKUP" enabled (used for for non-calibration tiles)
     """
+
+    assert program in ["DARK", "BRIGHT", "BACKUP"]
 
     # AR we discard some names
     black_names = {}
@@ -254,19 +257,19 @@ def get_main_primary_targets(
     field_ras,
     field_decs,
     radius=None,
-    dtver="1.1.1",
+    dtver=None,
     remove_stds=False,
 ):
     """
     Read the DESI Main primary targets inside a set of field positions.
 
     Args:
-        program: "DARK" or "BRIGHT" (str)
+        program: "DARK" or "BRIGHT" or "BACKUP" (str)
         field_ras: R.A. center of the calibration field (float or np.array() of floats)
         field_decs: Dec. center of the calibration field (float or np.array() of floats)
         radius (optional, defaults to the DESI tile radius): radius in deg. to query around
             the field centers (float)
-        dtver (optional, defaults to 1.1.1): main desitarget catalog version (str)
+        dtver (optional, defaults to 2.2.0 for BACKUP, 1.1.1 for BRIGHT,DARK): main desitarget catalog version (str)
         remove_stds (optional, defaults to False): remove STD_{BRIGHT,FAINT} targets (bool)
 
     Returns:
@@ -277,7 +280,23 @@ def get_main_primary_targets(
             the possibility to query several tiles with a custom radius.
         The remove_stds argument is in case one wants to remove standard stars,
             as those can be independently picked up by fba_launch.
+        20250212: BACKUP enabled (used for for non-calibration tiles)
     """
+
+    assert program in ["DARK", "BRIGHT", "BACKUP"]
+
+    if program == "BACKUP":
+        photcat = "gaiadr2"
+        std_names = ["GAIA_STD_BRIGHT", "GAIA_STD_FAINT", "GAIA_STD_WD"]
+        std_key, std_mask = "MWS_TARGET", mws_mask
+        if dtver is None:
+            dtver = "2.2.0"
+    else:
+        photcat = "dr9"
+        std_names = ["STD_BRIGHT", "STD_FAINT", "STD_WD"]
+        std_key, std_mask = "DESI_TARGET", desi_mask
+        if dtver is None:
+            dtver = "1.1.1"
 
     # AR default to desi tile radius
     if radius is None:
@@ -287,13 +306,14 @@ def get_main_primary_targets(
     hpdir = os.path.join(
         os.getenv("DESI_TARGET"),
         "catalogs",
-        "dr9",
+        photcat,
         dtver,
         "targets",
         "main",
         "resolve",
         program.lower(),
     )
+    log.info("reading targets from {}".format(hpdir))
 
     # AR get the file nside
     fn = sorted(
@@ -321,11 +341,10 @@ def get_main_primary_targets(
     # AR    as those will also be included in the fba_launch
     # AR    call with the --targ_std_only argument
     if remove_stds:
-        names = ["STD_BRIGHT", "STD_FAINT"]
         reject = np.zeros(len(d), dtype=bool)
-        for name in names:
-            reject |= (d["DESI_TARGET"] & desi_mask[name]) > 0
-        print("removing {} names={} targets".format(reject.sum(), ",".join(names)))
+        for name in std_names:
+            reject |= (d[std_key] & std_mask[name]) > 0
+        log.info("removing {} names={} targets".format(reject.sum(), ",".join(std_names)))
         d = d[~reject]
 
     return d
@@ -337,6 +356,7 @@ def get_main_primary_targets_names(
     tertiary_targets=None,
     initprios=None,
     do_ignore_gcb=False,
+    keep_calib_or_nonstds=False,
 ):
     """
     Get the TERTIARY_TARGET values for the DESI Main primary targets.
@@ -350,10 +370,13 @@ def get_main_primary_targets_names(
         initprios (optional, defaults to get_main_primary_priorities()): PRIORITY_INIT values for names (np.array() of int)
         do_ignore_gcb (optional, defaults to False): ignore the GC_BRIGHT targets for the sanity check; this
             is used for PROGNUM=8 (bool)
+        keep_calib_or_nonstds (optional, defaults to False): keep calib_or_nonstds targets (bool)
 
     Returns:
         names: the TERTIARY_TARGET values (np.array() of str)
     """
+
+    assert program in ["DARK", "BRIGHT", "BACKUP"]
 
     # AR tertiary names + priorities
     if tertiary_targets is not None:
@@ -363,8 +386,10 @@ def get_main_primary_targets_names(
         tertiary_targets, initprios, calib_or_nonstds = get_main_primary_priorities(
             program
         )
-    sel = np.array([_ is not None for _ in initprios])
-    tertiary_targets, initprios = tertiary_targets[sel], initprios[sel]
+    if not keep_calib_or_nonstds:
+        sel = np.array([_ is not None for _ in initprios])
+        tertiary_targets, initprios = tertiary_targets[sel], initprios[sel]
+        print(tertiary_targets)
 
     # AR TERTIARY_TARGET
     # AR loop on np.unique(tertiary_targets), for backwards-reproducibility
@@ -381,7 +406,10 @@ def get_main_primary_targets_names(
             name, dtkey, mask = tertiary_target[4:], "MWS_TARGET", mws_mask
         if tertiary_target[:5] == "SCND_":
             name, dtkey, mask = tertiary_target[5:], "SCND_TARGET", scnd_mask
-        sel = ((targ[dtkey] & mask[name]) > 0) & (myprios < initprio)
+        if  keep_calib_or_nonstds:
+            sel = ((targ[dtkey] & mask[name]) > 0) & (myprios < initprio)
+        else:
+            sel = ((targ[dtkey] & mask[name]) > 0) & (myprios < initprio)
         # AR assuming all secondaries have OVERRIDE=False
         # AR i.e. a primary target will keep its properties if it
         # AR also is a secondary
@@ -391,6 +419,7 @@ def get_main_primary_targets_names(
         names[sel] = tertiary_target
 
     # AR verify that all rows got assigned a TERTIARY_TARGET
+    sel = names.astype(str) == "-"
     assert (names.astype(str) == "-").sum() == 0
 
     # AR verify that we set for PRIORITY_INIT the same values as in desitarget
@@ -446,6 +475,9 @@ def finalize_calibration_target_table(
 
     Args:
         d: a Table() array
+        prognum: tertiary prognum (int)
+        program: "BRIGHT", "DARK", or "BACKUP" (str)
+        checker (optional, defaults to "AR"): initials of the checker (str)
 
     Returns:
         d: a Table() array with:
@@ -457,7 +489,10 @@ def finalize_calibration_target_table(
         Close to desisurveyops.fba_tertiary_design_io.finalize_target_table()
             but as yaml files were not used for calibration programs,
             need to have this version.
+        20250212: BACKUP enabled (used for for non-calibration tiles)
     """
+
+    assert program in ["DARK", "BRIGHT", "BACKUP"]
 
     # AR TARGETID, CHECKER
     d["TARGETID"] = encode_targetid(
