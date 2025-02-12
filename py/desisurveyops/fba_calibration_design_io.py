@@ -468,6 +468,8 @@ def finalize_calibration_target_table(
     d,
     prognum,
     program,
+    goaltime=None,
+    sbprof=None,
     checker="AR",
 ):
     """
@@ -477,6 +479,8 @@ def finalize_calibration_target_table(
         d: a Table() array
         prognum: tertiary prognum (int)
         program: "BRIGHT", "DARK", or "BACKUP" (str)
+        goaltime (optional, defaults to 180/1000/60 for BRIGHT/DARK/BACKUP): tile goaltime in seconds (int)
+        sbprof (optional, defaults to BGS/ELG/PSF for BRIGHT/DARK/BACKUP): tile SBPROF for ETC (str)
         checker (optional, defaults to "AR"): initials of the checker (str)
 
     Returns:
@@ -490,9 +494,18 @@ def finalize_calibration_target_table(
             but as yaml files were not used for calibration programs,
             need to have this version.
         20250212: BACKUP enabled (used for for non-calibration tiles)
+        20250212: optional goaltime/sbprof
     """
 
     assert program in ["DARK", "BRIGHT", "BACKUP"]
+
+    # AR goaltime
+    if goaltime is None:
+        goaltime = {"DARK": 1000, "BRIGHT": 180, "BACKUP": 60}[program]
+
+    # AR sbprof
+    if sbprof is None:
+        sbprof = {"DARK": "ELG", "BRIGHT": "BGS", "BACKUP": "PSF"}[program]
 
     # AR TARGETID, CHECKER
     d["TARGETID"] = encode_targetid(
@@ -517,8 +530,7 @@ def finalize_calibration_target_table(
     d.meta["EXTNAME"] = "TARGETS"
     d.meta["FAPRGRM"] = "tertiary{}".format(prognum)
     d.meta["OBSCONDS"] = program
-    assert program in ["BRIGHT", "DARK"]
-    d.meta["SBPROF"] = "ELG" if program == "DARK" else "BGS"
-    d.meta["GOALTIME"] = 1000.0 if program == "DARK" else 180.0
+    d.meta["SBPROF"] = sbprof
+    d.meta["GOALTIME"] = goaltime
 
     return d
