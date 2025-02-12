@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+from glob import glob
 import sys
 import tempfile
 import yaml
