@@ -1495,10 +1495,7 @@ def get_main_primary_targets_names(
             name, dtkey, mask = tertiary_target[4:], "MWS_TARGET", mws_mask
         if tertiary_target[:5] == "SCND_":
             name, dtkey, mask = tertiary_target[5:], "SCND_TARGET", scnd_mask
-        if  keep_calib_or_nonstds:
-            sel = ((targ[dtkey] & mask[name]) > 0) & (myprios < initprio)
-        else:
-            sel = ((targ[dtkey] & mask[name]) > 0) & (myprios < initprio)
+        sel = ((targ[dtkey] & mask[name]) > 0) & (myprios < initprio)
         # AR assuming all secondaries have OVERRIDE=False
         # AR i.e. a primary target will keep its properties if it
         # AR also is a secondary
