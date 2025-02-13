@@ -4,13 +4,15 @@ import os
 from astropy.table import Table
 import numpy as np
 from fiberassign.utils import Logger
-from desisurveyops.fba_tertiary_design_io import get_fn
-from desisurveyops.fba_calibration_design_io import (
-    get_calibration_settings,
-    get_calibration_tiles,
+from desisurveyops.fba_tertiary_design_io import (
+    get_fn,
     get_main_primary_priorities,
     get_main_primary_targets,
     get_main_primary_targets_names,
+)
+from desisurveyops.fba_calibration_design_io import (
+    get_calibration_settings,
+    get_calibration_tiles,
     finalize_calibration_target_table,
 )
 from argparse import ArgumentParser
