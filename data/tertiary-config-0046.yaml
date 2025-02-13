@@ -1,0 +1,24 @@
+# overall settings
+settings:
+    prognum : 46
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0046"
+    ntile : 16
+    tileid_start : 83559
+    rundate : "2025-02-11T17:01:01+00:00"
+    obsconds : "BRIGHT"
+    sbprof : "PSF"
+    goaltime : 60
+    std_dtver : "2.2.0"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    MWS_GAIA_STD_WD :       {"PRIORITY_INIT" : 60, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "targets-backup.fits"}
+    MWS_GAIA_STD_BRIGHT :   {"PRIORITY_INIT" : 55, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "targets-backup.fits"}
+    MWS_GAIA_STD_FAINT :    {"PRIORITY_INIT" : 50, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "targets-backup.fits"}
+    MWS_BACKUP_DIB :        {"PRIORITY_INIT" : 45, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "targets-backup.fits"}
+    MWS_BACKUP_GIANT :      {"PRIORITY_INIT" : 35, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "targets-backup.fits"}
+    MWS_BACKUP_BRIGHT :     {"PRIORITY_INIT" : 30, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "targets-backup.fits"}
+    MWS_BACKUP_GIANT_LOP :  {"PRIORITY_INIT" : 25, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "targets-backup.fits"}
+    MWS_BACKUP_FAINT :      {"PRIORITY_INIT" : 20, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "targets-backup.fits"}
+    MWS_BACKUP_VERY_FAINT : {"PRIORITY_INIT" : 15, "NGOAL" : 1, "CHECKER" : "AR", "FN" : "targets-backup.fits"}
