@@ -1478,7 +1478,7 @@ def get_main_primary_targets_names(
     if not keep_calib_or_nonstds:
         sel = np.array([_ is not None for _ in initprios])
         tertiary_targets, initprios = tertiary_targets[sel], initprios[sel]
-        print(tertiary_targets)
+        log.info("keep_calib_or_nonstds=False -> restrict to tertiary_targets={}".format(tertiary_targets))
 
     # AR TERTIARY_TARGET
     # AR loop on np.unique(tertiary_targets), for backwards-reproducibility
