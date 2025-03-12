@@ -49,7 +49,7 @@ def parse():
     )
     parser.add_argument(
         "--numproc",
-        help="number of concurrent processes to use; set to 0 to not process (default=1)",
+        help="number of concurrent processes to use (default=1)",
         type=int,
         default=1,
     )
