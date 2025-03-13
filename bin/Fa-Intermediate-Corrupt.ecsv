@@ -1,0 +1,42 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: TILEID, datatype: string, subtype: json}
+# - {name: CASE, datatype: string}
+# - {name: TIMESTAMP, datatype: string}
+# schema: astropy-2.0
+TILEID CASE TIMESTAMP
+3475 sky,targ,scnd,gfa 2024-06-15
+11267 sky,gfa 2024-06-15
+11276 sky 2024-06-15
+21619 sky,targ,gfa 2024-06-15
+21789 sky,targ,gfa 2024-06-15
+22771 sky,targ,scnd,gfa 2024-06-15
+23146 sky,targ,scnd,gfa 2024-06-15
+23345 sky,targ,scnd,gfa 2024-06-15
+24705 sky 2024-06-15
+9688 targ 2024-08-12
+1326 scnd 2024-12-02
+1967 targ 2024-12-02
+9174 targ 2024-12-02
+9739 targ,gfa 2024-12-02
+23324 targ 2024-12-10
+25072 gfa 2024-12-10
+26154 scnd 2024-12-10
+26484 scnd 2024-12-10
+27084 gfa 2024-12-10
+1345 sky 2025-02-21
+1358 sky,targ,scnd 2025-02-21
+2142 targ 2025-02-21
+2945 sky,targ,gfa 2025-02-21
+2947 sky 2025-02-21
+2954 targ,scnd,gfa 2025-02-21
+2958 scnd 2025-02-21
+3667 scnd 2025-02-21
+4511 sky 2025-02-21
+6058 sky,gfa 2025-02-21
+6805 targ,gfa 2025-02-21
+6832 sky,gfa 2025-02-21
+7634 sky,targ,gfa 2025-02-21
+9742 sky,targ,gfa 2025-02-21
+10036 sky 2025-02-21
