@@ -31,10 +31,12 @@ def main():
     fa_int_corrupt.sort(order='TILEID')
     
     tiles_specstat = np.array(Table.read('/global/cfs/cdirs/desi/survey/ops/surveyops/trunk/ops/tiles-specstatus.ecsv'))
+    #cutting to main tiles
+    tiles_specstat = tiles_specstat[tiles_specstat["SURVEY"] == "main"]
     
     #i/o setup
     temp_dir = '/pscratch/sd/d/desiproc/fiberassign/rerun'
-    fa_dir = '/global/cfs/cdirs/desi/survey/fiberassign/main/'
+    fa_dir = os.path.join(os.getenv("DESI_ROOT"), "survey", "fiberassign", "main")
     
     print('godailyops')
     
@@ -42,7 +44,7 @@ def main():
     redo_dates = tiles_specstat[np.isin(tiles_specstat['TILEID'],fa_int_corrupt['TILEID'])]['QANIGHT']
     
     #iterate over main survey dates
-    for rd in np.unique(redo_dates[redo_dates > 20240514]):
+    for rd in np.unique(redo_dates[redo_dates >= 20210514]):
         print('validate_lastnight_fba --night {}'.format(rd))
     
         #iterate through entries associated with this date and print necessary commands
@@ -50,8 +52,11 @@ def main():
             tile_str = str(en['TILEID']).zfill(6)
             cases = en['CASE'].split(',')
             for case in cases:
-                print('mv {}/{}/{}-{}.fits {}/{}/{}-{}-corrupted.fits'.format(fa_dir,tile_str[:3],tile_str,case,fa_dir,tile_str[:3],tile_str,case))
-                print('mv {}/{}/{}-{}.fits {}/{}/{}-{}.fits'.format(temp_dir,tile_str[:3],tile_str,case,fa_dir,tile_str[:3],tile_str,case))
+                origfn = os.path.join(fa_dir, tile_str[:3], "{}-{}.fits".format(tile_str, case))
+                corruptfn = origfn.replace(".fits", "-corrupted.fits")
+                tmpfn = origfn.replace(fa_dir, temp_dir)
+                print("mv {} {}".format(origfn, corruptfn))
+                print("mv {} {}".format(tmpfn, origfn))
 
 if __name__ == "__main__":
     main()
