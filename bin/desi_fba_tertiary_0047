@@ -1,0 +1,285 @@
+#!/usr/bin/env python
+
+import os
+import fitsio
+import numpy as np
+from astropy.io import fits
+from astropy.table import Table, vstack
+from desiutil.log import get_logger
+from desiutil.redirect import stdouterr_redirected
+from desisurveyops.fba_tertiary_design_io import (
+    assert_environ_settings,
+    get_fn,
+    read_yaml,
+    assert_tertiary_settings,
+    get_tile_centers_grid,
+    create_tiles_table,
+    creates_priority_table,
+    match_coord,
+    print_samples_overlap,
+    subsample_targets_avail,
+    finalize_target_table,
+    assert_files,
+    create_targets_assign,
+    plot_targets_assign,
+)
+from desitarget.targetmask import desi_mask, bgs_mask
+from argparse import ArgumentParser
+
+# AR message to ensure that some key settings in the environment are correctly set
+# AR put it at the very top, so that it appears first, and is not redirected
+# AR    (=burried) in the log file
+assert_environ_settings()
+
+log = get_logger()
+
+
+def parse():
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--yamlfn",
+        help="path to the tertiary-config-PROGNUMPAD.yaml file",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--steps",
+        help="comma-separated list of steps to execute (default='tiles,priorities,targets,run,diagnosis')",
+        type=str,
+        default="tiles,priorities,targets,run,diagnosis",
+    )
+    parser.add_argument(
+        "--dry_run",
+        action="store_true",
+        help="for the 'run' step, only print the commands on the prompt",
+    )
+    parser.add_argument(
+        "--log-stdout",
+        "--log_stdout",
+        action="store_true",
+        help="log to stdout instead of redirecting to a file",
+    )
+    args = parser.parse_args()
+    for kwargs in args._get_kwargs():
+        log.info("{} = {}".format(kwargs[0], kwargs[1]))
+    return args
+
+
+# AR purposefully offset the "usual" cosmos dec value by +0.3 deg
+# AR to avoid shallow ibis/m464 region
+def create_tiles(tileid_start, ntile, obsconds, outfn):
+    tileids = np.arange(tileid_start, tileid_start + ntile, dtype=int)
+
+    field_ra, field_dec = 150.1, 2.482 # AR 2.482 = 2.182 + 0.3
+
+    tileras, tiledecs = get_tile_centers_grid(field_ra, field_dec, npt=ntile)
+    assert tileras.size == ntile
+    assert tiledecs.size == ntile
+    d = create_tiles_table(tileids, tileras, tiledecs, obsconds)
+    d.write(outfn)
+
+
+# AR usual priority scheme (+1 when observed)
+def create_priorities(yamlfn, outfn):
+    d = creates_priority_table(yamlfn)
+    # AR print
+    d.pprint_all()
+    for sample in np.unique(d["TERTIARY_TARGET"]):
+        sel = d["TERTIARY_TARGET"] == sample
+        log.info("priorites for {}: {}".format(sample, d["PRIORITY"][sel].tolist()))
+    d.write(outfn)
+
+
+def create_targets(yamlfn, outfn):
+
+    # matching radius [arcsec]
+    search_radius = 1
+
+    # AR read config
+    config = read_yaml(yamlfn)
+    prognum = config["settings"]["prognum"]
+    targdir = config["settings"]["targdir"]
+    rundate = config["settings"]["rundate"]
+
+    samples = np.array(list(config["samples"].keys()))
+    prios = np.array([config["samples"][sample]["PRIORITY_INIT"] for sample in samples])
+    ngoals = np.array([config["samples"][sample]["NGOAL"] for sample in samples])
+
+    # sort by *decreasing* priority
+    ii = prios.argsort()[::-1]
+    samples, prios, ngoals = samples[ii], prios[ii], ngoals[ii]
+    log.info("reading {}:".format(yamlfn))
+    for sample in samples:
+        msg = "{}:\t{}".format(
+            sample,
+            "\t".join(
+                [
+                    "{}={}".format(key, config["samples"][sample][key])
+                    for key in config["samples"][sample]
+                ]
+            ),
+        )
+        log.info(msg)
+    log.info("")
+
+    # read cats
+    ds = {}
+    log.info("reading cats from {}:".format(targdir))
+    for sample in samples:
+
+        infn = os.path.join(targdir, "inputcats", config["samples"][sample]["FN"])
+        try:
+            d = Table(fitsio.read(infn, columns=["RA", "DEC"]))
+        except ValueError:
+            d = Table(fitsio.read(infn, columns=["ra", "dec"]))
+        d["PMRA"], d["PMDEC"], d["REF_EPOCH"] = 0.0, 0.0, 2015.5
+
+        d["ORIG_ROW"] = np.arange(len(d), dtype=int)
+        d["ORIG_FN"] = infn
+        d["CHECKER"] = config["samples"][sample]["CHECKER"]
+        d["TERTIARY_TARGET"] = sample
+
+        ds[sample] = d
+        log.info("{}:\t{} rows".format(sample, len(d)))
+    log.info("")
+
+    # merge
+    # AR merge
+    log.info("merging (use {} arcsec search radius)".format(search_radius))
+    for sample, prio, ngoal in zip(samples, prios, ngoals):
+
+        d = Table()
+        for key in [
+            "RA",
+            "DEC",
+            "PMRA",
+            "PMDEC",
+            "REF_EPOCH",
+            "TERTIARY_TARGET",
+            "CHECKER",
+        ]:
+            d[key] = ds[sample][key]
+        d["PRIORITY_INIT"] = prio
+        d["NGOAL"] = ngoal
+        log.info("{}:\tPRIORITY_INIT={}\tread {} rows".format(sample, prio, len(d)))
+
+        for sample2 in samples:
+            if sample2 == sample:
+                d[sample2] = True
+                d["{}_ROW".format(sample2)] = ds[sample]["ORIG_ROW"]
+            else:
+                d[sample2] = False
+                d["{}_ROW".format(sample2)] = np.full(len(d), -99, dtype=int)
+
+        if sample == samples[0]:
+            log.info(
+                "{}:\tPRIORITY_INIT={}\tadd all {} rows".format(sample, prio, len(d))
+            )
+            merge_d = d.copy()
+
+        else:
+            ii_merge, ii, _, _, _ = match_coord(
+                merge_d["RA"],
+                merge_d["DEC"],
+                d["RA"],
+                d["DEC"],
+                search_radius=search_radius,
+                verbose=False,
+            )
+            # add info for matched ones
+            log.info(
+                "{}:\tPRIORITY_INIT={}\tmatched {} rows with targets ingested so far".format(
+                    sample, prio, ii.size
+                )
+            )
+            merge_d[sample][ii_merge] = True
+            merge_d["{}_ROW".format(sample)][ii_merge] = d["{}_ROW".format(sample)][ii]
+            # add rows for non-matched ones
+            sel = ~np.in1d(np.arange(len(d)), ii)
+            d = d[sel]
+            log.info(
+                "{}:\tPRIORITY_INIT={}\tadd {} not-matched rows".format(
+                    sample, prio, len(d)
+                )
+            )
+            merge_d = vstack([merge_d, d])
+    log.info("")
+
+    # rename d, to make downstream code clearer
+    d = merge_d.copy()
+
+    # samples overlap
+    log.info("looking at samples overlap before pre-filtering")
+    print_samples_overlap(d, samples)
+    log.info("")
+
+    # AR finalize
+    d = finalize_target_table(d, yamlfn)
+    d.meta["RANDSEED"] = read_yaml(yamlfn)["settings"]["np_rand_seed"]
+    d.meta["YAMLFN"] = yamlfn
+    d.meta["SAMPLES"] = ",".join(samples)
+    d.meta["PRIOS"] = ",".join(prios.astype(str))
+    d.meta["FNS"] = ",".join([config["samples"][sample]["FN"] for sample in samples])
+    d.write(outfn)
+
+
+def main():
+
+    # AR read + assert settings
+    mydict = read_yaml(args.yamlfn)["settings"]
+    assert_tertiary_settings(mydict)
+    prognum, targdir = mydict["prognum"], mydict["targdir"]
+
+    # AR set random seed (for SUBPRIORITY reproducibility)
+    np.random.seed(mydict["np_rand_seed"])
+
+    # AR tiles file
+    if "tiles" in args.steps.split(","):
+        tilesfn = get_fn(prognum, "tiles", targdir)
+        log.info("run create_tiles() to generate {}".format(tilesfn))
+        create_tiles(
+            mydict["tileid_start"], mydict["ntile"], mydict["obsconds"], tilesfn
+        )
+
+    # AR priorities file
+    if "priorities" in args.steps.split(","):
+        priofn = get_fn(prognum, "priorities", targdir)
+        log.info("run create_priorities() to generate {}".format(priofn))
+        create_priorities(args.yamlfn, priofn)
+
+    # AR targets file
+    if "targets" in args.steps.split(","):
+        targfn = get_fn(prognum, "targets", targdir)
+        log.info("run create_targets() to generate {}".format(targfn))
+        create_targets(args.yamlfn, targfn)
+
+    # AR sanity checks + run
+    if "run" in args.steps.split(","):
+        assert_files(prognum, targdir)
+        cmd = "desi_fba_tertiary_wrapper --prognum {} --targdir {} --rundate {} --std_dtver {}".format(
+            prognum, targdir, mydict["rundate"], mydict["std_dtver"]
+        )
+        # AR required because of the safeguard... sigh..
+        # cmd = "{} --custom_too_development".format(cmd)
+        if args.dry_run:
+            cmd = "{} --dry_run".format(cmd)
+        log.info(cmd)
+        os.system(cmd)
+
+    # AR diagnosis
+    if "diagnosis" in args.steps.split(","):
+        create_targets_assign(prognum, targdir)
+        plot_targets_assign(prognum, targdir)
+
+
+if __name__ == "__main__":
+
+    args = parse()
+
+    if args.log_stdout:
+        main()
+    else:
+        _ = read_yaml(args.yamlfn)["settings"]
+        logfn = get_fn(_["prognum"], "log", _["targdir"])
+        with stdouterr_redirected(to=logfn):
+            main()

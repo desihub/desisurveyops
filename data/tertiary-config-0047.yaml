@@ -1,0 +1,19 @@
+# overall settings
+settings:
+    prognum : 47
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0047"
+    ntile : 1
+    tileid_start : 83577
+    rundate : "2025-04-25T17:01:11+00:00"
+    obsconds : "DARK"
+    sbprof : "ELG"
+    goaltime : 1000
+    std_dtver : "1.1.1"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    LBG_LSSTY4 : {"PRIORITY_INIT" : 7000, "NGOAL" : 1, "CHECKER" : "CP", "FN" : "cosmos_targets_u2x180s_griz-lssty4-2.fits"}
+    DWARF_GAL_P1 : {"PRIORITY_INIT" : 7000, "NGOAL" : 1, "CHECKER" : "VM", "FN" : "cosmos_pilot_targets_final_apr25_2025.fits"}
+    DWARF_GAL_P2: {"PRIORITY_INIT" : 6500, "NGOAL" : 1, "CHECKER" : "VM", "FN" : "cosmos_pilot_targets_P2_apr25_2025_subsample0.01.fits"}
+    IBIS : {"PRIORITY_INIT" : 6000, "NGOAL" : 1, "CHECKER" : "AR", "FN": "ibis4-cosmos-m490-targets-wide.fits"}
