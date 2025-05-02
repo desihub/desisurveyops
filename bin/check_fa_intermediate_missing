@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+import os
+import numpy as np
+import multiprocessing
+from astropy.table import Table
+from argparse import ArgumentParser
+
+def parse():
+    parser = ArgumentParser(
+        description="This scripts verifies that the fiberassign intermediate files are not missing."
+    )
+    parser.add_argument(
+        "--numproc",
+        help="number of concurrent processes to use (default=1)",
+        type=int,
+        default=1,
+    )
+    args = parser.parse_args()
+    return args
+
+def test_fn(fn):
+    if os.path.isfile(fn):
+        return None
+    else:
+        print(tileid, "\t", lastnight)
+        return None
+
+def main():
+
+    args = parse()
+    
+    d = Table.read("/global/cfs/cdirs/desi/spectro/redux/daily/tiles-daily.csv")
+    d = d[(d["SURVEY"] == "main") & (d["EFFTIME_SPEC"] > 0)]
+    
+    filenames = []
+    
+    for tileid, lastnight in zip(d["TILEID"], d["LASTNIGHT"]):
+        tileidpad = "{:06d}".format(tileid)
+        fn = "/global/cfs/cdirs/desi/survey/fiberassign/main/{}/{}-tiles.fits".format(tileidpad[:3], tileidpad)
+        filenames.append(fn)
+
+    print('# TILEID LASTNIGHT')
+    pool = multiprocessing.Pool(args.numproc)
+    pool.map(test_fn, filenames)
+
+if __name__ == "__main__":
+    main()
