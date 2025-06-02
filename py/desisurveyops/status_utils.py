@@ -332,7 +332,7 @@ def get_history_tiles_dir(survey):
     # TODO: store those files in github?
     assert survey == "main"
     return os.path.join(
-        os.getenv("DESI_ROOT"), "users", "raichoor", "main-status-dev", "tiles"
+        os.getenv("DESI_ROOT"), "users", "raichoor", "main-status", "tiles"
     )
 
 
@@ -703,7 +703,7 @@ def get_ffmpeg():
     Get the executable for ffmpeg.
 
     Returns:
-        ffmpeg: $DESI_ROOT/users/raichoor/main-status-dev/ffmpeg-git-20220910-amd64-static/ffmpeg
+        ffmpeg: $DESI_ROOT/users/raichoor/main-status/ffmpeg-git-20220910-amd64-static/ffmpeg
 
     Notes:
         For whatever reason, usr/bin/ffmpeg is not working for spacewatch_night().
@@ -716,7 +716,7 @@ def get_ffmpeg():
         os.getenv("DESI_ROOT"),
         "users",
         "raichoor",
-        "main-status-dev",
+        "main-status",
         "ffmpeg-git-20220910-amd64-static",
         "ffmpeg",
     )
