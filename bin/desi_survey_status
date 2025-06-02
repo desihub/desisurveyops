@@ -1,0 +1,235 @@
+#!/usr/bin/env python
+
+import os
+import numpy as np
+from desiutil.iers import freeze_iers
+from desiutil.log import get_logger
+
+from desisurveyops.status_utils import (
+    get_filename,
+    get_fns,
+    get_programs_npassmaxs,
+)
+from desisurveyops.status_qso import process_qso
+from desisurveyops.status_sky import process_skymap, process_skyseq
+from desisurveyops.status_zhist import process_zhist
+from desisurveyops.status_nspec import process_nspec
+from desisurveyops.status_fpstate import process_fpstate
+from desisurveyops.status_obsconds import process_obsconds
+from desisurveyops.status_spacewatch import process_spacewatch
+from desisurveyops.status_html import process_html
+
+from argparse import ArgumentParser
+
+log = get_logger()
+
+allowed_steps = [
+    "skymap",
+    "qso",
+    "obsconds",
+    "fpstate",
+    "zhist",
+    "nspec",
+    "skyseq",
+    "spacewatch",
+    "html",
+]
+default_steps = allowed_steps
+
+
+def parse():
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--outdir", help="output directory", type=str, default=None, required=True
+    )
+    parser.add_argument(
+        "--steps",
+        help="comma-separated list of steps; allowed: {} (default={})".format(
+            ",".join(allowed_steps), ",".join(default_steps)
+        ),
+        type=str,
+        default=",".join(default_steps),
+    )
+    parser.add_argument(
+        "--program_strs",
+        help="comma-separated list of the program_str to run",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--recompute", action="store_true", help="recompute existing files?"
+    )
+    parser.add_argument(
+        "--fixpermissions", action="store_true", help="run fix_permissions.sh?"
+    )
+    parser.add_argument(
+        "--numproc",
+        help="number of concurrent processes to use (default=1)",
+        type=int,
+        default=1,
+    )
+    args = parser.parse_args()
+    # AR sanity check
+    steps = np.array(args.steps.split(","))
+    sel = ~np.in1d(steps, allowed_steps)
+    if sel.sum() > 0:
+        msg = "not allowed args.steps = {}\t=> exiting".format(",".join(steps[sel]))
+        log.error(msg)
+        raise ValueError(msg)
+    for kwargs in args._get_kwargs():
+        log.info("{}\t{}".format(kwargs[0], kwargs[1]))
+    return args
+
+
+def main():
+
+    args = parse()
+
+    # AR settings
+    # TODO: dump that into a config yaml file to avoid future changes to the script itself?
+    survey = "main"
+    specprod = "daily"
+    specprod_ref = "loa"
+    dchi2min = 25
+    os.environ[
+        "DESIMODEL"
+    ] = "/global/common/software/desi/{}/desiconda/current/code/desimodel/main".format(
+        os.getenv("NERSC_HOST")
+    )
+
+    # AR freeze_iers
+    freeze_iers()
+
+    # AR files
+    # fns = get_fns(survey=survey, specprod=specprod)
+
+    # AR programs
+    programs, npassmaxs, program_strs = get_programs_npassmaxs(survey=survey)
+    if args.program_strs is not None:
+        run_program_strs = args.program_strs.split(",")
+        if not np.all(np.isin(run_program_strs, program_strs)):
+            msg = "args.program_strs={}; allowed program_strs are: {}".format(
+                args.program_strs, ",".join(program_strs)
+            )
+            log.error(msg)
+            raise ValueError(msg)
+        sel = np.isin(program_strs, run_program_strs)
+        programs, npassmaxs, program_strs = (
+            programs[sel],
+            npassmaxs[sel],
+            program_strs[sel],
+        )
+        log.warning("only run for {}".format(args.program_strs))
+
+    # AR skymaps
+    if "skymap" in args.steps.split(","):
+
+        process_skymap(
+            args.outdir,
+            survey,
+            specprod,
+            programs,
+            npassmaxs,
+            program_strs,
+            args.numproc,
+            recompute=args.recompute,
+        )
+
+    # AR qso
+    if "qso" in args.steps.split(","):
+        process_qso(
+            args.outdir,
+            survey,
+            specprod,
+            programs,
+            npassmaxs,
+            program_strs,
+            args.numproc,
+            recompute=args.recompute,
+        )
+
+    # AR plot obsconds
+    if "obsconds" in args.steps.split(","):
+        process_obsconds(
+            args.outdir, survey, specprod, args.numproc, recompute=args.recompute
+        )
+
+    # AR plot fpstate
+    if "fpstate" in args.steps.split(","):
+        process_fpstate(
+            args.outdir, survey, specprod, args.numproc, recompute=args.recompute
+        )
+
+    # AR zhists
+    if "zhist" in args.steps.split(","):
+        process_zhist(
+            args.outdir,
+            survey,
+            specprod,
+            programs,
+            npassmaxs,
+            program_strs,
+            dchi2min,
+            args.numproc,
+            recompute=args.recompute,
+        )
+
+    # AR nspec
+    if "nspec" in args.steps.split(","):
+        process_nspec(
+            args.outdir,
+            survey,
+            specprod,
+            specprod_ref,
+            dchi2min,
+            args.numproc,
+            recompute=args.recompute,
+        )
+
+    # AR sky sequence
+    if "skyseq" in args.steps.split(","):
+        process_skyseq(
+            args.outdir,
+            survey,
+            specprod,
+            programs,
+            npassmaxs,
+            program_strs,
+            args.numproc,
+            recompute=args.recompute,
+        )
+
+    # AR spacewatch movie
+    if "spacewatch" in args.steps.split(","):
+
+        process_spacewatch(
+            args.outdir,
+            survey,
+            specprod,
+            programs,
+            npassmaxs,
+            program_strs,
+            args.numproc,
+            recompute=args.recompute,
+        )
+
+    # AR html
+    if "html" in args.steps.split(","):
+
+        process_html(
+            args.outdir,
+            survey,
+            specprod,
+            specprod_ref,
+            programs,
+            npassmaxs,
+            program_strs,
+        )
+
+    # AR fix permission
+    if args.fixpermissions:
+        os.system("fix_permissions.sh {}".format(args.outdir))
+
+
+if __name__ == "__main__":
+    main()
