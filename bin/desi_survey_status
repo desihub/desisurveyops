@@ -6,6 +6,7 @@ from desiutil.iers import freeze_iers
 from desiutil.log import get_logger
 
 from desisurveyops.status_utils import (
+    create_folders_structure,
     get_filename,
     get_fns,
     get_programs_npassmaxs,
@@ -100,8 +101,10 @@ def main():
     # AR freeze_iers
     freeze_iers()
 
-    # AR files
-    # fns = get_fns(survey=survey, specprod=specprod)
+    # AR create folders structure if need be
+    create_folders_structure(args.outdir)
+
+    exit()
 
     # AR programs
     programs, npassmaxs, program_strs = get_programs_npassmaxs(survey=survey)
