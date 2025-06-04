@@ -104,8 +104,6 @@ def main():
     # AR create folders structure if need be
     create_folders_structure(args.outdir)
 
-    exit()
-
     # AR programs
     programs, npassmaxs, program_strs = get_programs_npassmaxs(survey=survey)
     if args.program_strs is not None:
