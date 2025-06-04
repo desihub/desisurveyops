@@ -2,11 +2,7 @@ various notes about desi_survey_status:
 
 - if running for the first time:
     - pick a folder to work in (OUTDIR)
-    - run desisurveyops.status_utils.create_folders_structure(), which will create the required subfolders:
-        from desisurveyops.status_utils import create_folders_structure
-        create_folders_structure(OUTDIR)
-    - copy there few stuff from ARDIR=$DESI_ROOT/users/raichoor/main-status:
-        cp -p $ARDIR/tiles/tiles-main*ecsv $OUTDIR/tiles
+    - copy there this folder from ARDIR=$DESI_ROOT/users/raichoor/main-status:
         cp -pr $ARDIR/ffmpeg-git-20220910-amd64-static $OUTDIR/
     - launch on a node the script:
          desi_main_status --outdir $OUTDIR --numproc 256
@@ -38,7 +34,7 @@ various notes about desi_survey_status:
     - a "usual" run for a night takes like 20-30 minutes
 
 - tiles file:
-    - the $OUTDIR/tiles folder contains the tiles-main.ecsv file after each major change
+    - the "history" of the tiles files is stored in desisurveyops/data/tiles-YYYYMMDD-rev?????.ecsv files
     - this need to be updated in the future (e.g. for BRIGHT1B)
     - related function to also edit: desisurveyops.status_utils.get_history_tiles_infos()
 
@@ -49,6 +45,7 @@ various notes about desi_survey_status:
 
 - nspec:
     - zmtl files are split per year
+    - nspec.ecsv has to be a single file, to properly handle duplicates
     - compute all of them takes ~10min
     - numbers are computed from loa if before 20240409, from daily otherwise
 
@@ -58,7 +55,6 @@ various notes about desi_survey_status:
 
 - as of Jun. 1st, 2025, the files that live in some users area are:
     desi nominal 14k deg2 footprint: $DESI_ROOT/users/raichoor/desi-14k-footprint/desi-14k-footprint-dark.ecsv
-    svn tilesfn files: $DESI_ROOT/users/raichoor/main-status-dev/tiles/*
     ephemerids (for moon): $DESI_ROOT/users/ameisner/GFA/gfa_reduce_etc/gfa_ephemeris.fits
     ffmpeg executable: $DESI_ROOT/users/raichoor/main-status/ffmpeg-git-20220910-amd64-static/ffmpeg
   we probably want to move those to more official places (e.g. $DESI_ROOT/survey/)
