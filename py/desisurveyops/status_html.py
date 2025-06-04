@@ -107,49 +107,59 @@ def process_html(
         )
         html.write("<div class='content'>\n")
 
-        def _read_tiles(survey, night, rev, program, passmin, passmax):
-            fn = os.path.join(
-                mydir, "tiles-{}-{}-rev{:05d}.ecsv".format(survey, night, rev)
+        def _read_tiles(survey, night, rev, program, npassmax, tilesdir):
+            fn = get_filename(
+                tilesdir, survey, "tiles", night=night, rev=rev, ext="ecsv"
             )
-            if night == 20250505:
-                fn = fn.replace(str(night), "20250506")
             t = Table.read(fn)
             sel = (t["IN_DESI"]) & (t["PROGRAM"] == program)
-            sel &= (t["PASS"] >= passmin) & (t["PASS"] <= passmax)
+            if npassmax is not None:
+                sel &= t["PASS"] < npassmax
             t = t[sel]
             return t
 
         # AR history...
         d = get_history_tiles_infos(survey)
-        sel = d["PROGRAM_STR"] == program_str
-        d = d[sel]
-        mydir = d.meta["FOLDER"]
+        tilesdir = d.meta["FOLDER"]
+        tilesfns = [
+            get_filename(
+                tilesdir,
+                survey,
+                "tiles",
+                night=d["NIGHT"][i],
+                rev=d["REVISION"][i],
+                ext="ecsv",
+            )
+            for i in range(len(d))
+        ]
         html.write("\t<p>Program history:</p>\n")
         for i in range(len(d)):
             night, rev = d["NIGHT"][i], d["REVISION"][i]
-            passmin, passmax = d["PASSMIN"][i], d["PASSMAX"][i]
             comment = d["COMMENT"][i]
-            t = _read_tiles(survey, night, rev, program, passmin, passmax)
+            t = _read_tiles(survey, night, rev, program, npassmax, tilesdir)
+            # AR handle e.g. BRIGHT1B which is not defined yet
+            if len(t) == 0:
+                continue
             if i == 0:
                 n_add, n_rmv = len(t), 0
             else:
-                # AR read for the same passmin, passmax
                 prev_t = _read_tiles(
                     survey,
                     d["NIGHT"][i - 1],
                     d["REVISION"][i - 1],
                     program,
-                    passmin,
-                    passmax,
+                    npassmax,
+                    tilesdir,
                 )
                 n_add = (~np.isin(t["TILEID"], prev_t["TILEID"])).sum()
                 n_rmv = (~np.isin(prev_t["TILEID"], t["TILEID"])).sum()
-            prev_t = t
-            html.write(
-                "\t\t<p>- {} (PASSES={}-{}): {} (added {} tiles, removed {} tiles).</p>\n".format(
-                    night, passmin, passmax, comment, n_add, n_rmv
+            if (n_add != 0) | (n_rmv != 0):
+                prev_t = t
+                html.write(
+                    "\t\t<p>- {} (PASSES={}-{}): {} (added {} tiles, removed {} tiles).</p>\n".format(
+                        night, t["PASS"].min(), t["PASS"].max(), comment, n_add, n_rmv
+                    )
                 )
-            )
 
         # AR initially allowed for case=obs or done
         # AR but just case=obs in the end, so no loop on case, to simplify

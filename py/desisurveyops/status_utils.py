@@ -52,6 +52,7 @@ def get_filename(
     night=None,
     expid=None,
     yr=None,
+    rev=None,
 ):
     """
     Utility function to get status file names used throughout functions called in desi_survey_status.
@@ -72,6 +73,7 @@ def get_filename(
         quant (optional, defaults to None): ntile, fraccov, fibxys (str)
         tileid (optional, defaults to None): tileid (int)
         yr (optional, defaults to None): year (int)
+        rev (optional, defaults to None): svn revision for the history tiles file (int)
 
     Notes:
         Maybe I have forgotten some cases in the docstr..
@@ -84,7 +86,7 @@ def get_filename(
     if name == "skymap":
         assert program_str is not None
         outdir2 = os.path.join(outdir, name, program_str.lower())
-    elif name == "html":
+    elif name in ["tiles", "html"]:
         outdir2 = outdir
     else:
         outdir2 = os.path.join(outdir, name)
@@ -92,9 +94,15 @@ def get_filename(
     # AR history tiles
     if name == "tiles":
         assert program_str is None
-        assert case == "history"
+        assert night is not None
+        assert rev is not None
         assert ext == "ecsv"
-        basefn = "tiles-{}-history.ecsv".format(survey)
+        # AR handle the rev=????? case of the check_ops_tilesfn() error message
+        try:
+            revstr = "rev{:05d}".format(rev)
+        except ValueError:
+            revstr = "rev{}".format(rev)
+        basefn = "tiles-{}-{}-{}.{}".format(survey, night, revstr, ext)
 
     # AR qso
     if name == "qso":
@@ -314,28 +322,6 @@ def get_shutdowns(survey):
     return start_nights, end_nights, comments
 
 
-def get_history_tiles_dir(survey):
-    """
-    Returns the folder where the tiles-{survey}.ecsv files for various
-        revisions are stored.
-
-    Args:
-        survey: survey name (str)
-
-    Returns:
-        folder name (str)
-
-    Notes:
-        So far I have hard-coded my local folder.
-        In the future, we could for instance store those in github.
-    """
-    # TODO: store those files in github?
-    assert survey == "main"
-    return os.path.join(
-        os.getenv("DESI_ROOT"), "users", "raichoor", "main-status", "tiles"
-    )
-
-
 def get_history_tiles_infos(survey, outfn=None):
     """
     Get infos about the history of tiles-{survey}.ecsv.
@@ -352,36 +338,29 @@ def get_history_tiles_infos(survey, outfn=None):
 
     # TODO: find an automatic way to do that?
     d = Table()
-    d.meta["FOLDER"] = get_history_tiles_dir(survey)
+    d.meta["FOLDER"] = get_history_tiles_dir()
 
-    # AR structure: programs, night, revision, comment
-    # AR note, for revision=5129 (DARK1B): the revision was done on 20250507,
-    # AR but three DARK1B tiles were turned on the day before, for testing
-    # AR so we "artificially set" the date to 20250505
+    # AR structure: night, revision, comment
     xs = [
         #
-        (20210512, 425, "BRIGHT", 0, 3, "Initial definition of the tiles"),
-        (20210512, 425, "BRIGHT4PASS", 0, 3, "Initial definition of the tiles"),
-        (20210512, 425, "DARK", 0, 6, "Initial definition of the tiles"),
-        #
-        (20211119, 869, "BACKUP", 0, 0, "Turn on BACKUP tiles"),
-        #
-        (20220314, 1332, "BACKUP", 0, 0, "Turn off Dec>80 BACKUP tiles"),
-        #
-        (20230927, 3091, "BRIGHT", 4, 4, "Add new PASS=4 tiles"),
-        #
-        (20241010, 4177, "BRIGHT", 0, 4, "Add new tiles in DES region"),
-        (20241010, 4177, "BRIGHT4PASS", 0, 3, "Add new tiles in DES region"),
-        (20241010, 4177, "DARK", 0, 6, "Add new tiles in DES region"),
-        #
-        (20250505, 5129, "DARK1B", 7, 8, "Turn on DARK1B tiles in DR9 region"),
+        (20210512, 425, "Initial definition of the tiles"),
+        (20210722, 619, "Retire+replace 15 bright+dark"),
+        (20210913, 633, "Retire+replace 2 bright+dark tiles"),
+        (20211119, 869, "Turn on BACKUP tiles"),
+        (20220314, 1332, "Turn off Dec>80 backup tiles"),
+        (20220425, 1533, "Retire+replace 23 bright+dark tiles"),
+        (20230927, 3091, "Add new bright PASS=4 tiles"),
+        (20241010, 4177, "Add new bright+dark tiles in DES region"),
+        (20250506, 5127, "Turn on three dark1b tiles as test tiles"),
+        (20250507, 5129, "Turn on dark1b tiles in DR9 region"),
+        (20250515, 5166, "Retire+replace 6 bright tiles"),
     ]
     d["NIGHT"] = [x[0] for x in xs]
     d["REVISION"] = [x[1] for x in xs]
-    d["PROGRAM_STR"] = [x[2] for x in xs]
-    d["PASSMIN"] = [x[3] for x in xs]
-    d["PASSMAX"] = [x[4] for x in xs]
-    d["COMMENT"] = [x[5] for x in xs]
+    d["COMMENT"] = [x[2] for x in xs]
+
+    # AR better safe than sorry...
+    d = d[d["NIGHT"].argsort()]
 
     if outfn is not None:
         d.write(outfn)
@@ -389,66 +368,120 @@ def get_history_tiles_infos(survey, outfn=None):
     return d
 
 
-def get_history_tilesfn(survey, program_str, opsnight):
+def get_history_tiles_dir():
+    """
+    Returns the folder with the tiles-{survey}-YYYYMMDD-rev?????.ecsv files.
+    """
+    return resource_filename("desisurveyops", "../../data")
+
+
+def get_history_tilesfn(survey, opsnight=None):
     """
     Get the relevant "historical" tiles-{survey} name for a given program and night.
 
     Args:
+        outdir: the survey status working folder (str)
         survey: survey name (str)
         program_str: program full name (str)
-        opsnight: night of observation (int)
+        opsnight (optional, defaults to None): night of observation; if set to None, just pick the latest file (int)
 
     Returns:
         fn: full path of the tiles-{survey}.ecsv file (str)
 
     Notes:
+        No need to cut on the program, just pick according to opsnight.
         So far I have chosen to store those files under
             the tiles-{}-{}-rev{:05d}.ecsv.format(survey, night, revision)
-            format.
+            format; see get_filename().
     """
 
+    # AR folder with files
+    tilesdir = get_history_tiles_dir()
+
     # AR read "master" file
-    # opsnightdir, basefn = get_master_history_tiles_dir_basename(survey)
-    # d = Table.read(os.path.join(opsnightdir, basefn))
     d = get_history_tiles_infos(survey)
-
-    # AR sort by increasing night, in case
-    d = d[d["NIGHT"].argsort()]
-
-    # AR cut on versions relevant for the program
-    sel = d["PROGRAM_STR"] == program_str
-    d = d[sel]
+    d.meta["FOLDER"] = tilesdir
 
     # AR pick the relevant night
-    if opsnight <= d["NIGHT"][0]:
-        msg = "requested night ({}) is before the start of the {} {}/{} ({})".format(
-            opsnight, survey, program, d["NIGHT"][0]
-        )
-        log.error(msg)
-        raise ValueError(msg)
-    i = np.where(d["NIGHT"] < opsnight)[0][-1]
-
-    # AR if the selected night is the last listed one, it means that the "regular"
-    # AR tiles file is ok, so we skip
-    if i == len(d) - 1:
-        fn = get_fns(survey=survey)["ops"]["tiles"]
-        log.info(
-            "as opsnight={} is larger than {}, we pick {}".format(
-                opsnight, d["NIGHT"][-1], fn
-            )
-        )
+    # AR use "<=", not "<", because usually commits to tiles-main.ecsv
+    # AR are done before the night, so a change on e.g. 20250506 will be
+    # AR used for 20250506 observations
+    if opsnight is None:
+        i = -1
     else:
-        opsnightdir = get_history_tiles_dir(survey)
-        basefn = "tiles-{}-{}-rev{:05d}.ecsv".format(
-            survey, d["NIGHT"][i], d["REVISION"][i]
-        )
-        fn = os.path.join(opsnightdir, basefn)
-        log.info("as opsnight={}, we pick {}".format(opsnight, fn))
+        if opsnight <= d["NIGHT"][0]:
+            msg = "requested night ({}) is before the start of the {} {} ({})".format(
+                opsnight, survey, d["NIGHT"][0]
+            )
+            log.error(msg)
+            raise ValueError(msg)
+        i = np.where(d["NIGHT"] <= opsnight)[0][-1]
+
+    fn = get_filename(
+        tilesdir, survey, "tiles", night=d["NIGHT"][i], rev=d["REVISION"][i], ext="ecsv"
+    )
+    log.info("as opsnight={}, we pick {}".format(opsnight, fn))
 
     return fn
 
 
-def get_fns(survey="main", specprod="daily", opsnight=None, program=None):
+def check_ops_tilesfn(survey):
+    """
+    Verify that the latest tiles-{survey}.ecsv used by the code
+        is consistent with $DESI_SURVEYOPS/ops/tiles-{survey}.ecsv
+
+    Args:
+        survey: the survey name (str)
+    """
+
+    # AR current file in svn
+    svn_fn = os.path.join(
+        os.getenv("DESI_SURVEYOPS"), "ops", "tiles-{}.ecsv".format(survey)
+    )
+    # AR our latest file
+    fn = get_history_tilesfn(survey, opsnight=None)
+
+    # AR read IN_DESI tiles
+    svn_t, t = Table.read(svn_fn), Table.read(fn)
+    svn_t, t = svn_t[svn_t["IN_DESI"]], t[t["IN_DESI"]]
+    svn_t, t = svn_t[svn_t["TILEID"].argsort()], t[t["TILEID"].argsort()]
+    if not np.all(svn_t["TILEID"] == t["TILEID"]):
+        msg = "{} and {} have different IN_DESI=True TILEIDs.".format(svn_fn, fn)
+        msg += "\n"
+        msg += "\nPlease:"
+        msg += "\n- git check out https://github.com/desihub/desisurveyops"
+        msg += "\n- create a new branch"
+        msg += "\n- identify which svn revision of tiles-main.ecsv added/removed tiles"
+        msg += "\n- make a copy of {} from that svn revision to your_desisurveyops_branch_path/data/{}".format(
+            svn_fn,
+            os.path.basename(
+                get_filename(
+                    "OUTDIR",
+                    survey,
+                    "tiles",
+                    case="history",
+                    night="YYYYMMDD",
+                    rev="?????",
+                    ext="ecsv",
+                )
+            ),
+        )
+        msg += "\n- edit desisurveyops.status_utils.get_history_tiles_infos()"
+        msg += "\n- git push your branch + make a PR + merge"
+        msg += "\n- and rerun"
+        msg += "\nThanks!"
+        msg += "\n"
+        log.error(msg)
+        raise ValueError(msg)
+
+
+def get_fns(
+    survey="main",
+    specprod="daily",
+    opsnight=None,
+    program=None,
+    do_not_check_opstiles=False,
+):
     """
     Utility function to retrieve the relevant files for a given survey and specprod.
 
@@ -457,6 +490,8 @@ def get_fns(survey="main", specprod="daily", opsnight=None, program=None):
         specprod (optional, defaults to "daily"): specprod name (str)
         opsnight (optional, defaults to None): if set, picks up the tiles-{survey}.ecsv file relevant for that night (str)
         program (optional, defaults to None): if set, picks up the tiles-{survey}.ecsv file relevant for that program (str)
+        do_not_check_opstiles (optional, defaults to False): if set, do not perform
+            a check of the desisurveyops "latest" tiles-{survey}.ecsv file vs. $DESI_SURVEYOPS/ops/tiles-{survey}.ecsv
 
     Returns:
         mydict: a dictionary with this structure:
@@ -475,6 +510,11 @@ def get_fns(survey="main", specprod="daily", opsnight=None, program=None):
 
     Notes:
         This function is heavily used in the desi_survey_status calls.
+        For the tiles-{survey}.ecsv file, we use git-commit versions, to handle the different
+            set of TILEIDs through the survey. If the latest git-commit version does not agree
+            with $DESI_SURVEYOPS/ops/tiles-{survey}.ecsv, the code throws an error,
+            except if do_not_check_opstiles=True; note that the check takes ~0.5-1s, so one may
+            want to disable it if looking for speed performance.
     """
 
     if (opsnight is not None) & (survey != "main"):
@@ -488,7 +528,7 @@ def get_fns(survey="main", specprod="daily", opsnight=None, program=None):
 
     mydict = {
         "ops": {
-            "tiles": os.path.join(opsdir, "tiles-{}.ecsv".format(survey)),
+            "tiles": get_history_tilesfn(survey, opsnight=opsnight),
             "status": os.path.join(opsdir, "tiles-specstatus.ecsv"),
         },
         "spec": {
@@ -525,10 +565,9 @@ def get_fns(survey="main", specprod="daily", opsnight=None, program=None):
         "desfoot": resource_filename("desiutil", "data/DES_footprint.txt"),
     }
 
-    # AR pick the tiles-main.ecsv file before some changes?
-    if opsnight is not None:
-        if survey == "main":
-            mydict["ops"]["tiles"] = get_history_tilesfn(survey, program, opsnight)
+    # AR check?
+    if not do_not_check_opstiles:
+        check_ops_tilesfn(survey)
 
     return mydict
 

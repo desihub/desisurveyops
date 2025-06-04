@@ -173,10 +173,7 @@ def process_skymap(
         # AR compute cached _skygoal?
         skygoal_nights = np.unique(skygoal_nights)
         skygoal_tilesfns = np.unique(
-            [
-                get_history_tilesfn(survey, program_str, night)
-                for night in skygoal_nights
-            ]
+            [get_history_tilesfn(survey, opsnight=night) for night in skygoal_nights]
         )
         log.info("{}\tskygoal_nights: {}".format(program_str, skygoal_nights))
         log.info("{}\tskygoal_tilesfns: {}".format(program_str, skygoal_tilesfns))
