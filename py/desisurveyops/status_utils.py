@@ -10,6 +10,7 @@ from datetime import datetime
 import tempfile
 import multiprocessing
 from pkg_resources import resource_filename
+import subprocess
 
 # AR scientifical
 import numpy as np
@@ -749,24 +750,15 @@ def get_ffmpeg():
     Get the executable for ffmpeg.
 
     Returns:
-        ffmpeg: $DESI_ROOT/users/raichoor/main-status/ffmpeg-git-20220910-amd64-static/ffmpeg
+        ffmpeg: the path to the ffmpeg executable
 
     Notes:
         For whatever reason, usr/bin/ffmpeg is not working for spacewatch_night().
-        So I ended up using a static version (in Sep. 2022).
-        This executablee should be moved elsewhere! or need to solve why /usr/bin/ffmpeg causes issue.
+        So I ended up using a static version (ffmpeg-git-20220910-amd64-static/).
+        As of Jun. 2025, that static version has to be added to the PATH.
     """
 
-    # TODO: move elsewhere! or need to solve why /usr/bin/ffmpeg causes issue.
-    ffmpeg = os.path.join(
-        os.getenv("DESI_ROOT"),
-        "users",
-        "raichoor",
-        "main-status",
-        "ffmpeg-git-20220910-amd64-static",
-        "ffmpeg",
-    )
-    # ffmpeg = subprocess.Popen("which ffmpeg", stdout=subprocess.PIPE, shell=True).communicate()[0].strip().decode("utf-8")
+    ffmpeg = subprocess.Popen("which ffmpeg", stdout=subprocess.PIPE, shell=True).communicate()[0].strip().decode("utf-8")
     return ffmpeg
 
 
