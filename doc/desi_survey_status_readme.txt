@@ -1,9 +1,11 @@
 various notes about desi_survey_status:
 
+- ffmpeg:
+    - as of Jun. 2025, the code crashes with /usr/bin/ffmpeg
+    - so the user has to add to its PATH the path to a "working" version
+    - example of a "working" version: $DESI_ROOT/users/raichoor/main-status/ffmpeg-git-20220910-amd64-static
 - if running for the first time:
     - pick a folder to work in (OUTDIR)
-    - copy there this folder from ARDIR=$DESI_ROOT/users/raichoor/main-status:
-        cp -pr $ARDIR/ffmpeg-git-20220910-amd64-static $OUTDIR/
     - launch on a node the script:
          desi_main_status --outdir $OUTDIR --numproc 256
       as of Jun. 2025, this first run takes 3 hours, as all the main survey tiles have to be "ingested"
@@ -56,6 +58,5 @@ various notes about desi_survey_status:
 - as of Jun. 1st, 2025, the files that live in some users area are:
     desi nominal 14k deg2 footprint: $DESI_ROOT/users/raichoor/desi-14k-footprint/desi-14k-footprint-dark.ecsv
     ephemerids (for moon): $DESI_ROOT/users/ameisner/GFA/gfa_reduce_etc/gfa_ephemeris.fits
-    ffmpeg executable: $DESI_ROOT/users/raichoor/main-status/ffmpeg-git-20220910-amd64-static/ffmpeg
   we probably want to move those to more official places (e.g. $DESI_ROOT/survey/)
 
