@@ -510,11 +510,13 @@ def get_fns(
 
     Notes:
         This function is heavily used in the desi_survey_status calls.
-        For the tiles-{survey}.ecsv file, we use git-commit versions, to handle the different
-            set of TILEIDs through the survey. If the latest git-commit version does not agree
-            with $DESI_SURVEYOPS/ops/tiles-{survey}.ecsv, the code throws an error,
-            except if do_not_check_opstiles=True; note that the check takes ~0.5-1s, so one may
-            want to disable it if looking for speed performance.
+        For the tiles-{survey}.ecsv file:
+            - if night=None, we use $DESI_SURVEYOPS/ops/tiles-main.ecsv
+            - if night!=None: we use git-commit versions, to handle the different
+                set of TILEIDs through the survey. If the latest git-commit version does not agree
+                with $DESI_SURVEYOPS/ops/tiles-{survey}.ecsv, the code throws an error,
+                except if do_not_check_opstiles=True; note that the check takes ~0.5-1s, so one may
+                want to disable it if looking for speed performance.
     """
 
     if (opsnight is not None) & (survey != "main"):
@@ -526,9 +528,14 @@ def get_fns(
     specdir = os.path.join(os.getenv("DESI_ROOT"), "spectro", "redux", specprod)
     gfadir = os.path.join(os.getenv("DESI_ROOT"), "survey", "GFA")
 
+    if opsnight is None:
+        tilesfn = os.path.join(opsdir, "tiles-{}.ecsv".format(survey))
+    else:
+        tilesfn = get_history_tilesfn(survey, opsnight=opsnight)
+
     mydict = {
         "ops": {
-            "tiles": get_history_tilesfn(survey, opsnight=opsnight),
+            "tiles": tilesfn,
             "status": os.path.join(opsdir, "tiles-specstatus.ecsv"),
         },
         "spec": {
