@@ -5,6 +5,7 @@ import os
 import textwrap
 from datetime import datetime, timedelta
 from time import time
+from pkg_resources import resource_filename
 
 # AR scientifical
 import numpy as np
@@ -59,6 +60,24 @@ def process_html(
 
     htmlfn = get_filename(outdir, survey, "html", ext="html")
     cssfn = get_filename(outdir, survey, "html", ext="css")
+
+    # AR need to copy the css?
+    git_cssfn = os.path.join(
+        resource_filename("desisurveyops", "../../data"), os.path.basename(cssfn)
+    )
+    if os.path.isfile(cssfn):
+        f = open(cssfn, "r").read()
+        git_f = open(git_cssfn, "r").read()
+        if f != git_f:
+            log.warning(
+                "{} and {} are different; {} page may look not as expected".format(
+                    cssfn, git_cssfn, htmlfn
+                )
+            )
+    else:
+        cmd = "cp -p {} {}".format(git_cssfn, cssfn)
+        log.info("run {}".format(cmd))
+        os.system(cmd)
 
     # AR exposures
     fns = get_fns(survey=survey, specprod=specprod)
