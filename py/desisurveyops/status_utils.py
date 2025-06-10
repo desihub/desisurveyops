@@ -355,6 +355,7 @@ def get_history_tiles_infos(survey, outfn=None):
         (20250506, 5127, "Turn on three dark1b tiles as test tiles"),
         (20250507, 5129, "Turn on dark1b tiles in DR9 region"),
         (20250515, 5166, "Retire+replace 6 bright tiles"),
+        (20250610, 5301, "Turn on bright1b tiles in the NGC and retire+replace 2 dark1b tiles"),
     ]
     d["NIGHT"] = [x[0] for x in xs]
     d["REVISION"] = [x[1] for x in xs]
