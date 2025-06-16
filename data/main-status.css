@@ -68,6 +68,22 @@
 .active_bright, .collapsible_bright:hover {
     background-color: #00ff00;
 }
+.collapsible_bright1b {
+    background-color: #ccffcc;
+    color: #444;
+    cursor: pointer;
+    padding-left: 12px;
+    margin-top:8px;
+    width: 100%;
+    height: 28px;
+    border: 1px solid #444;
+    text-align: left;
+    outline: none;
+    font-size: 12px;
+}
+.active_bright1b, .collapsible_bright1b:hover {
+    background-color: #00ff00;
+}
 .collapsible_dark {
     background-color: #cce6ff;
     color: #444;
@@ -146,6 +162,22 @@
     font-size: 12px;
 }
 .active_subbright, .collapsible_subbright:hover {
+    background-color: #00ff00;
+}
+.collapsible_subbright1b {
+    background-color: #ccffcc;
+    color: #444;
+    cursor: pointer;
+    padding-left: 12px;
+    margin-top:8px;
+    width: 45%;
+    height: 28px;
+    border: 1px solid #444;
+    text-align: left;
+    outline: none;
+    font-size: 12px;
+}
+.active_subbright1b, .collapsible_subbright1b:hover {
     background-color: #00ff00;
 }
 .collapsible_subdark {
