@@ -313,7 +313,7 @@ def spacewatch_night(
     mycols = {
         "mainbackup": "r",
         "mainbright": "orange",
-        "mainbrigh1b": "gold",
+        "mainbright1b": "gold",
         "maindark": "c",
         "maindark1b": "b",
         "other": "g",
