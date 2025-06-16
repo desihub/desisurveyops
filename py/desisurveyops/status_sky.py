@@ -920,9 +920,10 @@ def create_skymaps_nonight_in_filename(
     nights = [prog_obs_nights[program_str][-1]]
 
     if program in ["BRIGHT", "BRIGHT1B", "DARK", "DARK1B"]:
-        cmds += ["mv"]
-        cases += ["done"]
-        nights += [prog_done_night[program_str]]
+        if program_str in prog_done_night:
+            cmds += ["mv"]
+            cases += ["done"]
+            nights += [prog_done_night[program_str]]
 
     for cmd, case, night in zip(cmds, cases, nights):
         for quant in ["ntile", "fraccov"]:
