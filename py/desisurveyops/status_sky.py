@@ -133,11 +133,10 @@ def process_skymap(
         if program in ["BRIGHT", "BRIGHT1B", "DARK", "DARK1B"]:
             sel &= np.in1d(obs_tiles, done_tiles)
             # AR handle e.g. dark1b which does not have done tiles yet
-            if sel.sum() == 0:
-                continue
-            prog_done_night[program_str] = np.unique(obs_nights[sel])[-1]
-            cases += ["done"]
-            nightss += [[prog_done_night[program_str]]]
+            if sel.sum() > 0:
+                prog_done_night[program_str] = np.unique(obs_nights[sel])[-1]
+                cases += ["done"]
+                nightss += [[prog_done_night[program_str]]]
 
         # AR update myargs
         skygoal_nights = []
