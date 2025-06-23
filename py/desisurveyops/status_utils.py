@@ -315,6 +315,7 @@ def get_shutdowns(survey):
             (20230622, 20230804, "Planned shutdown; mirror realuminization"),
             (20240410, 20240602, "Fibers guider crush"),
             (20250403, 20250414, "Dome slip ring failure"),
+            (20250612, 20250619, "Planned shutdown; dome repairs"),
         ]
         start_nights = np.array([_[0] for _ in xs])
         end_nights = np.array([_[1] for _ in xs])
