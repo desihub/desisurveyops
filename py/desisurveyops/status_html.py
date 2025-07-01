@@ -534,6 +534,21 @@ def process_html(
     html.write(
         "\t<p>Note that there can be some overlap between targets, inside a program (e.g. ELG and QSO) or across programs (e.g. BGS and LRG, or standard stars).</p>\n"
     )
+
+    # AR shutdowns
+    start_nights, end_nights, comments = get_shutdowns(survey)
+    html.write("\t<p></p>\n")
+    html.write("\t<p>Shutdowns:</p>\n")
+    for start_night, end_night, comment in zip(start_nights, end_nights, comments):
+        tmp_start = datetime.strptime(str(start_night), "%Y%m%d")
+        tmp_end = datetime.strptime(str(end_night), "%Y%m%d")
+        ndays = (tmp_end - tmp_start).days
+        html.write(
+            "\t\t<p>- {} - {} ({} days): {}\n".format(
+                start_night, end_night, ndays, comment,
+            )
+        )
+    html.write("\t<p></p>\n")
     html.write("\t<br>\n")
     outpng = path_full2web(get_filename(outdir, survey, "nspec", ext="png"))
     txt = "<a href='{}'><img SRC='{}' width=100% height=auto></a>".format(
