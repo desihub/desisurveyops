@@ -336,7 +336,7 @@ def process_html(
             html.write("\n")
 
         # AR pending tiles
-        if program in ["BRIGHT", "DARK", "DARK1B"]:
+        if program in ["BRIGHT", "DARK", "DARK1B", "BRIGHT1B"]:
 
             # AR we highlight in the table tiles older than frac_year = 1
             frac_year = 1
