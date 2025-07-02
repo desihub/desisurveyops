@@ -18,7 +18,7 @@ default_fbadir = os.path.join(os.getenv("DESI_ROOT"), "survey", "fiberassign", "
 
 def parse():
     parser = ArgumentParser(
-        description="This scripts verifies that the fiberassign intermediate files are not corrupted."
+        description="This scripts verifies that the fiberassign intermediate files are not corrupted or missing. Optionally, the commands to resolve the missing and corrupted files can be output."
     )
     parser.add_argument(
         "--cases",
@@ -53,6 +53,12 @@ def parse():
         type=int,
         default=1,
     )
+    parser.add_argument(
+        "--print_fix",
+        help="output the commands needed to resolve missing/corrupted files",
+        action="store_true"
+    )
+
     args = parser.parse_args()
     assert np.all(np.in1d(args.cases.split(","), allowed_cases))
     for kwargs in args._get_kwargs():
@@ -80,6 +86,13 @@ def main():
     bug_tileids = np.zeros(0, dtype=object)
     bug_cases = np.zeros(0, dtype=object)
     bug_timestamps = np.zeros(0, dtype=object)
+
+    # LGN reading specstatus files to check for missing intermediate files and to write out replacement commands
+    tiles_specstat = np.array(Table.read('/global/cfs/cdirs/desi/survey/ops/surveyops/trunk/ops/tiles-specstatus.ecsv'))
+    #cutting to main tiles
+    tiles_specstat = tiles_specstat[tiles_specstat["SURVEY"] == "main"]
+
+    missing_tileids = np.zeros(0, dtype=object)
 
     for case in args.cases.split(","):
 
@@ -118,6 +131,26 @@ def main():
                 bug_cases = np.append(bug_cases, case)
                 bug_timestamps = np.append(bug_timestamps, timestamp)
 
+        # LGN checking tile cases for missing files, saving associated tileids
+        if case == "tiles":
+            #forming fns for all TILEIDs in the specstatus file
+            fns_fromspecstat = [os.path.join(default_fbadir,str(en).zfill(6)[:3],"{}-{}.fits".format(str(en).zfill(6),case)) for en in tiles_specstat['TILEID']]
+            missingfns = np.setdiff1d(fns_fromspecstat,fns)
+
+            for missingfn in missingfns:
+                tileid = int(os.path.basename(missingfn).split("-")[0])
+                missing_tileids = np.append(missing_tileids,tileid)
+
+    # LGN print missing
+    missing_QAnights = tiles_specstat[np.isin(tiles_specstat['TILEID'],missing_tileids)]['QANIGHT']
+    print("")
+    print(
+        "Found {} missing tileids, from QA NIGHTs: {}".format(
+            len(missing_tileids), missing_QAnights.tolist()
+        )
+    )
+
+
     # AR print
     d = Table()
     d["TILEID"], d["CASE"], d["TIMESTAMP"] = bug_tileids, bug_cases, bug_timestamps
@@ -139,6 +172,31 @@ def main():
     # AR write if asked to
     if args.outecsv is not None:
         d.write(args.outecsv, overwrite=args.overwrite)
+
+    # LGN print the resolving commands if asked to 
+    if args.print_fix:
+        temp_dir = '/pscratch/sd/d/desiproc/fiberassign/rerun'
+
+        redo_dates = np.concatenate([missing_QAnights,tiles_specstat[np.isin(tiles_specstat['TILEID'],d['TILEID'])]['QANIGHT']])
+
+        if len(redo_dates) == 0:
+            print('There are no missing or corrupted intermediary fiberassign files at this time.')
+        else:
+            print('godailyops')
+            #iterate over redo dates
+            for rd in np.unique(redo_dates):
+                print('validate_lastnight_fba --night {} --outroot {}'.format(rd,temp_dir))
+            
+                #iterate through entries associated with this date and print necessary commands
+                for en in d[redo_dates == rd]:
+                    tile_str = str(en['TILEID']).zfill(6)
+                    cases = en['CASE'].split(',')
+                    for case in cases:
+                        origfn = os.path.join(args.fbadir, tile_str[:3], "{}-{}.fits".format(tile_str, case))
+                        corruptfn = origfn.replace(".fits", "-corrupted.fits")
+                        tmpfn = origfn.replace(args.fbadir, temp_dir)
+                        print("mv {} {}".format(origfn, corruptfn))
+                        print("mv {} {}".format(tmpfn, origfn))
 
 
 if __name__ == "__main__":

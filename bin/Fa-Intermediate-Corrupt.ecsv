@@ -1,8 +1,0 @@
-# %ECSV 1.0
-# ---
-# datatype:
-# - {name: TILEID, datatype: string, subtype: json}
-# - {name: CASE, datatype: string}
-# - {name: TIMESTAMP, datatype: string}
-# schema: astropy-2.0
-TILEID CASE TIMESTAMP
