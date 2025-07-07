@@ -444,10 +444,10 @@ def plot_zhist(
     ax.set_title(title)
     ax.set_xlabel("Z")
     ax.set_ylabel("Per tile fractional count")
-    if program == "BRIGHT":
+    if program in ["BRIGHT", "BRIGHT1B"]:
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 0.4)
-    if program == "DARK":
+    if program in ["DARK", "DARK1B"]:
         ax.set_xlim(0, 5)
         ax.set_ylim(0, 0.3)
     ax.grid()
