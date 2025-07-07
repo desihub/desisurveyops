@@ -602,16 +602,41 @@ def plot_skymap(
     # AR exposures
     e = Table.read(fns["spec"]["exps"])
 
+    # AR skygoal (listing the area covered by 1, 2, ..., npass passes)
+    # AR we adopt a "dynamic" approach where we compute it from the tilesfn
+    # AR to speed up things, we use cache
+    d = get_skygoal(tilesfn, program, npassmax=npassmax)
+    nside = d.meta["HPXNSIDE"]
+    assert d.meta["HPXNEST"] == nest
+    # AR to handle overlapping tiles in a single pass
+    # AR for BRIGHT1B, first compute the per-tile pixels
+    # AR note that tiles2pix() is not an exact solution
+    # AR so a tiny fraction may be false positive:
+    # AR - for nside=1024, dark pass=0, 0.01% pixels are said to be touched by two tiles
+    # AR - that s negligible enough to not go to nside=2048 which would slow things
+    #goal_ns, goal_expfacs = d["NPASS"], d["EXPFAC_MEAN"]
+    per_tile_ipixs = tiles2pix(nside, tiles=t, per_tile=True)
+    ipixs, counts = np.unique(np.hstack(per_tile_ipixs), return_counts=True)
+    goal_ns = np.zeros(len(d), dtype=int)
+    goal_ns[ipixs] = counts
+    goal_expfacs = d["EXPFAC_MEAN"].copy()
+    goal_expfacs[ipixs] *= counts
+
     # AR for colormap:
     # AR    https://stackoverflow.com/questions/14777066/matplotlib-discrete-colorbar
     if quant == "ntile":
-        cmap = get_quantz_cmap(matplotlib.cm.jet, npass + 1, 0, 1)
+        ntilemax = goal_ns.max()
+        cmap = get_quantz_cmap(matplotlib.cm.jet, ntilemax + 1, 0, 1)
         cmaplist = [cmap(i) for i in range(cmap.N)]
         cmaplist[0] = ListedColormap(["lightgray"])(0)
         cmap = LinearSegmentedColormap.from_list("Custom cmap", cmaplist, cmap.N)
-        cmin, cmax = -0.5, npass + 0.5
+        cmin, cmax = -0.5, ntilemax + 0.5
         clabel = "Covered by N tiles"
-        cticks = np.arange(npass + 1, dtype=int)
+        if ntilemax > 10:
+            dn = 5
+        else:
+            dn = 1
+        cticks = np.arange(0, ntilemax + dn, dn, dtype=int)
 
     if quant == "fraccov":
         cmap = get_quantz_cmap(matplotlib.cm.jet, 11, 0, 1)
@@ -622,14 +647,6 @@ def plot_skymap(
         clabel = "Fraction of final coverage"
         cticks = np.arange(0, 1.1, 0.1)
 
-    # AR skygoal (listing the area covered by 1, 2, ..., npass passes)
-    # AR we adopt a "dynamic" approach where we compute it from the tilesfn
-    # AR to speed up things, we use cache
-    d = get_skygoal(tilesfn, program, npassmax=npassmax)
-    nside = d.meta["HPXNSIDE"]
-    assert d.meta["HPXNEST"] == nest
-    goal_ns, goal_expfacs = d["NPASS"], d["EXPFAC_MEAN"]
-
     # AR healpix
     npix = hp.nside2npix(nside)
     pixarea = hp.nside2pixarea(nside, degrees=True)
@@ -638,7 +655,7 @@ def plot_skymap(
     ns = np.nan + np.zeros(len(d))
     ntiles = 0
     ns[goal_ns > 0] = 0.0
-    expfac = 0
+    expfac = 0.
     for i in range(npass):
         sel = t["PASS"] == passids[i]
         if case == "obs":
@@ -646,9 +663,14 @@ def plot_skymap(
         else:
             sel &= np.in1d(t["TILEID"], done_tiles)
         if sel.sum() > 0:
-            ipixs = tiles2pix(nside, tiles=t[sel])
-            ns[ipixs] += 1
-            expfac += d["EXPFACS"][ipixs, passids[i]].sum()
+            # AR to handle overlapping tiles in a single pass
+            # AR for BRIGHT1B, first compute the per-tile pixels
+            #ipixs = tiles2pix(nside, tiles=t[sel])
+            #ns[ipixs] += 1
+            per_tile_ipixs = tiles2pix(nside, tiles=t[sel], per_tile=True)
+            ipixs, icounts = np.unique(np.hstack(per_tile_ipixs), return_counts=True)
+            ns[ipixs] += icounts
+            expfac += (icounts * d["EXPFACS"][ipixs, passids[i]]).sum()
         ntiles += sel.sum()
     # AR fractional coverage
     fracns = np.nan + np.zeros(len(d))
@@ -660,6 +682,7 @@ def plot_skymap(
         cs = fracns
 
     # AR save the coverage map to a fits file?
+    # AR TODO: may need to update code to reflect the changes above for bright1b
     if outfits is not None:
         outd = Table()
         outhdr = fitsio.FITSHDR()
