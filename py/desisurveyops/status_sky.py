@@ -648,7 +648,7 @@ def plot_skymap(
         if sel.sum() > 0:
             ipixs = tiles2pix(nside, tiles=t[sel])
             ns[ipixs] += 1
-            expfac += d["EXPFACS"][ipixs, i].sum()
+            expfac += d["EXPFACS"][ipixs, passids[i]].sum()
         ntiles += sel.sum()
     # AR fractional coverage
     fracns = np.nan + np.zeros(len(d))
