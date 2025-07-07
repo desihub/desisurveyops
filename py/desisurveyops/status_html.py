@@ -244,8 +244,7 @@ def process_html(
             html.write("\t\t<td> {} </td>\n".format(txt))
 
             # AR zhist
-            # TODO: use a more general way to handle bright1b
-            if program in ["DARK", "BRIGHT", "DARK1B"]:
+            if program in ["DARK", "BRIGHT", "DARK1B", "BRIGHT1B"]:
                 outpng = path_full2web(
                     get_filename(
                         outdir, survey, "zhist", program_str=program_str, ext="png"
