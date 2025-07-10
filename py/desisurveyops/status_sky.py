@@ -625,7 +625,9 @@ def plot_skymap(
     # AR for colormap:
     # AR    https://stackoverflow.com/questions/14777066/matplotlib-discrete-colorbar
     if quant == "ntile":
-        ntilemax = goal_ns.max()
+        #ntilemax = goal_ns.max()
+        # AR ignore few percents pixels where goal_ns is inaccurate because of tiles2pix()
+        ntilemax = int(np.percentile(goal_ns[goal_ns > 0], 99.))
         cmap = get_quantz_cmap(matplotlib.cm.jet, ntilemax + 1, 0, 1)
         cmaplist = [cmap(i) for i in range(cmap.N)]
         cmaplist[0] = ListedColormap(["lightgray"])(0)
