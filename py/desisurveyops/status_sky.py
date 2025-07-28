@@ -117,6 +117,14 @@ def process_skymap(
             t = Table.read(fn)
             t = t[t["PASS"] < npassmax]
             sel &= np.in1d(obs_tiles, t["TILEID"])
+        ## AK: for sky completeness, let's ignore pass 5 which is a very low priority
+        ## filler pass to use when there is nothing else to observe
+        if program == 'BRIGHT1B':
+            log.warning(f"For PROGRAM=BRIGHT1B ignoring PASS=5")
+            t = Table.read(fn)
+            t = t[t["PASS"] != 5]
+            sel &= np.in1d(obs_tiles, t["TILEID"])
+        
         log.info("{}\tfound {} observed tiles".format(program_str, sel.sum()))
 
         # AR handle e.g. bright1b which does not exist yet
@@ -460,6 +468,11 @@ def create_skygoal(tilesfn, program, outfn=None, nside=1024, npassmax=None):
     sel &= t["IN_DESI"]
     if npassmax is not None:
         sel &= t["PASS"] < npassmax
+    ## AK: ignore PASS 5 of BRIGHT1B which is a very low priority filler layer
+    ## used when nothing else is available during bright time
+    if program == 'BRIGHT1B':
+        sel &= t['PASS'] != 5
+        
     t = t[sel]
     if npassmax is not None:
         log.info(
@@ -585,6 +598,13 @@ def plot_skymap(
     sel &= t["IN_DESI"]
     if npassmax is not None:
         sel &= t["PASS"] < npassmax
+    
+    ## AK: for sky completeness, let's ignore pass 5 which is a very low priority                                                                                                                   
+    ## filler pass to use when there is nothing else to observe                                                                                                                                     
+    if program == 'BRIGHT1B':
+        log.warning(f"For PROGRAM=BRIGHT1B ignoring PASS=5")
+        sel &= t["PASS"] != 5
+
     t = t[sel]
     passids = np.unique(t["PASS"])
     npass = len(passids)
@@ -1208,6 +1228,12 @@ def plot_skycompl_ralst(
     sel &= t["IN_DESI"]
     if npassmax is not None:
         sel &= t["PASS"] < npassmax
+
+    ## AK: ignore pass 5 of bright1b which is a very low priority filler program
+    ## for when we have nothing better to observe in bright conditions
+    if program == 'BRIGHT1B':
+        sel &= t["PASS"] != 5
+        
     t = t[sel]
 
     # AR cap
@@ -1420,6 +1446,10 @@ def plot_sky_pending(
     sel &= (t["STATUS"] != "unobs") & (t["STATUS"] != "done")
     if npassmax is not None:
         sel &= t["PASS"] < npassmax
+    ## AK: ignore pass 5 of bright1b which is a very low priority filler program
+    ## for when we have nothing better to observe in bright conditions
+    if program == 'BRIGHT1B':
+	sel &= t["PASS"] != 5
     t = t[sel]
 
     # AR add some columns from tiles-specstatus
