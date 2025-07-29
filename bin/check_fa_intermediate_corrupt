@@ -1,0 +1,203 @@
+#!/usr/bin/env python
+
+import os
+from glob import glob
+from datetime import datetime
+import multiprocessing
+import fitsio
+import numpy as np
+from astropy.table import Table
+from desiutil.log import get_logger
+from argparse import ArgumentParser
+
+log = get_logger()
+
+allowed_cases = ["tiles", "sky", "targ", "scnd", "too", "gfa"]
+default_fbadir = os.path.join(os.getenv("DESI_ROOT"), "survey", "fiberassign", "main")
+
+
+def parse():
+    parser = ArgumentParser(
+        description="This scripts verifies that the fiberassign intermediate files are not corrupted or missing. Optionally, the commands to resolve the missing and corrupted files can be output."
+    )
+    parser.add_argument(
+        "--cases",
+        help="csv list of cases of files to check (default={})".format(
+            ",".join(allowed_cases)
+        ),
+        type=str,
+        default=",".join(allowed_cases),
+    )
+    parser.add_argument(
+        "--fbadir",
+        help="folder with the fiberassign intermediate products (default={})".format(
+            default_fbadir
+        ),
+        type=str,
+        default=default_fbadir,
+    )
+    parser.add_argument(
+        "--outecsv",
+        help="ecsv output file (default=None, i.e. nothing written)",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--overwrite",
+        help="overwrite args.outecsv",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--numproc",
+        help="number of concurrent processes to use (default=1)",
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
+        "--print_fix",
+        help="output the commands needed to resolve missing/corrupted files",
+        action="store_true"
+    )
+
+    args = parser.parse_args()
+    assert np.all(np.in1d(args.cases.split(","), allowed_cases))
+    for kwargs in args._get_kwargs():
+        log.info("{}\t{}".format(kwargs[0], kwargs[1]))
+    return args
+
+
+def test_fn(fn, key):
+    try:
+        hdr = fitsio.read_header(fn, 1)
+        _ = fitsio.read(fn, rows=[hdr["NAXIS2"] - 1], columns=key)
+        return None
+    except OSError:
+        return fn
+
+
+def get_timestamp_ymd(fn):
+    return datetime.fromtimestamp(os.path.getmtime(fn)).strftime("%Y-%m-%d")
+
+
+def main():
+
+    args = parse()
+
+    bug_tileids = np.zeros(0, dtype=object)
+    bug_cases = np.zeros(0, dtype=object)
+    bug_timestamps = np.zeros(0, dtype=object)
+
+    # LGN reading specstatus files to check for missing intermediate files and to write out replacement commands
+    tiles_specstat = np.array(Table.read('/global/cfs/cdirs/desi/survey/ops/surveyops/trunk/ops/tiles-specstatus.ecsv'))
+    #cutting to main tiles
+    tiles_specstat = tiles_specstat[tiles_specstat["SURVEY"] == "main"]
+
+    missing_tileids = np.zeros(0, dtype=object)
+
+    for case in args.cases.split(","):
+
+        # AR key used in the reading
+        if case == "tiles":
+            key = "TILEID"
+        else:
+            key = "TARGETID"
+
+        # AR list of files to check
+        fns = sorted(
+            glob(os.path.join(args.fbadir, "???", "??????-{}.fits".format(case)))
+        )
+        log.info("check {} ??????-{}.fits files".format(len(fns), case))
+
+        # AR check
+        myargs = [(fn, key) for fn in fns]
+        pool = multiprocessing.Pool(args.numproc)
+        with pool:
+            bugfns = pool.starmap(test_fn, myargs)
+        bugfns = np.sort([_ for _ in bugfns if _ is not None])
+        log.info("found {} corrupted files".format(len(bugfns)))
+
+        # AR reformat in a more user-friendly way
+        for bugfn in bugfns:
+            tileid = int(os.path.basename(bugfn).split("-")[0])
+            timestamp = get_timestamp_ymd(bugfn)
+            ii = np.where(bug_tileids == tileid)[0]
+            if ii.size > 0:
+                i = ii[0]
+                bug_cases[i] = "{},{}".format(bug_cases[i], case)
+                if timestamp not in bug_timestamps[i].split(","):
+                    bug_timestamps[i] = "{},{}".format(bug_timestamps[i], timestamp)
+            else:
+                bug_tileids = np.append(bug_tileids, tileid)
+                bug_cases = np.append(bug_cases, case)
+                bug_timestamps = np.append(bug_timestamps, timestamp)
+
+        # LGN checking tile cases for missing files, saving associated tileids
+        if case == "tiles":
+            #forming fns for all TILEIDs in the specstatus file
+            fns_fromspecstat = [os.path.join(default_fbadir,str(en).zfill(6)[:3],"{}-{}.fits".format(str(en).zfill(6),case)) for en in tiles_specstat['TILEID']]
+            missingfns = np.setdiff1d(fns_fromspecstat,fns)
+
+            for missingfn in missingfns:
+                tileid = int(os.path.basename(missingfn).split("-")[0])
+                missing_tileids = np.append(missing_tileids,tileid)
+
+    # LGN print missing
+    missing_QAnights = tiles_specstat[np.isin(tiles_specstat['TILEID'],missing_tileids)]['QANIGHT']
+    print("")
+    print(
+        "Found {} missing tileids, from QA NIGHTs: {}".format(
+            len(missing_tileids), missing_QAnights.tolist()
+        )
+    )
+
+
+    # AR print
+    d = Table()
+    d["TILEID"], d["CASE"], d["TIMESTAMP"] = bug_tileids, bug_cases, bug_timestamps
+    d["CASE"] = d["CASE"].astype(str)
+    d["TIMESTAMP"] = d["TIMESTAMP"].astype(str)
+    ii = np.lexsort([d["CASE"], d["TILEID"], d["TIMESTAMP"]])
+    d = d[ii]
+
+    print("")
+    print(
+        "Found {} corrupted tileids, generated on: {}".format(
+            len(d), np.unique(d["TIMESTAMP"]).tolist()
+        )
+    )
+    print("")
+    print(d)
+    print("")
+
+    # AR write if asked to
+    if args.outecsv is not None:
+        d.write(args.outecsv, overwrite=args.overwrite)
+
+    # LGN print the resolving commands if asked to 
+    if args.print_fix:
+        temp_dir = '/pscratch/sd/d/desiproc/fiberassign/rerun'
+
+        redo_dates = np.concatenate([missing_QAnights,tiles_specstat[np.isin(tiles_specstat['TILEID'],d['TILEID'])]['QANIGHT']])
+
+        if len(redo_dates) == 0:
+            print('There are no missing or corrupted intermediary fiberassign files at this time.')
+        else:
+            print('godailyops')
+            #iterate over redo dates
+            for rd in np.unique(redo_dates):
+                print('validate_lastnight_fba --night {} --outroot {}'.format(rd,temp_dir))
+            
+                #iterate through entries associated with this date and print necessary commands
+                for en in d[redo_dates == rd]:
+                    tile_str = str(en['TILEID']).zfill(6)
+                    cases = en['CASE'].split(',')
+                    for case in cases:
+                        origfn = os.path.join(args.fbadir, tile_str[:3], "{}-{}.fits".format(tile_str, case))
+                        corruptfn = origfn.replace(".fits", "-corrupted.fits")
+                        tmpfn = origfn.replace(args.fbadir, temp_dir)
+                        print("mv {} {}".format(origfn, corruptfn))
+                        print("mv {} {}".format(tmpfn, origfn))
+
+
+if __name__ == "__main__":
+    main()
