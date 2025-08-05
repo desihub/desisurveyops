@@ -694,7 +694,7 @@ def plot_skymap(
     if outfits is not None:
         outd = Table()
         outhdr = fitsio.FITSHDR()
-        outhdr["HPXNSIDE"], myhdr["HPXNEST"] = nside, nest
+        outhdr["HPXNSIDE"], outhdr["HPXNEST"] = nside, nest
         outhdr["NIGHT"] = night
         outd.meta = dict(outhdr)
         # AR first copy all keys (some overwriting after)
