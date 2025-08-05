@@ -712,6 +712,7 @@ def plot_skymap(
         outd["EXPFAC_MEAN"] = outd["EXPFACS"].sum(axis=1)
         outsel = outd["NPASS"] > 0
         outd["EXPFAC_MEAN"][outsel] /= outd["NPASS"][outsel]
+        outd["NTILE"], outd["FRACCOV"] = ns, fracns
         #
         outd.write(outfits)
 
