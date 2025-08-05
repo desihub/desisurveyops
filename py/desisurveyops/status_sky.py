@@ -711,7 +711,7 @@ def plot_skymap(
         outd["NPASS"] = (outd["TILEIDS"] != 0).sum(axis=1)
         outd["EXPFAC_MEAN"] = outd["EXPFACS"].sum(axis=1)
         outsel = outd["NPASS"] > 0
-        outd["EXPFAC_MEAN"][sel] /= outd["NPASS"][outsel]
+        outd["EXPFAC_MEAN"][outsel] /= outd["NPASS"][outsel]
         #
         outd.write(outfits)
 
