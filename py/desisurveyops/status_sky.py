@@ -1449,7 +1449,7 @@ def plot_sky_pending(
     ## AK: ignore pass 5 of bright1b which is a very low priority filler program
     ## for when we have nothing better to observe in bright conditions
     if program == 'BRIGHT1B':
-	sel &= t["PASS"] != 5
+        sel &= t["PASS"] != 5
     t = t[sel]
 
     # AR add some columns from tiles-specstatus
