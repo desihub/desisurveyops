@@ -335,7 +335,10 @@ def custom_plot_sky_circles(ax, ras, decs, field_of_view, **kwargs):
     """
     if isinstance(ras, int) | isinstance(ras, float):
         ras, decs = np.array([ras]), np.array([decs])
-    proj_edge = ax._ra_center - 180
+    if hasattr(ax, "_ra_center"):
+        proj_edge = ax._ra_center - 180
+    else:
+        proj_edge = -60
     while proj_edge < 0:
         proj_edge += 360
 
@@ -345,9 +348,12 @@ def custom_plot_sky_circles(ax, ras, decs, field_of_view, **kwargs):
         decs = dec + 0.5 * field_of_view * np.sin(angs)
         for sel in [ras > proj_edge, ras <= proj_edge]:
             if sel.sum() > 0:
-                ax.fill(
-                    ax.projection_ra(ras[sel]), ax.projection_dec(decs[sel]), **kwargs
-                )
+                if hasattr(ax, "projection_ra"):
+                    ax.fill(
+                        ax.projection_ra(ras[sel]), ax.projection_dec(decs[sel]), **kwargs
+                    )
+                else:
+                    ax.fill(ras[sel], decs[sel], **kwargs)
 
 
 def custom_plot_sky_line(ax, ras, decs, **kwargs):
@@ -688,7 +694,7 @@ def plot_skymap(
     if outfits is not None:
         outd = Table()
         outhdr = fitsio.FITSHDR()
-        outhdr["HPXNSIDE"], myhdr["HPXNEST"] = nside, nest
+        outhdr["HPXNSIDE"], outhdr["HPXNEST"] = nside, nest
         outhdr["NIGHT"] = night
         outd.meta = dict(outhdr)
         # AR first copy all keys (some overwriting after)
@@ -705,7 +711,8 @@ def plot_skymap(
         outd["NPASS"] = (outd["TILEIDS"] != 0).sum(axis=1)
         outd["EXPFAC_MEAN"] = outd["EXPFACS"].sum(axis=1)
         outsel = outd["NPASS"] > 0
-        outd["EXPFAC_MEAN"][sel] /= outd["NPASS"][outsel]
+        outd["EXPFAC_MEAN"][outsel] /= outd["NPASS"][outsel]
+        outd["NTILE"], outd["FRACCOV"] = ns, fracns
         #
         outd.write(outfits)
 
