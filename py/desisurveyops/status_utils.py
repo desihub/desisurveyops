@@ -359,7 +359,7 @@ def get_history_tiles_infos(survey, outfn=None):
         (20250609, 5286, "Turn on bright1b tiles in the NGC"),
         (20250610, 5301, "Retire+replace 2 dark1b tiles"),
         (20250721, 5390, "Add very-low priority BRIGHT1B layer, and 5389 on same day added new backup layer"),
-        (20250818, 5550, "Add M31 BRIGHT1B tiles").
+        (20250818, 5550, "Add M31 BRIGHT1B tiles"),
     ]
     d["NIGHT"] = [x[0] for x in xs]
     d["REVISION"] = [x[1] for x in xs]
