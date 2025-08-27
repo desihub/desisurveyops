@@ -655,7 +655,7 @@ def plot_skymap(
     if quant == "fraccov":
         cmap = get_quantz_cmap(matplotlib.cm.jet, 11, 0, 1)
         cmaplist = [cmap(i) for i in range(cmap.N)]
-        cmaplist[0] = ListedColormap(["lightgray"])(0)
+        #cmaplist[0] = ListedColormap(["lightgray"])(0)
         cmap = LinearSegmentedColormap.from_list("Custom cmap", cmaplist, cmap.N)
         cmin, cmax = 0, 1
         clabel = "Fraction of final coverage"
@@ -747,7 +747,10 @@ def plot_skymap(
     ax = fig.add_subplot(111, projection="mollweide")
     ax = init_sky(galactic_plane_color="none", ecliptic_plane_color="none", ax=ax)
     ax.set_axisbelow(True)
-    sel = ns >= 0
+    if quant == "ntile":
+        sel = ns >= 0
+    if quant == "fraccov":
+        sel = ns > 0
     sc = ax.scatter(
         ax.projection_ra(d["RA"][sel]),
         ax.projection_dec(d["DEC"][sel]),
@@ -762,6 +765,23 @@ def plot_skymap(
         vmax=cmax,
         zorder=0,
     )
+    # AR fraccov: now plot as gray tiles with zero observations
+    if quant == "fraccov":
+        sel = ns == 0
+        ax.scatter(
+            ax.projection_ra(d["RA"][sel]),
+            ax.projection_dec(d["DEC"][sel]),
+            c="lightgray",
+            #facecolors=ns,
+            marker=".",
+            s=0.1,
+            linewidths=0,
+            alpha=0.8,
+            cmap=cmap,
+            vmin=cmin,
+            vmax=cmax,
+            zorder=0,
+        )
     ax.set_title(title)
 
     # AR DES, galactic, ecliptic plane
