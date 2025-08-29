@@ -634,6 +634,9 @@ def plot_skymap(
         #ntilemax = goal_ns.max()
         # AR ignore few percents pixels where goal_ns is inaccurate because of tiles2pix()
         ntilemax = int(np.percentile(goal_ns[goal_ns > 0], 99.))
+        # AR clip (because of BRIGHT1B which can have 35+ in M31)
+        ntile_clipmax = 10
+        ntilemax = np.min([ntilemax, ntile_clipmax])
         cmap = get_quantz_cmap(matplotlib.cm.jet, ntilemax + 1, 0, 1)
         cmaplist = [cmap(i) for i in range(cmap.N)]
         cmaplist[0] = ListedColormap(["lightgray"])(0)
@@ -645,15 +648,19 @@ def plot_skymap(
         else:
             dn = 1
         cticks = np.arange(0, ntilemax + dn, dn, dtype=int)
+        cticklabels = cticks.astype(str)
+        if ntilemax == ntile_clipmax:
+            cticklabels[-1] += "+"
 
     if quant == "fraccov":
         cmap = get_quantz_cmap(matplotlib.cm.jet, 11, 0, 1)
         cmaplist = [cmap(i) for i in range(cmap.N)]
-        cmaplist[0] = ListedColormap(["lightgray"])(0)
+        #cmaplist[0] = ListedColormap(["lightgray"])(0)
         cmap = LinearSegmentedColormap.from_list("Custom cmap", cmaplist, cmap.N)
         cmin, cmax = 0, 1
         clabel = "Fraction of final coverage"
         cticks = np.arange(0, 1.1, 0.1)
+        cticklabels = np.array(["{:.1f}".format(_) for _ in cticks])
 
     # AR healpix
     npix = hp.nside2npix(nside)
@@ -740,7 +747,10 @@ def plot_skymap(
     ax = fig.add_subplot(111, projection="mollweide")
     ax = init_sky(galactic_plane_color="none", ecliptic_plane_color="none", ax=ax)
     ax.set_axisbelow(True)
-    sel = ns >= 0
+    if quant == "ntile":
+        sel = ns >= 0
+    if quant == "fraccov":
+        sel = ns > 0
     sc = ax.scatter(
         ax.projection_ra(d["RA"][sel]),
         ax.projection_dec(d["DEC"][sel]),
@@ -755,6 +765,23 @@ def plot_skymap(
         vmax=cmax,
         zorder=0,
     )
+    # AR fraccov: now plot as gray tiles with zero observations
+    if quant == "fraccov":
+        sel = ns == 0
+        ax.scatter(
+            ax.projection_ra(d["RA"][sel]),
+            ax.projection_dec(d["DEC"][sel]),
+            c="lightgray",
+            #facecolors=ns,
+            marker=".",
+            s=0.1,
+            linewidths=0,
+            alpha=0.8,
+            cmap=cmap,
+            vmin=cmin,
+            vmax=cmax,
+            zorder=0,
+        )
     ax.set_title(title)
 
     # AR DES, galactic, ecliptic plane
@@ -830,6 +857,7 @@ def plot_skymap(
     cbar = plt.colorbar(sc, cax=cax, fraction=0.025, orientation="horizontal")
     cbar.set_label(clabel)
     cbar.set_ticks(cticks)
+    cbar.set_ticklabels(cticklabels)
 
     # AR blank region for text
     ax.fill_between(
