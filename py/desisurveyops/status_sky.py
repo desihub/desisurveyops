@@ -599,8 +599,8 @@ def plot_skymap(
     if npassmax is not None:
         sel &= t["PASS"] < npassmax
     
-    ## AK: for sky completeness, let's ignore pass 5 which is a very low priority                                                                                                                   
-    ## filler pass to use when there is nothing else to observe                                                                                                                                     
+    ## AK: for sky completeness, let's ignore pass 5 which is a very low priority
+    ## filler pass to use when there is nothing else to observe
     if program == 'BRIGHT1B':
         log.warning(f"For PROGRAM=BRIGHT1B ignoring PASS=5")
         sel &= t["PASS"] != 5
