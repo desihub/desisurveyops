@@ -121,6 +121,7 @@ def process_skymap(
         ## filler pass to use when there is nothing else to observe
         if program == 'BRIGHT1B':
             log.warning(f"For PROGRAM=BRIGHT1B ignoring PASS=5")
+            fn = fns["ops"]["tiles"]
             t = Table.read(fn)
             t = t[t["PASS"] != 5]
             sel &= np.in1d(obs_tiles, t["TILEID"])
