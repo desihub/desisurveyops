@@ -418,6 +418,11 @@ def spacewatch_night(
         t += tdelta
     log.info("night = {} -> found {} spacewatch images".format(night, len(fns)))
 
+    ## On nights when the allsky camera is non-operational, we don't have any files
+    if len(fns) == 0:
+        log.warning(f"No allsky camera images on night {night}")
+        return
+
     # image
     fn = fns[0]
     img = np.asarray(Image.open(fn))
