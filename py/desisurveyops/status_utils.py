@@ -358,7 +358,7 @@ def get_history_tiles_infos(survey, outfn=None):
         (20250515, 5166, "Retire+replace 6 bright tiles"),
         (20250609, 5286, "Turn on bright1b tiles in the NGC"),
         (20250610, 5301, "Retire+replace 2 dark1b tiles"),
-        (20250721, 5390, "Add very-low priority bright1bB layer, and rev5389 on same day added new backup layer"),
+        (20250721, 5390, "Add very-low priority bright1b layer, and rev5389 on same day added new backup layer"),
         (20250818, 5550, "Add M31 bright1b tiles"),
         (20251004, 5760, "Turn off three bright1b tiles"),
         (20251007, 5782, "Add C19 stream bright1b tiles"),
