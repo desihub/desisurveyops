@@ -105,7 +105,7 @@ if docheck:
         if os.path.isfile(fnl[ii]):
             fba_rerun_check(fol[ii], fnl[ii],dfn )  
             if len(open(dfn).readlines())>1:
-                tids = np.atleast_1d(np.genfromtxt(dfn,usecols = (3)))
+                tids = np.atleast_1d(np.genfromtxt(dfn, usecols = (3,), dtype=int))
                 if len(tids) > 0:
                     #tids = dd[3]
                     sel = tids > 0
