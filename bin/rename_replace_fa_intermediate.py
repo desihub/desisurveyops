@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+#This script was written to address the issue detailed in https://github.com/desihub/desisurveyops/issues/376
+#please read that issue and be absolutely certain you need to run this script before utilizing it.
 
 import os
 import fitsio
@@ -53,7 +55,7 @@ def parse():
         "--rplsuffix",
         help="Suffix to add to original files before moving new files. (default is -rpl)",
         type=str,
-        default="-rpl"
+        default="rpl"
     )
 
     args = parser.parse_args()
