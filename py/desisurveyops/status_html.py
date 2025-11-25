@@ -18,7 +18,7 @@ from desisurveyops.status_utils import (
     get_filename,
     get_fns,
     get_obsdone_tiles,
-    get_programs_npassmaxs,
+    get_programs_passparams,
     get_shutdowns,
     get_history_tiles_infos,
     get_backup_minefftime,
@@ -32,7 +32,7 @@ log = get_logger()
 
 
 def process_html(
-    outdir, survey, specprod, specprod_ref, programs, npassmaxs, program_strs
+    outdir, survey, specprod, specprod_ref, programs, npassmaxs, skip_passes, program_strs
 ):
 
     """
@@ -45,10 +45,11 @@ def process_html(
         specprod_ref: reference spectroscopic production (e.g. loa) (str)
         programs: list of programs (str)
         npassmaxs: list of npassmaxs (str)
+        skip_passes: passes to skip in each program (np.ndarray of ints)
         program_strs: list of program_strs (str)
 
     Notes:
-        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_npassmaxs().
+        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
         Usually use specprod=daily and specprod_ref=loa.
         The overall coding can surely been improved! but it works as is...
     """
@@ -101,7 +102,7 @@ def process_html(
     collapsible_names = get_collapsible_names(survey)
 
     # AR sky/zhist
-    for program, npassmax, program_str in zip(programs, npassmaxs, program_strs):
+    for program, npassmax, skip_pass, program_str in zip(programs, npassmaxs, skip_passes, program_strs):
 
         # AR have we already observed this program?
         sel = obs_progs == program
@@ -110,6 +111,12 @@ def process_html(
             fn = fns["ops"]["tiles"]
             t = Table.read(fn)
             t = t[t["PASS"] < npassmax]
+            sel &= np.in1d(obs_tiles, t["TILEID"])
+
+        if skip_pass is not None:
+            fn = fns["ops"]["tiles"]
+            t = Table.read(fn)
+            t = t[t["PASS"] != skip_pass]
             sel &= np.in1d(obs_tiles, t["TILEID"])
         log.info("{}\tfound {} observed tiles".format(program_str, sel.sum()))
 
@@ -861,7 +868,7 @@ def get_collapsible_names(survey):
     """
     collapsible_names = {}
 
-    programs, npassmaxs, program_strs = get_programs_npassmaxs(survey=survey)
+    programs, npassmaxs, _, program_strs = get_programs_passparams(survey=survey)
     for program_str in program_strs:
         collapsible_names[program_str] = "collapsible_{}".format(program_str.lower())
         collapsible_names["sub{}".format(program_str)] = "collapsible_sub{}".format(

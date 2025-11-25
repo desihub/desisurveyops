@@ -9,7 +9,7 @@ from desisurveyops.status_utils import (
     create_folders_structure,
     get_filename,
     get_fns,
-    get_programs_npassmaxs,
+    get_programs_passparams,
 )
 from desisurveyops.status_qso import process_qso
 from desisurveyops.status_sky import process_skymap, process_skyseq
@@ -105,7 +105,7 @@ def main():
     create_folders_structure(args.outdir)
 
     # AR programs
-    programs, npassmaxs, program_strs = get_programs_npassmaxs(survey=survey)
+    programs, npassmaxs, skip_passes, program_strs = get_programs_passparams(survey=survey)
     if args.program_strs is not None:
         run_program_strs = args.program_strs.split(",")
         if not np.all(np.isin(run_program_strs, program_strs)):
@@ -121,6 +121,8 @@ def main():
             program_strs[sel],
         )
         log.warning("only run for {}".format(args.program_strs))
+    print("BISCUITS: found program strings")
+    print(program_strs)
 
     # AR skymaps
     if "skymap" in args.steps.split(","):
@@ -131,6 +133,7 @@ def main():
             specprod,
             programs,
             npassmaxs,
+            skip_passes,
             program_strs,
             args.numproc,
             recompute=args.recompute,
@@ -144,6 +147,7 @@ def main():
             specprod,
             programs,
             npassmaxs,
+            skip_passes,
             program_strs,
             args.numproc,
             recompute=args.recompute,
@@ -195,6 +199,7 @@ def main():
             specprod,
             programs,
             npassmaxs,
+            skip_passes,
             program_strs,
             args.numproc,
             recompute=args.recompute,

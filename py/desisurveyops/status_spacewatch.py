@@ -57,6 +57,7 @@ def process_spacewatch(
     specprod,
     programs,
     npassmaxs,
+    skip_passes,
     program_strs,
     numproc,
     recompute=False,
@@ -70,13 +71,14 @@ def process_spacewatch(
         specprod: spectroscopic production (e.g. daily) (str)
         programs: list of programs (str)
         npassmaxs: list of npassmaxs (str)
+        skip_passes: passes to skip in each program (np.ndarray of ints)
         program_strs: list of program_strs (str)
         numproc: number of parallel processes to run (int)
         recompute (optional, defaults to False): if True recompute all maps;
             if False, only compute missing maps (bool)
 
     Notes:
-        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_npassmaxs().
+        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
         Usually use specprod=daily.
     """
 

@@ -67,6 +67,7 @@ def process_skymap(
     specprod,
     programs,
     npassmaxs,
+    skip_passes,
     program_strs,
     numproc,
     recompute=False,
@@ -81,13 +82,14 @@ def process_skymap(
         specprod: spectroscopic production (e.g. daily) (str)
         programs: list of programs (str)
         npassmaxs: list of npassmaxs (str)
+        skip_passes: passes to skip in each program (np.ndarray of ints)
         program_strs: list of program_strs (str)
         numproc: number of parallel processes to run (int)
         recompute (optional, defaults to False): if True recompute all maps;
             if False, only compute missing maps (bool)
 
     Notes:
-        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_npassmaxs().
+        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
         Files will be in {outdir}/{program_str}/.
         Usually use specprod=daily.
     """
@@ -108,7 +110,7 @@ def process_skymap(
 
     max_numproc = 128
 
-    for program, npassmax, program_str in zip(programs, npassmaxs, program_strs):
+    for program, npassmax, skip_pass, program_str in zip(programs, npassmaxs, skip_passes, program_strs):
 
         # AR nights for this program
         sel = obs_progs == program
@@ -117,15 +119,16 @@ def process_skymap(
             t = Table.read(fn)
             t = t[t["PASS"] < npassmax]
             sel &= np.in1d(obs_tiles, t["TILEID"])
-        ## AK: for sky completeness, let's ignore pass 5 which is a very low priority
-        ## filler pass to use when there is nothing else to observe
-        if program == 'BRIGHT1B':
-            log.warning(f"For PROGRAM=BRIGHT1B ignoring PASS=5")
+        ## DG: Skip any passes we want, given a specific survey. Formerly
+        ## this comment indicated that we skip the low priority pass 5 in the
+        # BRIGHT1B program.
+        if skip_pass is not None:
+            log.warning(f"For PROGRAM={program_str} ignoring PASS={skip_pass}")
             fn = fns["ops"]["tiles"]
             t = Table.read(fn)
-            t = t[t["PASS"] != 5]
+            t = t[t["PASS"] != skip_pass]
             sel &= np.in1d(obs_tiles, t["TILEID"])
-        
+
         log.info("{}\tfound {} observed tiles".format(program_str, sel.sum()))
 
         # AR handle e.g. bright1b which does not exist yet
@@ -162,6 +165,7 @@ def process_skymap(
                         night=night,
                         ext="png",
                     )
+                    log.info(f"{outpng = }")
                     if (not os.path.isfile(outpng)) | (recompute):
                         myargs.append(
                             (
@@ -170,6 +174,7 @@ def process_skymap(
                                 specprod,
                                 program,
                                 npassmax,
+                                skip_pass,
                                 program_str,
                                 case,
                                 quant,
@@ -186,7 +191,7 @@ def process_skymap(
         log.info("{}\tskygoal_nights: {}".format(program_str, skygoal_nights))
         log.info("{}\tskygoal_tilesfns: {}".format(program_str, skygoal_tilesfns))
         for skygoal_tilesfn in skygoal_tilesfns:
-            _ = get_skygoal(skygoal_tilesfn, program, npassmax=npassmax)
+            _ = get_skygoal(skygoal_tilesfn, program, npassmax=npassmax, skip_pass=skip_pass)
 
     # AR process, if any
     if len(myargs) > 0:
@@ -250,7 +255,7 @@ def process_skymap(
                 )
             else:
                 plot_sky_pending(
-                    outdir, survey, specprod, program, npassmax, program_str
+                    outdir, survey, specprod, program, npassmax, skip_pass, program_str
                 )
 
     log.info(
@@ -266,6 +271,7 @@ def process_skyseq(
     specprod,
     programs,
     npassmaxs,
+    skip_passes,
     program_strs,
     numproc,
     recompute=False,
@@ -279,6 +285,7 @@ def process_skyseq(
         specprod: spectroscopic production (e.g. daily) (str)
         programs: list of programs (str)
         npassmaxs: list of npassmaxs (str)
+        skip_passes: passes to skip in each program (np.ndarray of ints)
         program_strs: list of program_strs (str)
         numproc: number of parallel processes to run (int)
         recompute (optional, defaults to False): if True recompute all maps;
@@ -440,7 +447,7 @@ def plot_gp_ep(ax, frame, npt=1000, **kwargs):
     _ = ax.plot(ax.projection_ra(ras[ii]), ax.projection_dec(decs[ii]), **kwargs)
 
 
-def create_skygoal(tilesfn, program, outfn=None, nside=1024, npassmax=None):
+def create_skygoal(tilesfn, program, outfn=None, nside=1024, npassmax=None, skip_pass=None):
     """
     Create a table base on a healpix map with, for each healpix pixel:
     - which IN_DESI=True Main tile overlaps it
@@ -453,10 +460,11 @@ def create_skygoal(tilesfn, program, outfn=None, nside=1024, npassmax=None):
         outfn (optional, defaults to None): if set, write the table to outfn (str)
         nside (optional, defaults to 1024): healpix nside (int)
         npassmax (optional, defaults to None): if set, restrict to npassmax (PASS<npassmax) (int)
+        skip_pass (optional, defaults to None): if set skip this pass in the calc (int)
     """
     log.info(
-        "(outfn, tilesfn, program, npassmax)\t= ({}, {}, {}, {})".format(
-            outfn, tilesfn, program, npassmax
+        "(outfn, tilesfn, program, npassmax skip_pass)\t= ({}, {}, {}, {})".format(
+            outfn, tilesfn, program, npassmax, skip_pass
         )
     )
 
@@ -477,9 +485,9 @@ def create_skygoal(tilesfn, program, outfn=None, nside=1024, npassmax=None):
         sel &= t["PASS"] < npassmax
     ## AK: ignore PASS 5 of BRIGHT1B which is a very low priority filler layer
     ## used when nothing else is available during bright time
-    if program == 'BRIGHT1B':
-        sel &= t['PASS'] != 5
-        
+    if skip_pass is not None:
+        sel &= t["PASS"] != skip_pass
+
     t = t[sel]
     if npassmax is not None:
         log.info(
@@ -487,6 +495,8 @@ def create_skygoal(tilesfn, program, outfn=None, nside=1024, npassmax=None):
                 len(t), program, npassmax
             )
         )
+    elif skip_pass is not None:
+        log.info(f"found {len(t)} tiles with PROGRAM = {program} skipping pass {skip_pass}")
     else:
         log.info("found {} tiles with PROGRAM = {}".format(len(t), program))
 
@@ -526,7 +536,7 @@ def create_skygoal(tilesfn, program, outfn=None, nside=1024, npassmax=None):
         return d
 
 
-def get_skygoal(tilesfn, program, npassmax=None):
+def get_skygoal(tilesfn, program, npassmax=None, skip_pass=None):
     """
     Get a table base on a healpix map with, for each healpix pixel:
     - which IN_DESI=True Main tile overlaps it
@@ -537,6 +547,12 @@ def get_skygoal(tilesfn, program, npassmax=None):
         tilesfn: path to the tiles-{survey}.ecsv file (str)
         program: "BACKUP", "BRIGHT{1B}", or "DARK{1B}" (str)
         npassmax (optional, defaults to None): if set, restrict to npassmax (PASS<npassmax) (int)
+        skip_pass (optional, defaults to None): if set skip this pass in the calc (int)
+
+    Notes:
+    DG - This also (silently) populates the global skygoal dict if the entry does not exist.
+    Otherwise returns the precomputed skygoal stored in the dict.
+    TODO: Refactor into a populate_skygoal and get_skygoal to avoid silent side effects like this.
     """
 
     global _skygoal_dict
@@ -547,11 +563,13 @@ def get_skygoal(tilesfn, program, npassmax=None):
     if program not in _skygoal_dict[tilesfn]:
         _skygoal_dict[tilesfn][program] = {}
     if npassmax not in _skygoal_dict[tilesfn][program]:
-        _skygoal_dict[tilesfn][program][npassmax] = create_skygoal(
-            tilesfn, program, npassmax=npassmax
+        _skygoal_dict[tilesfn][program][npassmax] = {}
+    if skip_pass not in _skygoal_dict[tilesfn][program][npassmax]:
+        _skygoal_dict[tilesfn][program][npassmax][skip_pass] = create_skygoal(
+            tilesfn, program, npassmax=npassmax, skip_pass=skip_pass
         )
 
-    return _skygoal_dict[tilesfn][program][npassmax]
+    return _skygoal_dict[tilesfn][program][npassmax][skip_pass]
 
 
 def plot_skymap(
@@ -560,6 +578,7 @@ def plot_skymap(
     specprod,
     program,
     npassmax,
+    skip_pass,
     program_str,
     case,
     quant,
@@ -576,6 +595,7 @@ def plot_skymap(
         specprod: spectroscopic production (e.g. "daily") (str)
         program: "BACKUP", "BRIGHT", or "DARK" (str)
         npassmax: if not None, restrict to npassmax (int)
+        skip_pass:
         program_str: program_str name (str)
         case: "obs" or "done" (str)
         quant: "ntile" or "fraccov" (str)
@@ -584,7 +604,7 @@ def plot_skymap(
         outfits (optional, defaults to None): if set write the coverage data to a fits file (str)
 
     Notes:
-        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_npassmaxs().
+        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
     """
 
     log.info("Generate {}".format(outpng))
@@ -605,12 +625,11 @@ def plot_skymap(
     sel &= t["IN_DESI"]
     if npassmax is not None:
         sel &= t["PASS"] < npassmax
-    
+
     ## AK: for sky completeness, let's ignore pass 5 which is a very low priority
     ## filler pass to use when there is nothing else to observe
-    if program == 'BRIGHT1B':
-        log.warning(f"For PROGRAM=BRIGHT1B ignoring PASS=5")
-        sel &= t["PASS"] != 5
+    if skip_pass is not None:
+        sel &= t["PASS"] != skip_pass
 
     t = t[sel]
     passids = np.unique(t["PASS"])
@@ -632,7 +651,7 @@ def plot_skymap(
     # AR skygoal (listing the area covered by 1, 2, ..., npass passes)
     # AR we adopt a "dynamic" approach where we compute it from the tilesfn
     # AR to speed up things, we use cache
-    d = get_skygoal(tilesfn, program, npassmax=npassmax)
+    d = get_skygoal(tilesfn, program, npassmax=npassmax, skip_pass=skip_pass)
     nside = d.meta["HPXNSIDE"]
     assert d.meta["HPXNEST"] == nest
     # AR to handle overlapping tiles in a single pass
@@ -988,7 +1007,7 @@ def create_skymaps_nonight_in_filename(
         program_str: program_str name (str)
 
     Notes:
-        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_npassmaxs().
+        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
     """
 
     # AR handle e.g. bright1b which does not exist yet
@@ -1059,7 +1078,7 @@ def process_skymaps_mp4(
         numproc: number of parallel processes (int)
 
     Notes:
-        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_npassmaxs().
+        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
     """
     # AR mp4 for case=obs only
     case = "obs"
@@ -1111,7 +1130,7 @@ def process_skymaps_program_mp4(
         quant: "ntile" or "fraccov" (str)
 
     Notes:
-        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_npassmaxs().
+        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
     """
 
     assert case in ["obs", "done"]
@@ -1188,7 +1207,7 @@ def process_skycompl_ralst(
         numproc: number of parallel processes (int)
 
     Notes:
-        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_npassmaxs().
+        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
     """
 
     myargs = []
@@ -1248,7 +1267,7 @@ def plot_skycompl_ralst(
         tilesfn (optional, defaults to tiles-{survey}.ecsv in $DESI_SURVEYOPS): path to tiles-{survey}.ecsv (str)
 
     Notes:
-        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_npassmaxs().
+        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
     """
     #
     assert raquant in ["ra", "lst"]
@@ -1269,7 +1288,7 @@ def plot_skycompl_ralst(
     ## for when we have nothing better to observe in bright conditions
     if program == 'BRIGHT1B':
         sel &= t["PASS"] != 5
-        
+
     t = t[sel]
 
     # AR cap
@@ -1442,6 +1461,7 @@ def plot_sky_pending(
     specprod,
     program,
     npassmax,
+    skip_pass,
     program_str,
 ):
     """
@@ -1455,10 +1475,11 @@ def plot_sky_pending(
         specprod (optional, defaults to "daily"): spectroscopic production (str)
         programs: list of programs (str)
         npassmaxs: list of npassmaxs (str)
+        skip_pass: if set skip this pass in the calc (int)
         program_strs: list of program_strs (str)
 
     Notes:
-        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_npassmaxs().
+        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
     """
 
     global _skygoal_dict
@@ -1552,7 +1573,7 @@ def plot_sky_pending(
     t.write(outecsv, overwrite=True)
 
     # AR all tiles
-    goal = get_skygoal(tilesfn, program, npassmax=npassmax)
+    goal = get_skygoal(tilesfn, program, npassmax=npassmax, skip_pass=skip_pass)
     sel = goal["NPASS"] > 0
     goal = goal[sel]
 
