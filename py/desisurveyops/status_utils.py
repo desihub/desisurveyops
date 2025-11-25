@@ -229,7 +229,7 @@ def create_folders_structure(outdir):
     mydirs = []
     # TODO this should be derived from the program + passparams defined in get_programs_passparams
     # it should absolutely NOT be hardcoded like this.
-    for prog in ["backup", "bright4pass", "bright", "bright1b", "bright1bnopass5", "dark", "dark1b"]:
+    for prog in ["backup", "bright4pass", "bright", "bright1b", "bright1bwithpass5", "dark", "dark1b"]:
         mydirs.append(os.path.join(outdir, "skymap", prog))
     for name in [
         "qso",
@@ -271,35 +271,36 @@ def get_programs_passparams(survey="main"):
             programs: BACKUP, BRIGHT, BRIGHT, BRIGHT1B, BRIGHT1B, DARK, DARK1B
             npassmaxs: None, 4, None, None, None, None, None
             skip_pass: None, None, None, None, 5, None, None
-            program_str: BACKUP, BRIGHT4PASS, BRIGHT, BRIGHT1B, DARK, DARK1B
+            program_str: BACKUP, BRIGHT4PASS, BRIGHT, BRIGHT1B, BRIGHT1BWITHPASS5, DARK, DARK1B
     """
 
     programs, npassmaxs = None, None
     if survey == "main":
         xs = [
-            ("BACKUP", None, None),
-            ("BRIGHT", 4, None),
-            ("BRIGHT", None, None),
-            ("BRIGHT1B", None, None),
-            ("BRIGHT1B", None, 5),
-            ("DARK", None, None),
-            ("DARK1B", None, None),
+            ("BACKUP", None, None, "BACKUP"),
+            ("BRIGHT", 4, None, "BRIGHT4PASS"),
+            ("BRIGHT", None, None, "BRIGHT"),
+            ("BRIGHT1B", None, 5, "BRIGHT1B"), # "official" BRIGHT1B skips pass 5
+            ("BRIGHT1B", None, None, "BRIGHT1BWITHPASS5"), # "Full" BRIGHT1B incldues pass 5
+            ("DARK", None, None, "DARK"),
+            ("DARK1B", None, None, "DARK1B"),
         ]
         programs = np.array([_[0] for _ in xs])
         npassmaxs = np.array([_[1] for _ in xs])
-        program_strs = np.array(
-            [
-                "{}{}PASS".format(program, npassmax)
-                if npassmax is not None
-                else program
-                for program, npassmax in zip(programs, npassmaxs)
-            ]
-        )
+        program_strs = np.array([info[3] for info in xs])
+        # program_strs = np.array(
+        #     [
+        #         "{}{}PASS".format(program, npassmax)
+        #         if npassmax is not None
+        #         else program
+        #         for program, npassmax in zip(programs, npassmaxs)
+        #     ]
+        # )
         skips = np.array([info[2] for info in xs])
-        for i, skip_pass in enumerate(skips):
-            if skip_pass is not None:
-                program_strs = program_strs.astype("<U35")
-                program_strs[i] += f"NOPASS{skip_pass}"
+        # for i, skip_pass in enumerate(skips):
+        #     if skip_pass is not None:
+        #         program_strs = program_strs.astype("<U35")
+        #         program_strs[i] += f"NOPASS{skip_pass}"
 
     return programs, npassmaxs, skips, program_strs
 

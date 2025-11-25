@@ -173,6 +173,7 @@ def main():
             specprod,
             programs,
             npassmaxs,
+            skip_passes,
             program_strs,
             dchi2min,
             args.numproc,

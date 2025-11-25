@@ -463,7 +463,7 @@ def create_skygoal(tilesfn, program, outfn=None, nside=1024, npassmax=None, skip
         skip_pass (optional, defaults to None): if set skip this pass in the calc (int)
     """
     log.info(
-        "(outfn, tilesfn, program, npassmax skip_pass)\t= ({}, {}, {}, {})".format(
+        "(outfn, tilesfn, program, npassmax, skip_pass)\t= ({}, {}, {}, {})".format(
             outfn, tilesfn, program, npassmax, skip_pass
         )
     )
