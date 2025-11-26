@@ -116,11 +116,11 @@ def process_zhist(
 
         # AR select the tiles
         sel = obs_progs == program
-        sel &= np.in1d(obs_tiles, e["TILEID"])
+        sel &= np.isin(obs_tiles, e["TILEID"])
         if npassmax is not None:
             t = Table.read(out_fns["ops"]["tiles"])
             t = t[t["PASS"] < npassmax]
-            sel &= np.in1d(obs_tiles, t["TILEID"])
+            sel &= np.isin(obs_tiles, t["TILEID"])
 
         # DG For any skip cases that get passed, e.g. skipping pass 5 in BRIGHT1B
 
@@ -129,7 +129,7 @@ def process_zhist(
             fn = out_fns["ops"]["tiles"]
             t = Table.read(fn)
             t = t[t["PASS"] != skip_pass]
-            sel &= np.in1d(obs_tiles, t["TILEID"])
+            sel &= np.isin(obs_tiles, t["TILEID"])
 
         if npassmax is not None:
             log.info(

@@ -111,13 +111,13 @@ def process_html(
             fn = fns["ops"]["tiles"]
             t = Table.read(fn)
             t = t[t["PASS"] < npassmax]
-            sel &= np.in1d(obs_tiles, t["TILEID"])
+            sel &= np.isin(obs_tiles, t["TILEID"])
 
         if skip_pass is not None:
             fn = fns["ops"]["tiles"]
             t = Table.read(fn)
             t = t[t["PASS"] != skip_pass]
-            sel &= np.in1d(obs_tiles, t["TILEID"])
+            sel &= np.isin(obs_tiles, t["TILEID"])
         log.info("{}\tfound {} observed tiles".format(program_str, sel.sum()))
 
         # AR handle e.g. bright1b which does not exist yet

@@ -118,7 +118,7 @@ def process_skymap(
             fn = fns["ops"]["tiles"]
             t = Table.read(fn)
             t = t[t["PASS"] < npassmax]
-            sel &= np.in1d(obs_tiles, t["TILEID"])
+            sel &= np.isin(obs_tiles, t["TILEID"])
         ## DG: Skip any passes we want, given a specific survey. Formerly
         ## this comment indicated that we skip the low priority pass 5 in the
         # BRIGHT1B program.
@@ -127,7 +127,7 @@ def process_skymap(
             fn = fns["ops"]["tiles"]
             t = Table.read(fn)
             t = t[t["PASS"] != skip_pass]
-            sel &= np.in1d(obs_tiles, t["TILEID"])
+            sel &= np.isin(obs_tiles, t["TILEID"])
 
         log.info("{}\tfound {} observed tiles".format(program_str, sel.sum()))
 
@@ -143,7 +143,7 @@ def process_skymap(
         cases = ["obs"]
         nightss = [prog_obs_nights[program_str]]
         if program in ["BRIGHT", "BRIGHT1B", "DARK", "DARK1B"]:
-            sel &= np.in1d(obs_tiles, done_tiles)
+            sel &= np.isin(obs_tiles, done_tiles)
             # AR handle e.g. dark1b which does not have done tiles yet
             if sel.sum() > 0:
                 prog_done_night[program_str] = np.unique(obs_nights[sel])[-1]
@@ -639,10 +639,10 @@ def plot_skymap(
     # AR - obs : for this program and with obs_nights <= night
     # AR - done : for this program
     obs_tiles, obs_nights, obs_progs, done_tiles = get_obsdone_tiles(survey, specprod)
-    sel = np.in1d(obs_tiles, t["TILEID"])
+    sel = np.isin(obs_tiles, t["TILEID"])
     sel &= obs_nights <= night
     obs_tiles, obs_nights, obs_progs = obs_tiles[sel], obs_nights[sel], obs_progs[sel]
-    sel = np.in1d(done_tiles, t["TILEID"])
+    sel = np.isin(done_tiles, t["TILEID"])
     done_tiles = done_tiles[sel]
 
     # AR exposures
@@ -714,9 +714,9 @@ def plot_skymap(
     for i in range(npass):
         sel = t["PASS"] == passids[i]
         if case == "obs":
-            sel &= np.in1d(t["TILEID"], obs_tiles)
+            sel &= np.isin(t["TILEID"], obs_tiles)
         else:
-            sel &= np.in1d(t["TILEID"], done_tiles)
+            sel &= np.isin(t["TILEID"], done_tiles)
         if sel.sum() > 0:
             # AR to handle overlapping tiles in a single pass
             # AR for BRIGHT1B, first compute the per-tile pixels
@@ -750,9 +750,9 @@ def plot_skymap(
         # AR null TILEIDS and EXPFACS for not-observed tiles
         for i in range(outd["TILEIDS"].shape[1]):
             if case == "obs":
-                reject = ~np.in1d(outd["TILEIDS"][:, i], obs_tiles)
+                reject = ~np.isin(outd["TILEIDS"][:, i], obs_tiles)
             else:
-                reject = ~np.in1d(outd["TILEIDS"][:, i], done_tiles)
+                reject = ~np.isin(outd["TILEIDS"][:, i], done_tiles)
             outd["TILEIDS"][reject, i] = 0
             outd["EXPFACS"][reject, i] = 0
         outd["NPASS"] = (outd["TILEIDS"] != 0).sum(axis=1)
@@ -831,7 +831,7 @@ def plot_skymap(
 
     # AR Moon position for exposures taken that night + tiles completed
     if case == "obs":
-        sel = np.in1d(e["TILEID"], obs_tiles[obs_nights == night])
+        sel = np.isin(e["TILEID"], obs_tiles[obs_nights == night])
         sel &= e["NIGHT"] == night
         log.info(
             "found {} exposures from {} observed on {}".format(
@@ -866,7 +866,7 @@ def plot_skymap(
         )
 
         # AR tiles completed in the last night
-        sel = np.in1d(t["TILEID"], obs_tiles[obs_nights == night])
+        sel = np.isin(t["TILEID"], obs_tiles[obs_nights == night])
         custom_plot_sky_circles(
             ax,
             t["RA"][sel],
@@ -1312,7 +1312,7 @@ def plot_skycompl_ralst(
     # AR obs/done tiles:
     # AR - obs : for this program and with obs_nights <= night
     obs_tiles, obs_nights, _, _ = get_obsdone_tiles(survey, specprod)
-    sel = np.in1d(obs_tiles, t["TILEID"])
+    sel = np.isin(obs_tiles, t["TILEID"])
     sel &= obs_nights <= night
     obs_tiles, obs_nights = obs_tiles[sel], obs_nights[sel]
 

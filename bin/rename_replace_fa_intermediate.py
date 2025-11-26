@@ -59,7 +59,7 @@ def parse():
     )
 
     args = parser.parse_args()
-    assert np.all(np.in1d(args.cases.split(","), intermediate_cases))
+    assert np.all(np.isin(args.cases.split(","), intermediate_cases))
     for kwargs in args._get_kwargs():
         log.info("{}\t{}".format(kwargs[0], kwargs[1]))
     return args
@@ -72,7 +72,7 @@ def main():
 
     #list to hold strings of rename/replace commands
     rpl_commands = []
-    
+
     #first lets check that all of the necessary files exist in both fbadir and rpldir locations
     #and while doing so we can save the commands we'll need later to move/rename the files
     for tile in tiles:
@@ -80,7 +80,7 @@ def main():
         for case in args.cases.split(","):
             fba_file = os.path.join(args.fbadir,ts[:3],"{}-{}.fits".format(ts,case))
             rpl_file = os.path.join(args.rpldir,ts[:3],"{}-{}.fits".format(ts,case))
-            
+
             if not os.path.exists(fba_file):
                 log.info("Original File:{} does not exist. Please investigate before continuing.".format(fba_file))
                 raise FileNotFoundError()
@@ -90,7 +90,7 @@ def main():
 
             rpl_commands.append("mv {} {}".format(fba_file,fba_file.replace(".fits","-{}.fits".format(args.rplsuffix))))
             rpl_commands.append("mv {} {}".format(rpl_file,fba_file))
-                
+
     log.info("All original/replacement files exist. Outputting rename/replace commands.")
 
     #print and optionally execute the rename/replace commands
@@ -99,8 +99,8 @@ def main():
         if args.runcommands:
             os.system(command)
 
-            
+
 if __name__ == "__main__":
     main()
 
-  
+

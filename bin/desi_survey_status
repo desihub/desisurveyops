@@ -72,7 +72,7 @@ def parse():
     args = parser.parse_args()
     # AR sanity check
     steps = np.array(args.steps.split(","))
-    sel = ~np.in1d(steps, allowed_steps)
+    sel = ~np.isin(steps, allowed_steps)
     if sel.sum() > 0:
         msg = "not allowed args.steps = {}\t=> exiting".format(",".join(steps[sel]))
         log.error(msg)

@@ -167,7 +167,7 @@ def process_nspec(
             )
 
             # AR new (tileid, night)
-            sel_new = (sel) & (~np.in1d(obs_tileids_nights, prev_tileids_nights))
+            sel_new = (sel) & (~np.isin(obs_tileids_nights, prev_tileids_nights))
 
             # AR updated (tileid, night)
             prev_ii, obs_ii = match(prev_tileids_nights, obs_tileids_nights)

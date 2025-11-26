@@ -195,7 +195,7 @@ def create_targets(yamlfn, outfn):
             merge_d[sample][ii_merge] = True
             merge_d["{}_ROW".format(sample)][ii_merge] = d["{}_ROW".format(sample)][ii]
             # add rows for non-matched ones
-            sel = ~np.in1d(np.arange(len(d)), ii)
+            sel = ~np.isin(np.arange(len(d)), ii)
             d = d[sel]
             log.info(
                 "{}:\tPRIORITY_INIT={}\tadd {} not-matched rows".format(
