@@ -121,8 +121,6 @@ def main():
             program_strs[sel],
         )
         log.warning("only run for {}".format(args.program_strs))
-    print("BISCUITS: found program strings")
-    print(program_strs)
 
     # AR skymaps
     if "skymap" in args.steps.split(","):

@@ -88,8 +88,8 @@ def process_zhist(
     start = time()
 
     # AR to get obs. tiles with efftime > 0
-    fns = get_fns(survey=survey, specprod=specprod)
-    e = Table.read(fns["spec"]["exps"])
+    out_fns = get_fns(survey=survey, specprod=specprod)
+    e = Table.read(out_fns["spec"]["exps"])
     sel = (e["SURVEY"] == survey) & (e["EFFTIME_SPEC"] > 0)
     e = e[sel]
 
@@ -118,14 +118,15 @@ def process_zhist(
         sel = obs_progs == program
         sel &= np.in1d(obs_tiles, e["TILEID"])
         if npassmax is not None:
-            t = Table.read(fns["ops"]["tiles"])
+            t = Table.read(out_fns["ops"]["tiles"])
             t = t[t["PASS"] < npassmax]
             sel &= np.in1d(obs_tiles, t["TILEID"])
 
         # DG For any skip cases that get passed, e.g. skipping pass 5 in BRIGHT1B
+
         if skip_pass is not None:
             log.warning(f"For PROGRAM={program_str} ignoring PASS={skip_pass}")
-            fn = fns["ops"]["tiles"]
+            fn = out_fns["ops"]["tiles"]
             t = Table.read(fn)
             t = t[t["PASS"] != skip_pass]
             sel &= np.in1d(obs_tiles, t["TILEID"])
