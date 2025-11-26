@@ -213,6 +213,7 @@ def main():
             specprod,
             programs,
             npassmaxs,
+            skip_passes,
             program_strs,
             args.numproc,
             recompute=args.recompute,
@@ -228,6 +229,7 @@ def main():
             specprod_ref,
             programs,
             npassmaxs,
+            skip_passes,
             program_strs,
         )
 
