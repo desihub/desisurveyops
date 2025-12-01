@@ -552,7 +552,7 @@ def compute_nspec(outfn, zmtl, numproc, max_numproc=16):
     t = t[t["IN_DESI"]]
 
     # AR identify tileids per program (based on main...)
-    all_programs, _, _, _ = get_programs_passparams(survey=survey)
+    all_programs, _, _ = get_programs_passparams(survey=survey)
     all_programs = np.unique(all_programs)
     all_progshorts = np.array([program.replace("1B", "") for program in all_programs])
     progdict = {

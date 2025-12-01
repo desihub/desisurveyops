@@ -93,7 +93,7 @@ def process_qso(
     # AR obs, donetiles
     obs_tiles, obs_nights, obs_progs, done_tiles = get_obsdone_tiles(survey, specprod)
 
-    for program, _, _, program_str in zip(programs, skip_passes, program_strs):
+    for program, _, program_str in zip(programs, skip_passes, program_strs):
 
         if program not in ["DARK", "DARK1B"]:
             continue
