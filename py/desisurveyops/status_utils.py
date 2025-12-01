@@ -284,21 +284,8 @@ def get_programs_passparams(survey="main"):
             ("DARK1B", None, "DARK1B"),
         ]
         programs = np.array([_[0] for _ in xs])
-        # npassmaxs = np.array([_[1] for _ in xs])
-        program_strs = np.array([info[2] for info in xs])
-        # program_strs = np.array(
-        #     [
-        #         "{}{}PASS".format(program, npassmax)
-        #         if npassmax is not None
-        #         else program
-        #         for program, npassmax in zip(programs, npassmaxs)
-        #     ]
-        # )
         skips = np.array([info[1] for info in xs], dtype=object)
-        # for i, skip_pass in enumerate(skips):
-        #     if skip_pass is not None:
-        #         program_strs = program_strs.astype("<U35")
-        #         program_strs[i] += f"NOPASS{skip_pass}"
+        program_strs = np.array([info[2] for info in xs])
 
     return programs, skips, program_strs
 
