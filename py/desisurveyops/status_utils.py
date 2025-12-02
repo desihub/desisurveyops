@@ -363,6 +363,7 @@ def get_history_tiles_infos(survey, outfn=None):
         (20251007, 5782, "Add C19 stream bright1b tiles"),
         (20251008, 5790, "Turn off nine bright1b tiles (along with rev5786)"),
         (20251117, 6037, "Turn back on nine bright1b tiles"),
+        (20251202, 6118, "Turn off three bright1b tiles that hang off the footprint edge"),
     ]
     d["NIGHT"] = [x[0] for x in xs]
     d["REVISION"] = [x[1] for x in xs]
