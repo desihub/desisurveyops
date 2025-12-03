@@ -226,6 +226,7 @@ def main():
 
     # AR fix permission
     if args.fixpermissions:
+        log.info("Running fix_permissions.sh.")
         os.system("fix_permissions.sh {}".format(args.outdir))
 
 
