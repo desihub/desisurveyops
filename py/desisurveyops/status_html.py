@@ -867,7 +867,7 @@ def get_collapsible_names(survey):
     """
     collapsible_names = {}
 
-    _, _, _, program_strs = get_programs_passparams(survey=survey)
+    _, _, program_strs = get_programs_passparams(survey=survey)
     for program_str in program_strs:
         collapsible_names[program_str] = "collapsible_{}".format(program_str.lower())
         collapsible_names["sub{}".format(program_str)] = "collapsible_sub{}".format(
