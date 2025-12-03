@@ -113,11 +113,7 @@ def process_skymap(
 
         # AR nights for this program
         sel = obs_progs == program
-        # if npassmax is not None:
-        #     fn = fns["ops"]["tiles"]
-        #     t = Table.read(fn)
-        #     t = t[t["PASS"] < npassmax]
-        #     sel &= np.isin(obs_tiles, t["TILEID"])
+
         ## DG: Skip any passes we want, given a specific survey. Formerly
         ## this comment indicated that we skip the low priority pass 5 in the
         # BRIGHT1B program.
