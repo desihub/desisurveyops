@@ -54,7 +54,7 @@ def process_zhist(
     survey,
     specprod,
     programs,
-    npassmaxs,
+    skip_passes,
     program_strs,
     dchi2min,
     numproc,
@@ -68,7 +68,7 @@ def process_zhist(
         survey: survey name (str)
         specprod: spectroscopic production (e.g. daily) (str)
         programs: list of programs (str)
-        npassmaxs: list of npassmaxs (str)
+        skip_passes: passes to skip in each program (np.ndarray of ints)
         program_strs: list of program_strs (str)
         dchi2_min: DELTACHI2 cut to select reliable zspecs (float)
         numproc: number of parallel processes to run (int)
@@ -76,7 +76,7 @@ def process_zhist(
             if False, only compute missing maps (bool)
 
     Notes:
-        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_npassmaxs().
+        For (programs, skip_passes, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
         Usually use specprod=daily.
     """
 
@@ -86,8 +86,8 @@ def process_zhist(
     start = time()
 
     # AR to get obs. tiles with efftime > 0
-    fns = get_fns(survey=survey, specprod=specprod)
-    e = Table.read(fns["spec"]["exps"])
+    out_fns = get_fns(survey=survey, specprod=specprod)
+    e = Table.read(out_fns["spec"]["exps"])
     sel = (e["SURVEY"] == survey) & (e["EFFTIME_SPEC"] > 0)
     e = e[sel]
 
@@ -95,7 +95,7 @@ def process_zhist(
     obs_tiles, obs_nights, obs_progs, done_tiles = get_obsdone_tiles(survey, specprod)
 
     # AR loop on programs
-    for program, npassmax, program_str in zip(programs, npassmaxs, program_strs):
+    for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
 
         outfn = get_filename(
             outdir, survey, "zhist", program_str=program_str, ext="ecsv"
@@ -114,18 +114,23 @@ def process_zhist(
 
         # AR select the tiles
         sel = obs_progs == program
-        sel &= np.in1d(obs_tiles, e["TILEID"])
-        if npassmax is not None:
-            t = Table.read(fns["ops"]["tiles"])
-            t = t[t["PASS"] < npassmax]
-            sel &= np.in1d(obs_tiles, t["TILEID"])
+        sel &= np.isin(obs_tiles, e["TILEID"])
+        # if npassmax is not None:
+        #     t = Table.read(out_fns["ops"]["tiles"])
+        #     t = t[t["PASS"] < npassmax]
+        #     sel &= np.isin(obs_tiles, t["TILEID"])
 
-        if npassmax is not None:
-            log.info(
-                "found {} tiles with PROGRAM = {} and PASS < {}".format(
-                    sel.sum(), program, npassmax
-                )
-            )
+        # DG For any skip cases that get passed, e.g. skipping pass 5 in BRIGHT1B
+
+        if skip_pass is not None:
+            log.warning(f"For PROGRAM={program_str} ignoring PASS={skip_pass}")
+            fn = out_fns["ops"]["tiles"]
+            t = Table.read(fn)
+            t = t[~np.isin(t["PASS"], skip_pass)]
+            sel &= np.isin(obs_tiles, t["TILEID"])
+
+        # if npassmax is not None:
+            log.info(f"found {sel.sum()} tiles with PROGRAM = {program} and SKIP_PASS {skip_pass}")
         else:
             log.info("found {} tiles with PROGRAM = {}".format(sel.sum(), program))
 
@@ -208,7 +213,7 @@ def process_zhist(
             survey,
             specprod,
             program,
-            npassmax,
+            skip_pass,
             program_str,
             lastnights.max(),
             rebin,
@@ -319,7 +324,7 @@ def plot_zhist(
     survey,
     specprod,
     program,
-    npassmax,
+    skip_pass,
     program_str,
     cutoff_night,
     rebin,
@@ -333,13 +338,13 @@ def plot_zhist(
         survey: survey name (str)
         specprod: spectroscopic production (e.g. daily) (str)
         programs: list of programs (str)
-        npassmaxs: list of npassmaxs (str)
+        skip_pass: list of skip_pass (str)
         program_strs: list of program_strs (str)
         cutoff_night: only keep tiles with lastnight<=cutoff_night (int)
         rebin: what re-binning of the zbins? (int)
 
     Notes:
-        For (programs, npassmaxs, program_strs), see desisurveyops.sky_utils.get_programs_npassmaxs().
+        For (programs, skip_pass, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
     """
 
     log.info("outpng: {}".format(outpng))
@@ -357,8 +362,8 @@ def plot_zhist(
     t = Table.read(tilesfn)
     sel = t["PROGRAM"] == program
     sel &= t["IN_DESI"]
-    if npassmax is not None:
-        sel &= t["PASS"] < npassmax
+    if skip_pass is not None:
+        sel &= ~np.isin(t["PASS"], skip_pass)
     t = t[sel]
 
     title = "{}/{}\n{}/{} (={:.0f}%) completed tiles up to {}".format(

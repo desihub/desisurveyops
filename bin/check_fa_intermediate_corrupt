@@ -60,7 +60,7 @@ def parse():
     )
 
     args = parser.parse_args()
-    assert np.all(np.in1d(args.cases.split(","), allowed_cases))
+    assert np.all(np.isin(args.cases.split(","), allowed_cases))
     for kwargs in args._get_kwargs():
         log.info("{}\t{}".format(kwargs[0], kwargs[1]))
     return args
@@ -173,7 +173,7 @@ def main():
     if args.outecsv is not None:
         d.write(args.outecsv, overwrite=args.overwrite)
 
-    # LGN print the resolving commands if asked to 
+    # LGN print the resolving commands if asked to
     if args.print_fix:
         temp_dir = '/pscratch/sd/d/desiproc/fiberassign/rerun'
 
@@ -186,7 +186,7 @@ def main():
             #iterate over redo dates
             for rd in np.unique(redo_dates):
                 print('validate_lastnight_fba --night {} --outroot {}'.format(rd,temp_dir))
-            
+
                 #iterate through entries associated with this date and print necessary commands
                 for en in d[redo_dates == rd]:
                     tile_str = str(en['TILEID']).zfill(6)

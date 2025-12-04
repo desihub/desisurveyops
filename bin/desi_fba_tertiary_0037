@@ -234,7 +234,7 @@ def create_targets(yamlfn, outfn):
             merge_d[sample][ii_merge] = True
             merge_d["{}_ROW".format(sample)][ii_merge] = d["{}_ROW".format(sample)][ii]
             # add rows for non-matched ones
-            sel = ~np.in1d(np.arange(len(d)), ii)
+            sel = ~np.isin(np.arange(len(d)), ii)
             d = d[sel]
             log.info(
                 "{}:\tPRIORITY_INIT={}\tadd {} not-matched rows".format(
@@ -271,7 +271,7 @@ def create_targets(yamlfn, outfn):
     sel = d["TERTIARY_TARGET"] == "LBG_SUPRIME_NEW"
     d_sup4h = d[sel]
     log.info("len(d_sup4h) = {}".format(len(d_sup4h)))
-    sel = ~np.in1d(d_sup2h["LBG_SUPRIME_NEW_ROW"], d_sup4h["LBG_SUPRIME_NEW_ROW"])
+    sel = ~np.isin(d_sup2h["LBG_SUPRIME_NEW_ROW"], d_sup4h["LBG_SUPRIME_NEW_ROW"])
     d_sup2h = d_sup2h[sel]
     log.info("len(d_sup2h) = {}".format(len(d_sup2h)))
     d_sup2h["TERTIARY_TARGET"] = d_sup2h["TERTIARY_TARGET"].astype(object)

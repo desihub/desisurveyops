@@ -62,7 +62,7 @@ def get_filename(
         outdir: output folder (str)
         survey: survey (str)
         name: "tiles" or "skymap" or "qso" or "zhist" or "nspec" or "fpstate" or "obsconds" or "spacewatch" or "html" or "exposures" (str)
-        program_str (optional, defaults to None): "BACKUP", "BRIGHT", "BRIGHT4PASS", "BRIGHT1B", "DARK", or "DARK1B" (str)
+        program_str (optional, defaults to None): "BACKUP", "BRIGHT", "BRIGHT4PASS", "BRIGHT1B", "BRIGHT1BNOPASS5", "DARK", or "DARK1B" (str)
         ext (optional, defaults to None): "ecsv", "fits", "png", "mp4", "html", "css" (str)
         case (optional, defaults to None):
             "history" for name=tiles,
@@ -227,7 +227,9 @@ def create_folders_structure(outdir):
         outdir: the working folder (str)
     """
     mydirs = []
-    for prog in ["backup", "bright4pass", "bright", "bright1b", "dark", "dark1b"]:
+    # TODO this should be derived from the program + passparams defined in get_programs_passparams
+    # it should absolutely NOT be hardcoded like this.
+    for prog in ["backup", "bright4pass", "bright", "bright1b", "bright1bwithpass5", "dark", "dark1b"]:
         mydirs.append(os.path.join(outdir, "skymap", prog))
     for name in [
         "qso",
@@ -246,8 +248,11 @@ def create_folders_structure(outdir):
             log.info("create {}".format(mydir))
             os.makedirs(mydir)
 
-
-def get_programs_npassmaxs(survey="main"):
+# get_programs_npassmaxs
+# TODO: Consider that it might be more useful to have this load
+# a config.yaml file rather than hardcoding everything right here
+# in the python file.
+def get_programs_passparams(survey="main"):
     """
     Get the programs properties for a given survey.
 
@@ -256,39 +261,33 @@ def get_programs_npassmaxs(survey="main"):
 
     Returns:
         programs: list of programs (np.array of str)
-        npassmaxs: number of passes for each program (np.array of int)
+        skip_pass: passnum of passes skip for each program (np.array of int)
         program_strs: list of program names used in the code (np.array of str)
 
     Notes:
-        npassmax is None in general; e.g. set to 4 for BRIGHT4PASS.
+        skip_pass is None in general; e.g. set to 4 for BRIGHT4PASS.
         For instance, for the main survey:
-            programs: BACKUP, BRIGHT, BRIGHT, BRIGHT1B, DARK, DARK1B
-            npassmaxs: None, 4, None, None, None, None
-            program_str: BACKUP, BRIGHT4PASS, BRIGHT, BRIGHT1B, DARK, DARK1B
+            programs: BACKUP, BRIGHT, BRIGHT, BRIGHT1B, BRIGHT1B, DARK, DARK1B
+            skip_pass: None, [4], None, None, [5], None, None
+            program_str: BACKUP, BRIGHT4PASS, BRIGHT, BRIGHT1B, BRIGHT1BWITHPASS5, DARK, DARK1B
     """
 
-    programs, npassmaxs = None, None
+    # programs, npassmaxs = None, None
     if survey == "main":
         xs = [
-            ("BACKUP", None),
-            ("BRIGHT", 4),
-            ("BRIGHT", None),
-            ("BRIGHT1B", None),
-            ("DARK", None),
-            ("DARK1B", None),
+            ("BACKUP", None, "BACKUP"),
+            ("BRIGHT", [4], "BRIGHT4PASS"),
+            ("BRIGHT", None, "BRIGHT"),
+            ("BRIGHT1B", [5], "BRIGHT1B"), # "official" BRIGHT1B skips pass 5
+            ("BRIGHT1B", None, "BRIGHT1BWITHPASS5"), # "Full" BRIGHT1B incldues pass 5
+            ("DARK", None, "DARK"),
+            ("DARK1B", None, "DARK1B"),
         ]
         programs = np.array([_[0] for _ in xs])
-        npassmaxs = np.array([_[1] for _ in xs])
-        program_strs = np.array(
-            [
-                "{}{}PASS".format(program, npassmax)
-                if npassmax is not None
-                else program
-                for program, npassmax in zip(programs, npassmaxs)
-            ]
-        )
+        skips = np.array([info[1] for info in xs], dtype=object)
+        program_strs = np.array([info[2] for info in xs])
 
-    return programs, npassmaxs, program_strs
+    return programs, skips, program_strs
 
 
 def get_shutdowns(survey):

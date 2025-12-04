@@ -184,7 +184,7 @@ def create_targets(yamlfn, outfn):
             if sample == "FILLER_PSFSTAR_LOP":
                 d = d[ii[1]+1:]
                 d = d[len(d) // 2:]
-            
+
         # AR re-order columns at the same time as selecting
         keep_keys = [
             "RA",
@@ -261,7 +261,7 @@ def create_targets(yamlfn, outfn):
             merge_d[sample][ii_merge] = True
             merge_d["{}_ROW".format(sample)][ii_merge] = d["{}_ROW".format(sample)][ii]
             # add rows for non-matched ones
-            sel = ~np.in1d(np.arange(len(d)), ii)
+            sel = ~np.isin(np.arange(len(d)), ii)
             d = d[sel]
             log.info(
                 "{}:\tPRIORITY_INIT={}\tadd {} not-matched rows".format(
@@ -298,7 +298,7 @@ def create_targets(yamlfn, outfn):
     sel = d["TERTIARY_TARGET"] == "HIZ_IBIS"
     d_sup4h = d[sel]
     log.info("len(d_sup4h) = {}".format(len(d_sup4h)))
-    sel = ~np.in1d(d_sup1h["HIZ_IBIS_ROW"], d_sup4h["HIZ_IBIS_ROW"])
+    sel = ~np.isin(d_sup1h["HIZ_IBIS_ROW"], d_sup4h["HIZ_IBIS_ROW"])
     d_sup1h = d_sup1h[sel]
     log.info("len(d_sup1h) = {}".format(len(d_sup1h)))
     d_sup1h["TERTIARY_TARGET"] = d_sup1h["TERTIARY_TARGET"].astype(object)
@@ -380,7 +380,7 @@ def main():
             prognum, targdir, mydict["rundate"], mydict["std_dtver"]
         )
         # AR required because of the safeguard... sigh..
-        cmd = "{} --custom_too_development".format(cmd)                                                                                                                                            
+        cmd = "{} --custom_too_development".format(cmd)
         if args.dry_run:
             cmd = "{} --dry_run".format(cmd)
         log.info(cmd)

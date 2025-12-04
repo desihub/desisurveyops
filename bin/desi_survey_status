@@ -9,7 +9,7 @@ from desisurveyops.status_utils import (
     create_folders_structure,
     get_filename,
     get_fns,
-    get_programs_npassmaxs,
+    get_programs_passparams,
 )
 from desisurveyops.status_qso import process_qso
 from desisurveyops.status_sky import process_skymap, process_skyseq
@@ -72,7 +72,7 @@ def parse():
     args = parser.parse_args()
     # AR sanity check
     steps = np.array(args.steps.split(","))
-    sel = ~np.in1d(steps, allowed_steps)
+    sel = ~np.isin(steps, allowed_steps)
     if sel.sum() > 0:
         msg = "not allowed args.steps = {}\t=> exiting".format(",".join(steps[sel]))
         log.error(msg)
@@ -105,7 +105,7 @@ def main():
     create_folders_structure(args.outdir)
 
     # AR programs
-    programs, npassmaxs, program_strs = get_programs_npassmaxs(survey=survey)
+    programs, skip_passes, program_strs = get_programs_passparams(survey=survey)
     if args.program_strs is not None:
         run_program_strs = args.program_strs.split(",")
         if not np.all(np.isin(run_program_strs, program_strs)):
@@ -115,9 +115,9 @@ def main():
             log.error(msg)
             raise ValueError(msg)
         sel = np.isin(program_strs, run_program_strs)
-        programs, npassmaxs, program_strs = (
+        programs, skip_passes, program_strs = (
             programs[sel],
-            npassmaxs[sel],
+            skip_passes[sel],
             program_strs[sel],
         )
         log.warning("only run for {}".format(args.program_strs))
@@ -130,7 +130,7 @@ def main():
             survey,
             specprod,
             programs,
-            npassmaxs,
+            skip_passes,
             program_strs,
             args.numproc,
             recompute=args.recompute,
@@ -143,7 +143,7 @@ def main():
             survey,
             specprod,
             programs,
-            npassmaxs,
+            skip_passes,
             program_strs,
             args.numproc,
             recompute=args.recompute,
@@ -168,7 +168,7 @@ def main():
             survey,
             specprod,
             programs,
-            npassmaxs,
+            skip_passes,
             program_strs,
             dchi2min,
             args.numproc,
@@ -194,7 +194,7 @@ def main():
             survey,
             specprod,
             programs,
-            npassmaxs,
+            skip_passes,
             program_strs,
             args.numproc,
             recompute=args.recompute,
@@ -207,9 +207,6 @@ def main():
             args.outdir,
             survey,
             specprod,
-            programs,
-            npassmaxs,
-            program_strs,
             args.numproc,
             recompute=args.recompute,
         )
@@ -223,12 +220,13 @@ def main():
             specprod,
             specprod_ref,
             programs,
-            npassmaxs,
+            skip_passes,
             program_strs,
         )
 
     # AR fix permission
     if args.fixpermissions:
+        log.info("Running fix_permissions.sh.")
         os.system("fix_permissions.sh {}".format(args.outdir))
 
 

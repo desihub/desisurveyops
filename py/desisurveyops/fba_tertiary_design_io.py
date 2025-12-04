@@ -209,7 +209,7 @@ def get_fn(prognum, case, targdir):
     Returns:
         fn: output file name (str)
     """
-    assert np.in1d(case, ["yaml", "tiles", "priorities", "targets", "log"])
+    assert np.isin(case, ["yaml", "tiles", "priorities", "targets", "log"])
     if case == "yaml":
         fn = os.path.join(targdir, "tertiary-config-{:04d}.yaml".format(prognum))
     if case == "tiles":
@@ -731,7 +731,7 @@ def subsample_targets_avail(d, prognum, targdir, rundate, ignore_samples=""):
                             sel = favails[tileid]["FIBER"] != fibers[tileid][0]
                             favails[tileid] = favails[tileid][sel]
                             nassign += 1
-        n_keep = np.in1d(ii, np.arange(len(d))[keep]).sum()
+        n_keep = np.isin(ii, np.arange(len(d))[keep]).sum()
         log.info(
             "{}:\t{}/{}={:.0f}% kept after cutting on favails".format(
                 sample, n_keep, ii.size, 100 * n_keep / ii.size
@@ -852,7 +852,7 @@ def get_avail(
         run_assign_full(ag)
         # AR read result
         favail = Table.read(fbafn, "FAVAIL")
-        sel_avail = np.in1d(d["TARGETID"], favail["TARGETID"])
+        sel_avail = np.isin(d["TARGETID"], favail["TARGETID"])
         if len(tiles) == 1:
             isavail[sel_avail] = True
         else:
@@ -988,7 +988,7 @@ def create_targets_assign(prognum, targdir):
     tids = np.unique(
         vstack([Table.read(fn) for fn in fns], metadata_conflicts="silent")["TARGETID"]
     )
-    sel = np.in1d(d["TARGETID"], tids)
+    sel = np.isin(d["TARGETID"], tids)
     log.info(
         "cutting on {} / {} targets falling in the {} tiles".format(
             sel.sum(), len(d), ntile
@@ -1023,7 +1023,7 @@ def create_targets_assign(prognum, targdir):
         d["FIBERS"][iid, i] = f["FIBER"][iif].astype(str)
         # AR avail
         tids = Table.read(fn, "TARGETS")["TARGETID"]
-        d["AVAIL"][np.in1d(d["TARGETID"], tids), i] = True
+        d["AVAIL"][np.isin(d["TARGETID"], tids), i] = True
     #
     d["NAVAIL"] = d["AVAIL"].sum(axis=1)
     d["NASSIGN"] = d["ASSIGN"].sum(axis=1)
@@ -1518,7 +1518,7 @@ def get_main_primary_targets_names(
     myprios = -99 + np.zeros(len(targ))
     for t, p in zip(tertiary_targets, initprios):
         myprios[names.astype(str) == t] = p
-    ignore_std = np.in1d(names.astype(str), ["DESI_STD_BRIGHT", "DESI_STD_FAINT"])
+    ignore_std = np.isin(names.astype(str), ["DESI_STD_BRIGHT", "DESI_STD_FAINT"])
     log.info(
         "priority_check: ignoring {} DESI_STD_BRIGHT|DESI_STD_FAINT".format(
             ignore_std.sum()

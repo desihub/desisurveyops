@@ -24,7 +24,7 @@ from desisurveyops.status_utils import (
     get_filename,
     get_fns,
     get_obsdone_tiles,
-    get_programs_npassmaxs,
+    get_programs_passparams,
     get_spec_updated_mjd,
     get_tileid_night_str,
     get_shutdowns,
@@ -167,7 +167,7 @@ def process_nspec(
             )
 
             # AR new (tileid, night)
-            sel_new = (sel) & (~np.in1d(obs_tileids_nights, prev_tileids_nights))
+            sel_new = (sel) & (~np.isin(obs_tileids_nights, prev_tileids_nights))
 
             # AR updated (tileid, night)
             prev_ii, obs_ii = match(prev_tileids_nights, obs_tileids_nights)
@@ -552,7 +552,7 @@ def compute_nspec(outfn, zmtl, numproc, max_numproc=16):
     t = t[t["IN_DESI"]]
 
     # AR identify tileids per program (based on main...)
-    all_programs, _, _ = get_programs_npassmaxs(survey=survey)
+    all_programs, _, _ = get_programs_passparams(survey=survey)
     all_programs = np.unique(all_programs)
     all_progshorts = np.array([program.replace("1B", "") for program in all_programs])
     progdict = {
