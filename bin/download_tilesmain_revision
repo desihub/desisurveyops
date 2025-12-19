@@ -22,7 +22,7 @@ def get_latest_revision(svn_url, username, password):
     
     cmd = [
         'svn', 'info',
-        '--show-item', 'revision',
+        '--show-item', 'last-changed-revision',
         '--username', username,
         '--password', password,
         '--no-auth-cache',
