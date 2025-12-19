@@ -364,6 +364,7 @@ def get_history_tiles_infos(survey, outfn=None):
         (20251008, 5790, "Turn off nine bright1b tiles (along with rev5786)"),
         (20251117, 6037, "Turn back on nine bright1b tiles"),
         (20251202, 6118, "Turn off three bright1b tiles that hang off the footprint edge"),
+        (20251219, 6246, "Correct some dark1b DESIGNHA and add new dark1b tiles in DESI SGC/DES region"),
     ]
     d["NIGHT"] = [x[0] for x in xs]
     d["REVISION"] = [x[1] for x in xs]
