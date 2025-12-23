@@ -1,0 +1,16 @@
+# overall settings
+settings:
+    prognum : 48
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0048"
+    ntile : 1
+    tileid_start : 83578
+    rundate : "2025-12-22T17:00:54+00:00"
+    obsconds : "BRIGHT"
+    sbprof : "BGS"
+    goaltime : 240
+    std_dtver : "1.1.1"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    XLG_HSC : {"PRIORITY_INIT" : 7000, "NGOAL" : 1, "CHECKER" : "CY", "FN" : "catalog_xlg_targets_in_xmm_with_imaging_V0.fits"}
