@@ -1,5 +1,4 @@
 # overall settings
-# documentation https://desi.lbl.gov/DocDB/cgi-bin/private/RetrieveFile?docid=9404&filename=Dedicated%20Tiles%20Proposal%20for%20DESI-2%20High-z.pdf&version=1
 settings:
     prognum : 49
     targdir : "DESIROOT/survey/fiberassign/special/tertiary/0049"
@@ -20,3 +19,4 @@ samples:
 # original placeholder locations
 # /global/cfs/cdirs/desicollab/users/rongpu/data/desi2/xmm_highz/xmm_lae_placeholder.fits
 # /global/cfs/cdirs/desicollab/users/rongpu/data/desi2/xmm_highz/catalog_qso_targets_in_XMM_V0.fits
+# documentation https://desi.lbl.gov/DocDB/cgi-bin/private/RetrieveFile?docid=9404&filename=Dedicated%20Tiles%20Proposal%20for%20DESI-2%20High-z.pdf
