@@ -748,11 +748,12 @@ def plot_nspec(survey, nspecfn, nspecpng):
 
 
 # AR see email Sam Brieden from Feb. 22, 2024
-def plot_nspec_summary(specfn, firstnight, lastnight, outpng):
+def plot_nspec_summary(survey, specfn, firstnight, lastnight, outpng):
     """
     Make a simplified version of the nspec=f(night) plot.
 
     Args:
+        survey: survey name (str)
         specfn: full path to the nspec.ecsv file (str)
         firstnight: first night to consider (int)
         lastnight: last night to consider (int)
