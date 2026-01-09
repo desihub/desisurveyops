@@ -699,10 +699,12 @@ def plot_nspec(survey, nspecfn, nspecpng):
             end_mjd = d["MJD"][np.abs(d["THRUNIGHT"] - end_night).argmin()]
             ax.axvspan(start_mjd, end_mjd, color="k", alpha=0.1, zorder=0)
 
-        # AR first create labels for each month
-        xticklabels = [20210514 + i * 100 for i in range(8)]
-        for year in [2022, 2023, 2024, 2025, 2026]:
-            xticklabels += [year * 10000 + 114 + i * 100 for i in range(12)]
+        # AR first create labels for each month, using the starting date
+        xticklabels = [20210514]
+        xticklabels += [20210014 + i * 100 for i in range(6, 13)]
+        for year in range(2022, 2029):
+            xticklabels += [year * 10000 + 14 + i * 100 for i in range(1, 13)]
+        xticklabels += [20290101]
         xticklabels = np.array(xticklabels)
         xticks = np.array(
             [
@@ -718,8 +720,11 @@ def plot_nspec(survey, nspecfn, nspecpng):
         xticklabels, xticks = xticklabels[ii], xticks[ii]
         ax.set_xlim(xticks[0], xticks[-1])
 
-        # AR restrict to ~3 elements
-        ii = ii[:: int(ii.size / 5)]
+        # AR restrict to 20210514 + anniversary dates
+        ii = np.append(
+            ii[0],
+            ii[np.where((xticklabels[ii] % 10000 == 514) & (xticklabels[ii] != 20210514))[0]]
+        )
         ax.set_xticks(xticks[ii])
         ax.set_xticklabels(xticklabels[ii].astype(str), rotation=45, ha="right")
 
@@ -791,10 +796,12 @@ def plot_nspec_summary(specfn, firstnight, lastnight, outpng):
         end_mjd = d["MJD"][np.abs(d["THRUNIGHT"] - end_night).argmin()]
         ax.axvspan(start_mjd, end_mjd, color="k", alpha=0.1, zorder=0)
 
-    # AR first create labels for each month
-    xticklabels = [20210514 + i * 100 for i in range(8)]
-    for year in [2022, 2023, 2024, 2025, 2026]:
-        xticklabels += [year * 10000 + 114 + i * 100 for i in range(12)]
+    # AR first create labels for each month, using the starting date
+    xticklabels = [20210514]
+    xticklabels += [20210014 + i * 100 for i in range(6, 13)]
+    for year in range(2022, 2029):
+        xticklabels += [year * 10000 + 14 + i * 100 for i in range(1, 13)]
+    xticklabels += [20290101]
     xticklabels = np.array(xticklabels)
     xticks = np.array(
         [
@@ -810,8 +817,11 @@ def plot_nspec_summary(specfn, firstnight, lastnight, outpng):
     xticklabels, xticks = xticklabels[ii], xticks[ii]
     ax.set_xlim(xticks[0], xticks[-1])
 
-    # AR restrict to ~3 elements
-    ii = ii[:: int(ii.size / 5)]
+    # AR restrict to 20210514 + anniversary dates
+    ii = np.append(
+        ii[0],
+        ii[np.where((xticklabels[ii] % 10000 == 514) & (xticklabels[ii] != 20210514))[0]]
+    )
     ax.set_xticks(xticks[ii])
     ax.set_xticklabels(xticklabels[ii].astype(str), rotation=45, ha="right")
 
