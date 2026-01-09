@@ -4,7 +4,7 @@ settings:
     targdir : "DESIROOT/survey/fiberassign/special/tertiary/0049"
     ntile : 4
     tileid_start : 83579
-    rundate : "2025-12-22T17:00:54+00:00"
+    rundate : "2025-11-17T17:00:58+00:00"
     obsconds : "DARK"
     sbprof : "ELG"
     goaltime : 3600
