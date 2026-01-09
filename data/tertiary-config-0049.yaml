@@ -14,7 +14,7 @@ settings:
 # per-sample settings
 samples:
     QS_HZ : {"PRIORITY_INIT" : 8000, "NGOAL" : 1, "CHECKER" : "CY", "FN" : "catalog_qso_targets_in_XMM_V0.fits"}
-    LAE_HZ : {"PRIORITY_INIT" : 7000, "NGOAL" : 1, "CHECKER" : "RZ", "FN" : "xmm_lae_placeholder.fits"}
+    LAE_HZ : {"PRIORITY_INIT" : 7000, "NGOAL" : 1, "CHECKER" : "RZ", "FN" : "tertiary49_xmm_lae_targets.fits"}
 
 # original placeholder locations
 # /global/cfs/cdirs/desicollab/users/rongpu/data/desi2/xmm_highz/xmm_lae_placeholder.fits
