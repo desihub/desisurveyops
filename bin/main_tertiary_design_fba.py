@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# YBL: this file is largely modified from Anand's desi_fba_tertiary_wrapper
+# YL: this file is largely modified from Anand's desi_fba_tertiary_wrapper
 # in surveyops repo, see
 # https://github.com/desihub/desisurveyops/blob/c9c9206e8d0b2b0acaf73ae5078376c98dbf66fa/bin/desi_fba_tertiary_wrapper
 
@@ -23,7 +23,7 @@ from desisurveyops.fba_tertiary_design_io import (
     assert_files,
     create_targets_assign,
     plot_targets_assign,
-    TertiaryDesignBase
+    TertiaryTileDesignBase
 )
 from fiberassign.fba_tertiary_io import get_toofn
 
@@ -39,15 +39,11 @@ def parse_args():
     parser = ArgumentParser()
     # Tertiary design arguments
     parser.add_argument(
-        "--yaml-file-path", '-yfp', '-yamlfn', # for backward compatibility
+        "--yaml-file-path", '-yfp',
+        '-yamlfn', # for backward compatibility
         help="path to the tertiary-config-PROGNUMPAD.yaml file",
         type=str,
         required=True,
-    )
-    parser.add_argument(
-        '--workflow', '-w', help='workflow to execute (default=all)', type=str,
-        choices=['design', 'fba_assign', 'all'], default='all',
-        required=True
     )
     parser.add_argument(
         "--design-file-path",
@@ -55,6 +51,11 @@ def parse_args():
         help="Path to the specific design implementation file",
         type=str,
         # required=True,
+    )
+    parser.add_argument(
+        '--workflow', '-w', help='workflow to execute (default=all)', type=str,
+        choices=['design', 'fba_assign', 'all'], default='all',
+        required=True
     )
     parser.add_argument(
         "--diagnosis", '-diag',
@@ -122,12 +123,12 @@ def import_design_module(design_file):
 def execute_tertiary_design(args):
     # import the tile design module
     design_module = import_design_module(args.design_file_path)
-    if not hasattr(design_module, 'TertiaryDesign'):
-        # check if the design module contains the TertiaryDesign class
-        raise ValueError("The design module must contain a class named 'TertiaryDesign'")
-    if not issubclass(design_module.TertiaryDesign, TertiaryDesignBase):
-        raise ValueError("The design class must be a subclass of TertiaryDesignBase")
-    ttdesign = design_module.TertiaryDesign(args.yaml_file_path)
+    if not hasattr(design_module, 'TertiaryTileDesign'):
+        # check if the design module contains the TertiaryTileDesign class
+        raise ValueError("The design module must contain a class named 'TertiaryTileDesign'")
+    if not issubclass(design_module.TertiaryTileDesign, TertiaryTileDesignBase):
+        raise ValueError("The design class must be a subclass of TertiaryTileDesignBase")
+    ttdesign = design_module.TertiaryTileDesign(args.yaml_file_path)
     # AR read + assert settings
     mydict = read_yaml(args.yaml_file_path)["settings"]
     assert_tertiary_settings(mydict)

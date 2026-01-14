@@ -43,9 +43,9 @@ from matplotlib.ticker import MultipleLocator
 log = get_logger()
 
 
-class TertiaryDesignBase(ABC):
-    """Placeholder for the specific tertiary design class.
-    The implemented class must be named TertiaryDesign and be a subclass of TertiaryDesignBase.
+class TertiaryTileDesignBase(ABC):
+    """Placeholder for the specific tertiary tile design class.
+    The implemented class must be named TertiaryTileDesign and be a subclass of TertiaryTileDesignBase.
     User can provide these parameters to be used later:
     yamlfp (str):
         The path to the yaml file containing the tertiary design configuration.
@@ -77,7 +77,7 @@ class TertiaryDesignBase(ABC):
 def get_environ_settings_ref():
     """ """
     return {
-        "fiberassign": "5.6.0",
+        "fiberassign": "5.8.1",
         "DESIMODEL": "/global/common/software/desi/perlmutter/desiconda/current/code/desimodel/main",
         "SKYHEALPIXS_DIR": os.path.join(
             os.getenv("DESI_ROOT"), "target", "skyhealpixs", "v1"
