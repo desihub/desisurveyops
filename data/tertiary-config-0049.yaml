@@ -1,0 +1,22 @@
+# overall settings
+settings:
+    prognum : 49
+    targdir : "DESIROOT/survey/fiberassign/special/tertiary/0049"
+    ntile : 4
+    tileid_start : 83579
+    rundate : "2025-11-17T17:00:58+00:00"
+    obsconds : "DARK"
+    sbprof : "ELG"
+    goaltime : 3600
+    std_dtver : "1.1.1"
+    np_rand_seed : 1234
+
+# per-sample settings
+samples:
+    QS_HZ : {"PRIORITY_INIT" : 8000, "NGOAL" : 1, "CHECKER" : "CY", "FN" : "catalog_qso_targets_in_XMM_V0.fits"}
+    LAE_HZ : {"PRIORITY_INIT" : 7000, "NGOAL" : 1, "CHECKER" : "RZ", "FN" : "tertiary49_xmm_lae_targets.fits"}
+
+# original placeholder locations
+# /global/cfs/cdirs/desicollab/users/rongpu/data/desi2/xmm_highz/xmm_lae_placeholder.fits
+# /global/cfs/cdirs/desicollab/users/rongpu/data/desi2/xmm_highz/catalog_qso_targets_in_XMM_V0.fits
+# documentation https://desi.lbl.gov/DocDB/cgi-bin/private/RetrieveFile?docid=9404&filename=Dedicated%20Tiles%20Proposal%20for%20DESI-2%20High-z.pdf
