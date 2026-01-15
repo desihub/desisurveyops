@@ -78,6 +78,21 @@ def process_nspec(
     nspecfn = get_filename(outdir, survey, "nspec", ext="ecsv")
     nspecpng = get_filename(outdir, survey, "nspec", ext="png")
 
+    # AR subset of keys used/needed to generate the main_nspec.ecsv
+    # AR (we ll cut the zmtl tables on those, before vstacking to avoid OOM error)
+    keys = [
+        "TARGETID",
+        "DESI_TARGET",
+        "BGS_TARGET",
+        "SCND_TARGET",
+        "ZTILEID",
+        "LASTNIGHT",
+        "TGT_VALID",
+        "ZOK",
+        "ZSTAR",
+        "LYA",
+    ]
+
     # AR obs tiles
     obs_tiles, obs_nights, obs_progs, _ = get_obsdone_tiles(survey, specprod)
     obs_tileids_nights = get_tileid_night_str(obs_tiles, obs_nights)
@@ -269,6 +284,10 @@ def process_nspec(
 
             # AR write
             d.write(zmtlfns[i], overwrite=True)
+
+            # AR zmtls is what we will vstack
+            # AR cut here on the requested keys
+            d.keep_columns(keys)
             zmtls[i] = d
 
     # AR now build the nspec.ecsv file
@@ -277,20 +296,6 @@ def process_nspec(
         zmtl = vstack(zmtls.tolist())
         for key, val in zip(hdr_keys, hdr_vals):
             zmtl.meta[key] = val
-        # AR make the catalog lighter...
-        keys = [
-            "TARGETID",
-            "DESI_TARGET",
-            "BGS_TARGET",
-            "SCND_TARGET",
-            "ZTILEID",
-            "LASTNIGHT",
-            "TGT_VALID",
-            "ZOK",
-            "ZSTAR",
-            "LYA",
-        ]
-        zmtl.keep_columns(keys)
         log.info("\t{:.1f}s\tcompute nspec".format(time() - start))
         compute_nspec(nspecfn, zmtl, dchi2min, numproc)
 
