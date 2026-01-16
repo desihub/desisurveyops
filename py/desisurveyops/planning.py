@@ -1,5 +1,7 @@
 """This module includes a simple code to perform field and tile planning on a given night. The utilities available are essentially equivalent to STARALT (https://astro.ing.iac.es/staralt/) but with a few additional customized options useful for DESI."""
 
+import os
+
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -74,10 +76,8 @@ def get_ephemerides(observing_date, offset=7*u.hour, obs_lon='-111.6', obs_lat='
     return sunset, dusk_06deg, dusk_10deg, dusk_12deg, dawn_12deg, sunrise
 
 def alt2am(alt):
-    """Compute airmass given an altitude, using the Kasten and Young formula (Appl. Opt. 28:4735, 1989.
-
-    Parameters
-    ---------
+    """Compute airmass given an altitude, using the Kasten and Young formula (Appl. Opt. 28:4735, 1989).
+Parameters ---------
     alt : float or ndarray
         Altitude(s) in decimal degrees.
 
@@ -106,7 +106,7 @@ def am2alt(am):
         Altitude(s) in decimal degrees.
     """
     _alt = np.arange(90, -1, -1)
-    _am = alt2am_ky(_alt)
+    _am = alt2am(_alt)
     return np.interp(am, _am, _alt)
 
 def plot_transit_kpno(night, fields_name, fields_ra, fields_dec, airmass_limit=None, highlight_fields=None, verbose=False):
@@ -272,3 +272,63 @@ def plot_tiles_transit_kpno(night, filename, airmass_limit=None, highlight_tiles
                              fields_dec=tiles['DEC'].value,
                              airmass_limit=airmass_limit,
                              highlight_fields=highlight_tiles)
+
+def main():
+    """Plot transits for a tile eCSV file or field name(s) with RA(s) and Dec(s).
+
+    Example usage with a tiles file:
+        python planning.py -n 2026-01-30 -t tiles-082918-082930.ecsv -a 1.5
+
+    Example usage with a list of fields:
+        python planning.py -n 2026-01-15 --fields XMM-LSS COSMOS GAMA-15 --ra 35.7 150.1 215.7 --dec -4.75 2.182 -0.7
+
+    Example highlighting one field out of several:
+        python planning.py -n 2026-01-15 --fields XMM-LSS COSMOS GAMA-15 --ra 35.7 150.1 215.7 --dec -4.75 2.182 -0.7 --highlight XMM-LSS
+    """
+    from argparse import ArgumentParser
+
+    p = ArgumentParser(description='Field and tile planning for DESI')
+    p.add_argument('-n', '--night', type=str,
+                   default=datetime.today().strftime('%Y-%m-%d'),
+                   help='Night in format YYYY-MM-DD')
+    p.add_argument('-t', '--tilefile', type=str,
+                   default=None,
+                   help='Tiles file in eCSV format')
+    p.add_argument('-f', '--fields', type=str, nargs='*',
+                   help='Field name(s)')
+    p.add_argument('-r', '--ra', type=float, nargs='*',
+                   help='Field RA(s)')
+    p.add_argument('-d', '--dec', type=float, nargs='*',
+                   help='Field Dec(s)')
+    p.add_argument('-a', '--airmass-limit', type=float,
+                   default=3.,
+                   help='Airmass threshold for computing transits')
+    p.add_argument('--highlight', type=str, nargs='*',
+                   help='List of field/tile names to highlight in the plot')
+    p.add_argument('-v', '--verbose', action='store_true',
+                   help='Verbose output')
+    args = p.parse_args()
+
+    #- Manual check for compatible options (could also be done with a subcommand)
+    if args.tilefile and (args.fields or args.ra or args.dec):
+        raise SystemExit(f'{os.path.basename(__file__)}: Tile filename option incompatible a list of field names and RA,Dec')
+
+    #- Manual check for compatible fields, RA, Dec
+    if any(v is not None for v in (args.fields, args.ra, args.dec)):
+        if None not in (args.fields, args.ra, args.dec):
+            if len(args.fields) == len(args.ra) == len(args.dec):
+                fig = plot_transit_kpno(args.night, args.fields, args.ra, args.dec, args.airmass_limit, args.highlight, args.verbose)
+            else:
+                raise SystemExit(f'{os.path.basename(__file__)}: Number of fields, RAs, and Decs must be the same')
+        else:
+            raise SystemExit(f'{os.path.basename(__file__)}: Field(s) must include name(s), RA(s), and Dec(s)')
+    else:
+        if args.tilefile is None:
+            raise SystemExit(f'{os.path.basename(__file__)}: Specify a tile filename or a list of field names and RA,Dec')
+
+        fig = plot_tiles_transit_kpno(args.night, args.tilefile,  args.airmass_limit, args.highlight, args.verbose)
+
+    plt.show()
+
+if __name__ == '__main__':
+    main()
