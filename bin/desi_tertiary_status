@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+
+import os
+import numpy as np
+from desisurveyops.tertiary_status import (
+    get_prognum_desc,
+    write_html_init,
+    write_html_overview,
+    write_html_prognum,
+    write_html_close,
+)
+from desiutil.log import get_logger
+from argparse import ArgumentParser
+
+
+log = get_logger()
+
+
+def parse():
+    default_outdir = os.path.join(
+        os.getenv("DESI_ROOT"), "users", "raichoor", "tertiary-status"
+    )
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--prognums",
+        help="comma-separated prognums to update (default=None)",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--prod", help="spec prod (default='daily')", type=str, default="daily"
+    )
+    parser.add_argument(
+        "--outdir",
+        help="output folder (default='{}')".format(default_outdir),
+        type=str,
+        default=default_outdir,
+    )
+    parser.add_argument(
+        "--numproc",
+        help="number of concurrent processes to use; set to 0 to not process (default=1)",
+        type=int,
+        default=1,
+    )
+    parser.add_argument("--html_only", action="store_true")
+    args = parser.parse_args()
+    for kwargs in args._get_kwargs():
+        log.info(kwargs)
+    return args
+
+
+def main():
+
+    args = parse()
+
+    outcss = os.path.join(args.outdir, "tertiary-status.css")
+    outhtml = os.path.join(args.outdir, "tertiary-status.html")
+
+    all_prognums = list(get_prognum_desc().keys())
+    log.info("all_prognums = {}".format(all_prognums))
+
+    if args.prognums is not None:
+        torun_prognums = [
+            _
+            for _ in all_prognums
+            if _ in [int(prognum) for prognum in args.prognums.split(",")]
+        ]
+    else:
+        torun_prognums = all_prognums
+    log.info("torun_prognums = {}".format(torun_prognums))
+
+    html = open(outhtml, "w")
+
+    write_html_init(html, outcss)
+
+    write_html_overview(html, all_prognums)
+
+    for i, prognum in enumerate(all_prognums):
+        is_odd = i % 2 == 0
+        html_only = (args.html_only) | (prognum not in torun_prognums)
+        write_html_prognum(html, prognum, args.outdir, is_odd, args.numproc, html_only)
+
+    write_html_close(html)
+
+
+if __name__ == "__main__":
+    main()
