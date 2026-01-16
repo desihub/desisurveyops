@@ -2,7 +2,7 @@
 settings:
     prognum : 50
     targdir : "DESIROOT/survey/fiberassign/special/tertiary/0050"
-    ntile : 8
+    ntile : 6
     tileid_start : 83583
     rundate : "2025-11-17T17:00:58+00:00"
     obsconds : "DARK"
