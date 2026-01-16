@@ -1,4 +1,7 @@
-"""This module includes a simple code to perform field and tile planning on a given night. The utilities available are essentially equivalent to STARALT (https://astro.ing.iac.es/staralt/) but with a few additional customized options useful for DESI."""
+"""This module includes a simple code to perform field and tile planning on a
+given night. The utilities available are essentially equivalent to STARALT
+(https://astro.ing.iac.es/staralt/) but with a few additional customized
+options useful for DESI."""
 
 import os
 
