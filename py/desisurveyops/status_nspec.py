@@ -80,7 +80,7 @@ def process_nspec(
 
     # AR subset of keys used/needed to generate the main_nspec.ecsv
     # AR (we ll cut the zmtl tables on those, before vstacking to avoid OOM error)
-    keys = [
+    vstack_keys = [
         "TARGETID",
         "DESI_TARGET",
         "BGS_TARGET",
@@ -287,7 +287,7 @@ def process_nspec(
 
             # AR zmtls is what we will vstack
             # AR cut here on the requested keys
-            d.keep_columns(keys)
+            d.keep_columns(vstack_keys)
             zmtls[i] = d
 
     # AR now build the nspec.ecsv file
