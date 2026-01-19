@@ -297,7 +297,7 @@ def process_nspec(
         for key, val in zip(hdr_keys, hdr_vals):
             zmtl.meta[key] = val
         log.info("\t{:.1f}s\tcompute nspec".format(time() - start))
-        compute_nspec(nspecfn, zmtl, dchi2min, numproc)
+        compute_nspec(nspecfn, zmtl)
 
     # AR then plot
     log.info("\t{:.1f}s\tplot nspec".format(time() - start))
@@ -424,14 +424,13 @@ def gather_tileid_zmtls(tileid, lastnight, specprod, specprod_ref, dchi2min):
     return d
 
 
-def compute_nspec_prog_name_thrunight(zmtl, isprogs, progshort, name):
+def compute_nspec_prog_name_thrunight(zmtl, progshort, name):
     """
     Compute the nspec=f(night) for a given {progshort, name}.
 
     Args:
         zmtl: astropy.table.Table concatenation of the zmtl-YYYY.fits file,
             "pre-processed" (see Notes)
-        isprogs: dictionary listing the tileids for each program (dict)
         progshort: the program name (without the 1B) (str)
         name: custom names of subsamples:
             "MWS_ANY", "BGS_BRIGHT", "BGS_FAINT"
@@ -446,7 +445,8 @@ def compute_nspec_prog_name_thrunight(zmtl, isprogs, progshort, name):
         WARNING: the zmtl table needs here to be "pre-processed" (see compute_nspec()):
             - sorted first by targetid, then by increasing night
             - cut on valid tgt
-        Also, we do not want to modify zmtl, as it is used in mulitple processes
+            - cut on progshort tileids
+        Also, we do not want to modify zmtl, as it is used in mulitple calls
             so work (carefully) with indexes; that is a bit painful...
             but zmtl is a very large table, so we don t want to copy it.
     """
@@ -454,7 +454,7 @@ def compute_nspec_prog_name_thrunight(zmtl, isprogs, progshort, name):
     log.info("\t\trun for (progshort, name) = ({}, {})".format(progshort, name))
 
     # AR sample selection for that prog
-    sel = isprogs[progshort].copy()
+    sel = np.ones(len(zmtl), dtype=bool)
     if name == "SCND_ANY_ONLY":
         sel &= zmtl["DESI_TARGET"] == desi_mask["SCND_ANY"]
     elif name == "ALL":
@@ -516,19 +516,16 @@ def compute_nspec_prog_name_thrunight(zmtl, isprogs, progshort, name):
     return nspec
 
 
-def compute_nspec(outfn, zmtl, numproc, max_numproc=16):
+def compute_nspec(outfn, zmtl):
     """
     Compute the nspec=f(night) for programs.
 
     Args:
         outfn: output ecsv file name (str)
         zmtl: astropy.table.Table concatenation of the zmtl-YYYY.fits file
-        numproc: number of parallel processes to run (int)
-        max_numproc (optional, defaults to 16): max. number of parallel processes (int)
 
     Notes:
-        We use here max_numproc, as the parallel processes deal with the zmtl table,
-            which is a very large one.
+        The zmtl table is becoming very large with time...
     """
 
     survey = zmtl.meta["SURVEY"]
@@ -578,10 +575,8 @@ def compute_nspec(outfn, zmtl, numproc, max_numproc=16):
 
     # AR compute
     # TODO: try to generalize the per-tracer choice for a survey != main
-    myargs = []
-    prog_name_thrunights = []
+    nspecs = []
     for progshort in isprogs:
-        isprogshort = isprogs[progshort]
         names = ["ALL"]
         if progshort == "BACKUP":
             names += ["MWS_ANY"]
@@ -590,15 +585,13 @@ def compute_nspec(outfn, zmtl, numproc, max_numproc=16):
         if progshort == "DARK":
             names += ["LRG", "ELG", "QSO", "SCND_ANY", "SCND_ANY_ONLY"]
         for name in names:
-            myargs.append((zmtl, isprogs, progshort, name))
-    log.info(
-        "\tlaunch compute_nspec_prog_name_thrunight() on {} prog_name_thrunight".format(
-            len(myargs)
-        ),
-    )
-    pool = multiprocessing.Pool(processes=np.min([numproc, max_numproc]))
-    with pool:
-        nspecs = pool.starmap(compute_nspec_prog_name_thrunight, myargs)
+            nspecs.append(
+                compute_nspec_prog_name_thrunight(
+                    zmtl[isprogs[progshort]],
+                    progshort,
+                    name,
+                )
+            )
     log.info("\t_compute_nspec on prog_name_thrunights done")
     d = vstack(nspecs)
 
