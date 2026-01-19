@@ -431,7 +431,6 @@ def compute_nspec_prog_name_thrunight(zmtl, progshort, name):
     Args:
         zmtl: astropy.table.Table concatenation of the zmtl-YYYY.fits file,
             "pre-processed" (see Notes)
-        isprogs: dictionary listing the tileids for each program (dict)
         progshort: the program name (without the 1B) (str)
         name: custom names of subsamples:
             "MWS_ANY", "BGS_BRIGHT", "BGS_FAINT"
