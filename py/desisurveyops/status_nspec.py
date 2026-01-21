@@ -128,7 +128,7 @@ def process_nspec(
 
     # AR read existing zmtl files
     if isprevs.sum() > 0:
-        use_fitsio, keys = True, None
+        use_fitsio, keys = True, vstack_keys + ["UPDATED_MJD"]
         log.info(
             "\t{:.1f}s\tstart reading {}".format(
                 time() - start,
@@ -188,7 +188,7 @@ def process_nspec(
             prev_ii, obs_ii = match(prev_tileids_nights, obs_tileids_nights)
             sel_reprocessed = np.zeros(len(obs_tileids_nights), dtype=bool)
             if prev_ii.size > 0:
-                common_prev_tileids_nights = prev_tileids_nights[prev_ii]
+                # common_prev_tileids_nights = prev_tileids_nights[prev_ii] # DG - Unused
                 common_prev_updated_mjds = prev_updated_mjds[prev_ii]
                 common_obs_tileids_nights = obs_tileids_nights[obs_ii]
                 common_obs_updated_mjds = obs_updated_mjds[obs_ii]
@@ -294,6 +294,7 @@ def process_nspec(
     if (n_recompute > 0) | (not os.path.isfile(nspecfn)) | (recompute):
         log.info("\t{:.1f}s\tvstack {} zmtl files".format(time() - start, len(zmtls)))
         zmtl = vstack(zmtls.tolist())
+        del zmtls # DG - Otherwise we keep two copies of zmtl in memory.
         for key, val in zip(hdr_keys, hdr_vals):
             zmtl.meta[key] = val
         log.info("\t{:.1f}s\tcompute nspec".format(time() - start))
@@ -477,7 +478,7 @@ def compute_nspec_prog_name_thrunight(zmtl, progshort, name):
 
     # AR ntile
     _, jj = np.unique(zmtl["ZTILEID"][ii], return_index=True)
-    jj = ii[jj]
+    jj = ii[jj] # DG - don't use output of np.unique because we want indices in original order (not sorted)
     _, counts = np.unique(zmtl["LASTNIGHT"][jj], return_counts=True)
     assert np.all(_ == nspec["THRUNIGHT"])
     nspec["NTILE"] = np.cumsum(counts)
@@ -544,10 +545,11 @@ def compute_nspec(outfn, zmtl):
     fns = get_fns(survey=survey, specprod=specprod)
 
     # AR first night of the survey
-    e = Table.read(fns["spec"]["exps"])
-    sel = (e["SURVEY"] == survey) & (e["EFFTIME_SPEC"] > 0)
-    e = e[sel]
-    survey_first_night = e["NIGHT"].min()
+    # DG - This isn't used anywhere?
+    # e = Table.read(fns["spec"]["exps"])
+    # sel = (e["SURVEY"] == survey) & (e["EFFTIME_SPEC"] > 0)
+    # e = e[sel]
+    # survey_first_night = e["NIGHT"].min()
 
     # AR get tile programs
     t = Table.read(fns["ops"]["tiles"])
