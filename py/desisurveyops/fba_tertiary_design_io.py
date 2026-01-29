@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
+from typing import List, Dict
 import os
 from glob import glob
+from pathlib import Path
 import sys
 import tempfile
 import yaml
@@ -73,11 +75,57 @@ class TertiaryTileDesignBase(ABC):
     def create_targets(self, outfp: str, yamlfp=None):
         pass
 
+def merge_target_catalogs(catdir: Path, samples: Dict[str, Dict]) -> Table:
+    sample_names = np.array(list(samples.keys()))
+    priorities = np.array([samples[name]["PRIORITY_INIT"] for name in sample_names])
+    ngoals = np.array([samples[name]["NGOAL"] for name in sample_names])
+
+    order = priorities.argsort()[::-1]
+    sample_names = sample_names[order]
+    priorities = priorities[order]
+    ngoals = ngoals[order]
+
+    tables = []
+    log.info("reading targets from %s", catdir)
+    for sample, prio, ngoal in zip(sample_names, priorities, ngoals):
+        sample_cfg = samples[sample]
+        fn = catdir / sample_cfg["FN"]
+        log.info("reading %s (%s)", sample, fn)
+        cat = Table.read(fn)
+
+        if "RA" not in cat.colnames and "ra" in cat.colnames:
+            cat["RA"] = cat["ra"]
+        if "DEC" not in cat.colnames and "dec" in cat.colnames:
+            cat["DEC"] = cat["dec"]
+        for col in ["RA", "DEC"]:
+            if col not in cat.colnames:
+                raise ValueError(f"Missing {col} column in {fn}")
+        for col, default in [("PMRA", 0.0), ("PMDEC", 0.0), ("REF_EPOCH", 2015.5)]:
+            if col not in cat.colnames:
+                cat[col] = default
+
+        merged = Table()
+        for col in ["RA", "DEC", "PMRA", "PMDEC", "REF_EPOCH"]:
+            merged[col] = cat[col]
+        merged["TERTIARY_TARGET"] = sample
+        merged["CHECKER"] = sample_cfg["CHECKER"]
+        merged["PRIORITY_INIT"] = int(prio)
+        merged["NGOAL"] = int(ngoal)
+        tables.append(merged)
+
+    if len(tables) == 0:
+        raise RuntimeError("No targets loaded from yaml samples")
+
+    targets = vstack(tables)
+    targets.sort("PRIORITY_INIT", reverse=True)
+    log.info("assembled %d targets across %d sample(s)", len(targets), len(tables))
+    return targets
+
 
 def get_environ_settings_ref():
     """ """
     return {
-        "fiberassign": "5.8.1",
+        "fiberassign": "5.8.0",
         "DESIMODEL": "/global/common/software/desi/perlmutter/desiconda/current/code/desimodel/main",
         "SKYHEALPIXS_DIR": os.path.join(
             os.getenv("DESI_ROOT"), "target", "skyhealpixs", "v1"

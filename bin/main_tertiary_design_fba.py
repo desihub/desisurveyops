@@ -5,7 +5,6 @@
 # https://github.com/desihub/desisurveyops/blob/c9c9206e8d0b2b0acaf73ae5078376c98dbf66fa/bin/desi_fba_tertiary_wrapper
 
 import os
-from re import A
 import sys
 import subprocess
 import numpy as np
@@ -31,7 +30,6 @@ from fiberassign.fba_tertiary_io import get_toofn
 # AR message to ensure that some key settings in the environment are correctly set
 # AR put it at the very top, so that it appears first, and is not redirected
 # AR    (=burried) in the log file
-assert_environ_settings()
 logger = get_logger()
 
 
@@ -54,7 +52,7 @@ def parse_args():
     )
     parser.add_argument(
         '--workflow', '-w', help='workflow to execute (default=all)', type=str,
-        choices=['design', 'fba_assign', 'all'], default='all',
+        choices=['design', 'fba_assign', 'all', 'diag'],
         required=True
     )
     parser.add_argument(
@@ -97,7 +95,7 @@ def parse_args():
     )
     parser.add_argument(
         "--design-steps", "-ds",
-        help="space-separated list of steps to execute for fiber-assign (default=[tiles,priorities,targets])",
+        help="space-separated list of steps to execute for tile design (default=[tiles,priorities,targets])",
         type=str,
         nargs="+",
         default=["tiles", "priorities", "targets"],
@@ -237,8 +235,7 @@ def execute_fba_assign(args):
             with open(logfn, "a+") as fp:
                 result = subprocess.run(ftt_cmd, stderr=subprocess.STDOUT, stdout=fp)
                 if result.returncode != 0:
-                    logger.error(f"Error executing fba_tertiary_too: {result.stderr}")
-
+                    logger.error(f"Error executing fba_tertiary_too: exit code {result.returncode}. Check {logfn} for details.")
         # AR fba_launch call
         fl_cmd = [
             "fba_launch",
@@ -284,10 +281,11 @@ def execute_fba_assign(args):
             with open(logfn, "a+") as fp:
                 result = subprocess.run(fl_cmd, stderr=subprocess.STDOUT, stdout=fp)
                 if result.returncode != 0:
-                    logger.error(f"Error executing fba_launch: {result.stderr}")
+                    logger.error(f"Error executing fba_launch: exit code {result.returncode}. Check {logfn} for details.")
 
 if __name__ == "__main__":
     args = parse_args()
+    assert_environ_settings()
     logfn = sys.stdout
     ttsetting = read_yaml(args.yaml_file_path)["settings"]
     prognum, targdir = ttsetting["prognum"], ttsetting["targdir"]
