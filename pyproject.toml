@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "desisurveyops"
+dynamic = ["version"]
+description = ["A Python package for DESI Survey Operations tools"]
+authors = [{ name = "DESI Collaboration", email = "desi-survey@desi.lbl.gov" }]
+license = "BSD-3-Clause"
+license-files = ["LICEN[CS]E*"]
+readme = {file = "README.md", content-type = "text/markdown"}
+
+requires-python = ">=3.10"
+
+dependencies = [
+    "",
+]
+
+[project.optional-dependencies]
+dev = ["hypothesis", "pytest", "pytest-cov", "coveralls"]
+docs = ["numpydoc", "nbsphinx", "ipykernel", "tqdm[notebook]"]
+
+[project.urls]
+"Homepage" = "https://github.com/desihub/desisurveyops"
+"Bug Tracker" = "https://github.com/desihub/desisurveyops/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "desisurveyops.__version__"}
+
+[tool.setuptools.packages.find]
+where = [".", "py"]
+include = [
+    "desisurveyops",
+    "desisurveyops.*",
+    "desisurveyops.data.*",
+    "desisurveyops.etc",
+]
+
+[tool.setuptools.package-data]
+"desisurveyops.data.detector" = ["*.txt", "*.ecsv"]
+"desisurveyops.data.stellar" = ["*.fits"]
+"desisurveyops.data.USSR" = ["*.txt", "earth_survival_probability/*.txt"]
+"desisurveyops.etc" = ["desisurveyops.rcParams", "*.yaml", "*.ini"]
