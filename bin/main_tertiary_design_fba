@@ -112,6 +112,16 @@ def parse_args():
 
 
 def import_design_module(design_file):
+    """Import the tile design file as module
+    The design file should contain the implementation of the TertiaryTileDesignBase
+    class for the specific tertiary program, and the create_tiles, create_priorities and create_targets methods.
+
+    Args:
+        design_file (str): the path to the design file, e.g. desi_fba_tertiary_0051.py
+
+    Returns:
+        TertiaryTileDesign: the class implementing the tile design for the specific tertiary program
+    """    
     spec = importlib.util.spec_from_file_location("design_module", design_file)
     design_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(design_module)
