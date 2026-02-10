@@ -55,11 +55,11 @@ def parse_args():
         choices=['design', 'fba_assign', 'all', 'diag'],
         required=True
     )
-    parser.add_argument(
-        "--diagnosis", '-diag',
-        help="run the diagnosis step",
-        action="store_true",
-    )
+    # parser.add_argument(
+    #     "--diagnosis", '-diag',
+    #     help="run the diagnosis step",
+    #     action="store_true",
+    # )
     # FBA arguments
     # parser.add_argument(
     #     "--std_dtver",
@@ -292,12 +292,13 @@ if __name__ == "__main__":
     if not args.log_stdout:
         logfn = get_fn(prognum, "log", targdir)
     # use desiutils API to redirect stdout and stderr to a log file
-    with stdouterr_redirected(to=logfn):
-        if args.workflow in ("design", "all"):
-            execute_tertiary_design(args)
-        if args.workflow in ("fba_assign", "all"):
-            execute_fba_assign(args)
-    if args.diagnosis:
+    if args.workflow in ("design", "fba_assign", "all"):
+        with stdouterr_redirected(to=logfn):
+            if args.workflow in ("design", "all"):
+                execute_tertiary_design(args)
+            if args.workflow in ("fba_assign", "all"):
+                execute_fba_assign(args)
+    if args.workflow in ("diag", "all"):
         # AR diagnosis
         create_targets_assign(prognum, targdir)
         plot_targets_assign(prognum, targdir)
