@@ -75,7 +75,12 @@ class TertiaryTileDesignBase(ABC):
     def create_targets(self, outfp: str, yamlfp=None):
         pass
 
-def merge_target_catalogs(catdir: Path, samples: Dict[str, Dict]) -> Table:
+def merge_target_catalogs(
+    catdir: Path,
+    samples: Dict[str, Dict],
+    remove_duplicates: bool = False,
+    duplicate_radius_arcsec: float = 1.5,
+) -> Table:
     sample_names = np.array(list(samples.keys()))
     priorities = np.array([samples[name]["PRIORITY_INIT"] for name in sample_names])
     ngoals = np.array([samples[name]["NGOAL"] for name in sample_names])
@@ -117,6 +122,64 @@ def merge_target_catalogs(catdir: Path, samples: Dict[str, Dict]) -> Table:
         raise RuntimeError("No targets loaded from yaml samples")
 
     targets = vstack(tables)
+    if remove_duplicates:
+        if duplicate_radius_arcsec <= 0:
+            raise ValueError("duplicate_radius_arcsec must be > 0")
+
+        coords = SkyCoord(
+            ra=np.asarray(targets["RA"]) * units.deg,
+            dec=np.asarray(targets["DEC"]) * units.deg,
+            frame="icrs",
+        )
+
+        idx1, idx2, _, _ = coords.search_around_sky(
+            coords, duplicate_radius_arcsec * units.arcsec
+        )
+
+        neighbors = [set([index]) for index in range(len(targets))]
+        for left, right in zip(idx1, idx2):
+            if left != right:
+                neighbors[left].add(right)
+
+        seen = np.zeros(len(targets), dtype=bool)
+        keep = np.ones(len(targets), dtype=bool)
+
+        for index in range(len(targets)):
+            if seen[index]:
+                continue
+
+            stack = [index]
+            component = []
+            seen[index] = True
+
+            while len(stack) > 0:
+                current = stack.pop()
+                component.append(current)
+                for neighbor in neighbors[current]:
+                    if not seen[neighbor]:
+                        seen[neighbor] = True
+                        stack.append(neighbor)
+
+            if len(component) <= 1:
+                continue
+
+            component = np.array(component, dtype=int)
+            component_priorities = np.asarray(targets["PRIORITY_INIT"][component], dtype=int)
+            best_priority = component_priorities.max()
+            best_indices = component[component_priorities == best_priority]
+
+            chosen = int(best_indices.min())
+            drop = component[component != chosen]
+            keep[drop] = False
+
+        n_removed = int((~keep).sum())
+        targets = targets[keep]
+        log.info(
+            "removed %d target(s) within %.2f arcsec based on PRIORITY_INIT",
+            n_removed,
+            duplicate_radius_arcsec,
+        )
+        
     targets.sort("PRIORITY_INIT", reverse=True)
     log.info("assembled %d targets across %d sample(s)", len(targets), len(tables))
     return targets
