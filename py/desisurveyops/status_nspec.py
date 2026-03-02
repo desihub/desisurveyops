@@ -489,7 +489,6 @@ def compute_nspec_prog_name_thrunight(zmtl, progshort, name):
         ("UNQ_GALQSO", (zmtl["ZOK"]) & (~zmtl["ZSTAR"])),
         ("UNQ_LYA", zmtl["LYA"]),
         ("UNQ_ALL", (zmtl["ZOK"]) | (zmtl["LYA"])),
-        ("UNQ_ALL", zmtl["ZOK"]),
     ]:
         jj = np.where(sel)[0]
         jj = jj[np.isin(jj, ii)]
@@ -649,6 +648,7 @@ def plot_nspec(survey, nspecfn, nspecpng):
             names = ["ALL"]
             cols = ["k"]
         else:
+            import sys
             sys.exit("wrong prog; exiting")
 
         for name, col in zip(names, cols):
