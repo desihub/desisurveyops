@@ -75,6 +75,8 @@ def get_prognum_desc(prognum=None):
         48: {"TARGETS": "XLG", "FIELD": "XMM-LSS"},
         49: {"TARGETS": "LAE/QSO", "FIELD": "XMM-LSS"},
         50: {"TARGETS": "XLG", "FIELD": "XMM-LSS"},
+        51: {"TARGETS": "STEEL", "FIELD": "RA,DEC=130.5,0.1"},
+        52: {"TARGETS": "STEEL", "FIELD": "RA,DEC=140.2,3.0"}
     }
     if prognum is None:
         return myd

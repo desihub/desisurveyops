@@ -762,7 +762,7 @@ def write_html_today(html):
     """
     html.write(
         "<p style='font-size:1vw; text-align:right'><i>Last updated: {}</p></i>\n".format(
-            _javastring()
+            datetime.now().astimezone().strftime("%H:%M %Z, %b %-d, %Y")
         )
     )
 
