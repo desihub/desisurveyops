@@ -52,7 +52,7 @@ def parse_args():
     )
     parser.add_argument(
         '--workflow', '-w', help='workflow to execute (default=all)', type=str,
-        choices=['design', 'fba_assign', 'all', 'diag'],
+        choices=['design', 'fba', 'all', 'diag'],
         required=True
     )
     # parser.add_argument(
@@ -164,7 +164,7 @@ def execute_tertiary_design(args):
         ttdesign.create_targets(targfn)
 
 
-def execute_fba_assign(args):
+def execute_fba(args):
     """This function must be called after the tertiary design has been done.
     The function will loop over the tiles and call fba_tertiary_too and fba_launch
     """
@@ -302,12 +302,12 @@ if __name__ == "__main__":
     if not args.log_stdout:
         logfn = get_fn(prognum, "log", targdir)
     # use desiutils API to redirect stdout and stderr to a log file
-    if args.workflow in ("design", "fba_assign", "all"):
+    if args.workflow in ("design", "fba", "all"):
         with stdouterr_redirected(to=logfn):
             if args.workflow in ("design", "all"):
                 execute_tertiary_design(args)
-            if args.workflow in ("fba_assign", "all"):
-                execute_fba_assign(args)
+            if args.workflow in ("fba", "all"):
+                execute_fba(args)
     if args.workflow in ("diag", "all"):
         # AR diagnosis
         create_targets_assign(prognum, targdir)
