@@ -54,7 +54,7 @@ ls -lrth $TERTIARY_DESIGN_DIR/tertiary-{tiles,priorities,targets}-$PROGNUMPAD.*
 # - if the tile has already been designed+svn-committed, add --forcetileid to the desi_fba_tertiary_wrapper call
 #   ! use with caution !
 # - if you want to run a test in a test TERTIARY_DESIGN_DIR folder, add --custom_too_development
-#   to the desi_fba_tertiary_wrapper call)
+#   to the desi_fba_tertiary_wrapper call
 # - because of being too cautious in fiberassign/5.7.0, ToO files from outside $DESI_SURVEYOPS/
 #       are not accepted; hence we need to run with --custom_too_development anyway...
 FADIR=$DESI_TARGET/fiberassign/tiles/trunk # folder to parse for previous tileids
@@ -76,20 +76,20 @@ ls -tlrh $TERTIARY_DESIGN_DIR/${TILEIDPAD:0:3}/fiberassign-$TILEIDPAD.{fits.gz,p
 # note that you just need to checkout the tertiary folder (the mtl folder is large!)
 # export MYSURVEYOPS=your_surveyops_checkout
 # if you do not have a checkout, run this from $MYSURVEYOPS:
-#   svn --username your_wiki_username co https://desi.lbl.gov/trac/browser/data/surveyops/trunk/tertiary
+#   svn --username your_wiki_username co https://desi.lbl.gov/svn/data/surveyops/trunk/tertiary
 cd $MYSURVEYOPS/tertiary
 svn up
 
 # if designing the first tile for PROGNUM:
 cd $MYSURVEYOPS
-mkdir tertiary/$PROGNUMPAD                                                                                                                                                  
+mkdir tertiary/$PROGNUMPAD
 cp -p $TERTIARY_DESIGN_DIR/tertiary-{tiles,priorities,targets}-$PROGNUMPAD.* tertiary/$PROGNUMPAD/
 svn add tertiary/$PROGNUMPAD
 svn commit tertiary/$PROGNUMPAD -m "Adding tertiary$PROGNUM tiles, priorities, targets files"
 
 # svn-commit the TILEID ToO files
 cd $MYSURVEYOPS
-cp -p $TERTIARY_DESIGN_DIR/ToO-$PROGNUM-$TILEID.{ecsv,log} tertiary/$PROGNUMPAD/
+cp -p $TERTIARY_DESIGN_DIR/ToO-$PROGNUMPAD-$TILEIDPAD.{ecsv,log} tertiary/$PROGNUMPAD/
 svn add tertiary/$PROGNUMPAD/ToO-$PROGNUMPAD-$TILEIDPAD.*
 svn commit tertiary/$PROGNUMPAD -m "Adding ToO-$PROGNUMPAD-$TILEIDPAD ecsv and log"
 
@@ -97,7 +97,7 @@ svn commit tertiary/$PROGNUMPAD -m "Adding ToO-$PROGNUMPAD-$TILEIDPAD ecsv and l
 # note that you just need to checkout the 083/ folder (the rest is large!)
 # export MYTILES=your_tiles_checkout
 # if you do not have a checkout, run this from $MYTILES:
-#   svn --username your_wiki_username co https://desi.lbl.gov/trac/browser/data/tiles/trunk/083
+#   svn --username your_wiki_username co https://desi.lbl.gov/svn/data/tiles/trunk/083
 cd $MYTILES/${TILEIDPAD:0:3}
 svn up
 cp -p $TERTIARY_DESIGN_DIR/${TILEIDPAD:0:3}/fiberassign-$TILEIDPAD.{fits.gz,png,log} .
