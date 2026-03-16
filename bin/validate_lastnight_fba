@@ -20,6 +20,10 @@ parser.add_argument("--outroot", default=None, type=str,
         help="root directory for final outputs ($DESI_ROOT/survey/fiberassign/main)")
 parser.add_argument("--overwrite", default=False, action='store_true',
         help="overwrite final outputs in outroot")
+parser.add_argument("--oldstyletoo", default=False, action="store_true",
+        help=("Use the style of ToO file from the first part of the DESI "
+        "survey, before the addition of Rubin ToOs")
+        )
 
 args = parser.parse_args()
 
@@ -93,14 +97,20 @@ for tid in tidl:
     fol.append(fn)
     fnl.append(outdir+'/'+str(tid).zfill(6)[:3]+'/fiberassign-'+str(tid).zfill(6)+'.fits.gz')
     #system call run fiberassign
-    os.system('fba_rerun --infiberassign '+fn+' --outdir '+outdir+' --nosteps qa') #--dtver 1.1.1 
+    # ADM updated for new style of ToO file.
+    # ADM see https://github.com/desihub/fiberassign/pull/500
+    # ADM and https://github.com/desihub/desitarget/pull/874
+    if args.oldstyletoo:
+        os.system('fba_rerun --infiberassign '+fn+' --outdir '+outdir+' --nosteps qa') #--dtver 1.1.1
+    else:
+        os.system('fba_rerun --infiberassign '+fn+' --outdir '+outdir+' --nosteps qa --force_try_too_all') #--dtver 1.1.1
 
 from fiberassign.fba_rerun_io import fba_rerun_check
 docheck = True
 
 tids_passl = []
 if docheck:
-    for ii in range(0,len(fnl)):
+    for ii in range(0, len(fnl)):
         dfn = outdir+'/'+str(tidl[ii])+'.diff'
         if os.path.isfile(fnl[ii]):
             fba_rerun_check(fol[ii], fnl[ii],dfn )  
@@ -138,7 +148,7 @@ for tid in tids_passl:
     for name in ["tiles", "sky", "gfa", "targ", "scnd", "too"]:        
         fn = outdir+'/'+str(tid).zfill(6)[:3]+'/'+str(tid).zfill(6)+'-'+name+'.fits'
         if os.path.isfile(fn):
-            mv_fn =os.path.join(mv_tiddir, os.path.basename(fn))
+            mv_fn = os.path.join(mv_tiddir, os.path.basename(fn))
             if os.path.exists(mv_fn) and not args.overwrite:
                     print(f'Not overwriting {mv_fn}')
             else:
