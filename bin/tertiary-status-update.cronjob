@@ -5,5 +5,5 @@
 #SCRON -o /global/u1/b/brookluo/desihub/mydesi/desisurveyops/bin/status-update-%j.out
 #SCRON --open-mode=append
 30 17 * * * /global/u1/b/brookluo/desihub/mydesi/desisurveyops/bin/run-status-update.sh 
-30 20 * * * /global/u1/b/brookluo/desihub/mydesi/desisurveyops/bin/run-status-update.sh
+30 19 * * * /global/u1/b/brookluo/desihub/mydesi/desisurveyops/bin/run-status-update.sh
 # Note the time is in UTC
