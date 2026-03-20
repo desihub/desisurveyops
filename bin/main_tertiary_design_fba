@@ -52,7 +52,7 @@ def parse_args():
     )
     parser.add_argument(
         '--workflow', '-w', help='workflow to execute (default=all)', type=str,
-        choices=['design', 'fba', 'all', 'diag'],
+        choices=['design', 'fba', 'special_fba', 'all', 'diag'],
         required=True
     )
     # parser.add_argument(
@@ -302,12 +302,16 @@ if __name__ == "__main__":
     if not args.log_stdout:
         logfn = get_fn(prognum, "log", targdir)
     # use desiutils API to redirect stdout and stderr to a log file
-    if args.workflow in ("design", "fba", "all"):
+    if args.workflow in ("design", "fba", "special_fba","all"):
         with stdouterr_redirected(to=logfn):
             if args.workflow in ("design", "all"):
                 execute_tertiary_design(args)
             if args.workflow in ("fba", "all"):
                 execute_fba(args)
+            if args.workflow in ("special_fba"):
+                logger.info(f"Running special FBA workflow for tertiary program {prognum}")
+                design_module = import_design_module(args.design_file_path)
+                design_module.execute_fba(args)
     if args.workflow in ("diag", "all"):
         # AR diagnosis
         create_targets_assign(prognum, targdir)
