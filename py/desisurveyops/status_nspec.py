@@ -364,7 +364,7 @@ def gather_tileid_zmtls(tileid, lastnight, specprod, specprod_ref, dchi2min):
         )
     if len(fns) == 0:
         msg = "no zmtl-?-{}-thru{}.fits files found neither in {} nor in {}; exiting".format(
-            tileid, night, specprod_ref, specprod
+            tileid, lastnight, specprod_ref, specprod
         )
         log.error(msg)
         raise ValueError(msg)
