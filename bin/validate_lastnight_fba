@@ -5,6 +5,7 @@ import argparse
 import sys
 import datetime
 import shutil
+import subprocess
 
 import numpy as np
 from astropy.table import Table
@@ -100,10 +101,13 @@ for tid in tidl:
     # ADM updated for new style of ToO file.
     # ADM see https://github.com/desihub/fiberassign/pull/500
     # ADM and https://github.com/desihub/desitarget/pull/874
-    if args.oldstyletoo:
-        os.system('fba_rerun --infiberassign '+fn+' --outdir '+outdir+' --nosteps qa') #--dtver 1.1.1
-    else:
-        os.system('fba_rerun --infiberassign '+fn+' --outdir '+outdir+' --nosteps qa --force_try_too_all') #--dtver 1.1.1
+    to_run = ["fba_rerun", "--infiberassign", fn, "--outdir", outdir, "--nosteps", "qa"]
+    if not args.oldstyletoo:
+        to_run.append("--force_try_too_all")
+        # os.system('fba_rerun --infiberassign '+fn+' --outdir '+outdir+' --nosteps qa') #--dtver 1.1.1
+    # else:
+        # os.system('fba_rerun --infiberassign '+fn+' --outdir '+outdir+' --nosteps qa --force_try_too_all') #--dtver 1.1.1
+    subprocess.Popen(to_run).wait()
 
 from fiberassign.fba_rerun_io import fba_rerun_check
 docheck = True
@@ -113,7 +117,7 @@ if docheck:
     for ii in range(0, len(fnl)):
         dfn = outdir+'/'+str(tidl[ii])+'.diff'
         if os.path.isfile(fnl[ii]):
-            fba_rerun_check(fol[ii], fnl[ii],dfn )  
+            fba_rerun_check(fol[ii], fnl[ii],dfn )
             if len(open(dfn).readlines())>1:
                 tids = np.atleast_1d(np.genfromtxt(dfn, usecols = (3,), dtype=int))
                 if len(tids) > 0:
@@ -123,13 +127,13 @@ if docheck:
                         print('found '+str(len(tids[sel]))+' positive targetid that are different')
                         print('FOLLOW-UP NEEDED, DO NOT ALLOW ZDONE FOR TILEID '+str(tidl[ii])+'!!!')
                     else:
-                        print('TILEID '+str(tidl[ii])+' PASSED') 
+                        print('TILEID '+str(tidl[ii])+' PASSED')
                         tids_passl.append(tidl[ii])
                 else:
-                    print('TILEID '+str(tidl[ii])+' PASSED')          
+                    print('TILEID '+str(tidl[ii])+' PASSED')
                     tids_passl.append(tidl[ii])
             else:
-                print('TILEID '+str(tidl[ii])+' PASSED')          
+                print('TILEID '+str(tidl[ii])+' PASSED')
                 tids_passl.append(tidl[ii])
 
         else:
@@ -145,7 +149,7 @@ for tid in tids_passl:
         print("create {}".format(mv_tiddir))
         os.makedirs(mv_tiddir)
 
-    for name in ["tiles", "sky", "gfa", "targ", "scnd", "too"]:        
+    for name in ["tiles", "sky", "gfa", "targ", "scnd", "too"]:
         fn = outdir+'/'+str(tid).zfill(6)[:3]+'/'+str(tid).zfill(6)+'-'+name+'.fits'
         if os.path.isfile(fn):
             mv_fn = os.path.join(mv_tiddir, os.path.basename(fn))
@@ -163,5 +167,5 @@ if len(tids_passl) == len(tidl):
     print('SUCCESS all tiles ('+str(len(tidl))+') passed; quickly double check above that files were copied as expected')
 else:
     print('FAIL!!! at lease one tile failed; investigate output above')
-    
+
 os.system(f"fix_permissions.sh {args.outroot}")
