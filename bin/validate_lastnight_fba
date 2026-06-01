@@ -6,6 +6,7 @@ import sys
 import datetime
 import shutil
 import subprocess
+from multiprocessing import Pool
 
 import numpy as np
 from astropy.table import Table
@@ -133,30 +134,40 @@ docheck = True
 
 tids_passl = []
 if docheck:
+    diff_names = []
+    orig_names = []
+    repro_names = []
     for ii in range(0, len(fnl)):
-        dfn = outdir+'/'+str(tidl[ii])+'.diff'
+        diff_names.append(outdir+'/'+str(tidl[ii])+'.diff')
+
+
         if os.path.isfile(fnl[ii]):
-            fba_rerun_check(fol[ii], fnl[ii],dfn )
-            if len(open(dfn).readlines())>1:
-                tids = np.atleast_1d(np.genfromtxt(dfn, usecols = (3,), dtype=int))
-                if len(tids) > 0:
-                    #tids = dd[3]
-                    sel = tids > 0
-                    if len(tids[sel]) > 0:
-                        print('found '+str(len(tids[sel]))+' positive targetid that are different')
-                        print('FOLLOW-UP NEEDED, DO NOT ALLOW ZDONE FOR TILEID '+str(tidl[ii])+'!!!')
-                    else:
-                        print('TILEID '+str(tidl[ii])+' PASSED')
-                        tids_passl.append(tidl[ii])
+            repro_names.append(fol[ii])
+            orig_names.append(fnl[ii])
+        else:
+            print('WHY IS THERE NO NEW FIBERASSIGN FILE FOR '+str(tidl[ii])+'!?!? (check above output for clues)')
+
+    with Pool(args.nproc) as p:
+        p.starmap(fba_rerun_check, zip(repro_names, orig_names, diff_names))
+
+    for dfn in diff_names:
+        if len(open(dfn).readlines())>1:
+            tids = np.atleast_1d(np.genfromtxt(dfn, usecols = (3,), dtype=int))
+            if len(tids) > 0:
+                sel = tids > 0
+                if len(tids[sel]) > 0:
+                    print('found '+str(len(tids[sel]))+' positive targetid that are different')
+                    print('FOLLOW-UP NEEDED, DO NOT ALLOW ZDONE FOR TILEID '+str(tidl[ii])+'!!!')
                 else:
                     print('TILEID '+str(tidl[ii])+' PASSED')
                     tids_passl.append(tidl[ii])
             else:
                 print('TILEID '+str(tidl[ii])+' PASSED')
                 tids_passl.append(tidl[ii])
-
         else:
-            print('WHY IS THERE NO NEW FIBERASSIGN FILE FOR '+str(tidl[ii])+'!?!? (check above output for clues)')
+            print('TILEID '+str(tidl[ii])+' PASSED')
+            tids_passl.append(tidl[ii])
+
 
 #move intermediate files for tiles that pass
 
