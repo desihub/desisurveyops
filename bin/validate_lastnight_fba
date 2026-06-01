@@ -21,6 +21,8 @@ parser.add_argument("--outroot", default=None, type=str,
         help="root directory for final outputs ($DESI_ROOT/survey/fiberassign/main)")
 parser.add_argument("--overwrite", default=False, action='store_true',
         help="overwrite final outputs in outroot")
+parser.add_argument("--nproc", default=16,
+        help="Number of tiles to process in parallel at once.")
 parser.add_argument("--oldstyletoo", default=False, action="store_true",
         help=("Use the style of ToO file from the first part of the DESI "
         "survey, before the addition of Rubin ToOs")
@@ -94,35 +96,37 @@ procs = []
 # Without this none of the above prints print until the first fiberassignment finishes
 # and that process communicates.
 print("Starting `fba_rerun`", flush=True)
-for tid in tidl:
-    sel = exps['TILEID'] == tid
-    expid = exps[sel]['EXPID'][0] #just select one expid to get the fiberassign file
-    ff = 'fiberassign-'+str(tid).zfill(6)+'.fits.gz'
-    fn = desiroot+'spectro/data/'+args.night+'/'+str(expid).zfill(8)+'/'+ff
-    print('reproducing data for fiberassign file '+fn)
-    fol.append(fn)
-    fnl.append(outdir+'/'+str(tid).zfill(6)[:3]+'/fiberassign-'+str(tid).zfill(6)+'.fits.gz')
-    #system call run fiberassign
-    # ADM updated for new style of ToO file.
-    # ADM see https://github.com/desihub/fiberassign/pull/500
-    # ADM and https://github.com/desihub/desitarget/pull/874
-    to_run = ["fba_rerun", "--infiberassign", fn, "--outdir", outdir, "--nosteps", "qa"] #"--dtver", "1.1.1"]
-    if not args.oldstyletoo:
-        to_run.append("--force_try_too_all")
-    # DG - For each tile, open a new subprocess to run that tile.
-    p = subprocess.Popen(to_run, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    procs.append(p)
+nproc = 16
+for i in range(0, len(tidl), nproc):
+    for tid in tidl[i:(i + nproc)]:
+        sel = exps['TILEID'] == tid
+        expid = exps[sel]['EXPID'][0] #just select one expid to get the fiberassign file
+        ff = 'fiberassign-'+str(tid).zfill(6)+'.fits.gz'
+        fn = desiroot+'spectro/data/'+args.night+'/'+str(expid).zfill(8)+'/'+ff
+        print('reproducing data for fiberassign file '+fn)
+        fol.append(fn)
+        fnl.append(outdir+'/'+str(tid).zfill(6)[:3]+'/fiberassign-'+str(tid).zfill(6)+'.fits.gz')
+        #system call run fiberassign
+        # ADM updated for new style of ToO file.
+        # ADM see https://github.com/desihub/fiberassign/pull/500
+        # ADM and https://github.com/desihub/desitarget/pull/874
+        to_run = ["fba_rerun", "--infiberassign", fn, "--outdir", outdir, "--nosteps", "qa"] #"--dtver", "1.1.1"]
+        if not args.oldstyletoo:
+            to_run.append("--force_try_too_all")
+        # DG - For each tile, open a new subprocess to run that tile.
+        p = subprocess.Popen(to_run, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        procs.append(p)
 
-# DG - Print the output of each process. Doing it this way instead of
-# subprocess.run or multiprocess.pool allows us to multiprocess while keeping the output of
-# each process in its own singular block - which is helpful for
-# debugging if one of the tiles fails.
-for p in procs:
-    stdout, stderr = p.communicate()
-    print(stdout.decode())
+    # DG - Print the output of each process. Doing it this way instead of
+    # subprocess.run or multiprocess.pool allows us to multiprocess while keeping the output of
+    # each process in its own singular block - which is helpful for
+    # debugging if one of the tiles fails.
+    for p in procs:
+        stdout, stderr = p.communicate()
+        print(stdout.decode())
 
-    if stderr is not None:
-        print(stderr.decode())
+        if stderr is not None:
+            print(stderr.decode())
 
 from fiberassign.fba_rerun_io import fba_rerun_check
 docheck = True
