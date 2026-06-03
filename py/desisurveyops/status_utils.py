@@ -7,9 +7,9 @@ matplotlib.use("Agg")
 import os
 from glob import glob
 from datetime import datetime
+from importlib.resources import files
 import tempfile
 import multiprocessing
-from pkg_resources import resource_filename
 import subprocess
 
 # AR scientifical
@@ -377,7 +377,7 @@ def get_history_tiles_dir():
     """
     Returns the folder with the tiles-{survey}-YYYYMMDD-rev?????.ecsv files.
     """
-    return resource_filename("desisurveyops", "../../data")
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data"))
 
 
 def get_history_tilesfn(survey, opsnight=None):
@@ -574,7 +574,7 @@ def get_fns(
             "desi-14k-footprint",
             "desi-14k-footprint-dark.ecsv",
         ),
-        "desfoot": resource_filename("desiutil", "data/DES_footprint.txt"),
+        "desfoot": str(files("desiutil").joinpath("data", "DES_footprint.txt")),
     }
 
     # AR check?

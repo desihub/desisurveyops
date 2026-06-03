@@ -5,7 +5,6 @@ import os
 import textwrap
 from datetime import datetime, timedelta
 from time import time
-from pkg_resources import resource_filename
 
 # AR scientifical
 import numpy as np
@@ -21,6 +20,7 @@ from desisurveyops.status_utils import (
     get_programs_npassmaxs,
     get_shutdowns,
     get_history_tiles_infos,
+    get_history_tiles_dir,
     get_backup_minefftime,
     get_speed,
 )
@@ -63,7 +63,7 @@ def process_html(
 
     # AR need to copy the css?
     git_cssfn = os.path.join(
-        resource_filename("desisurveyops", "../../data"), os.path.basename(cssfn)
+        get_history_tiles_dir(), os.path.basename(cssfn)
     )
     if os.path.isfile(cssfn):
         f = open(cssfn, "r").read()
