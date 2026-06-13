@@ -367,6 +367,7 @@ def get_history_tiles_infos(survey, outfn=None):
         (20251219, 6246, "Correct some dark1b DESIGNHA and add new dark1b tiles in DESI SGC/DES region"),
         (20260429, 7089, "Adding 14 new tiles to replace bad and retired BRIGHT1B tiles."),
         (20260605, 7345, "Adding 1 new tile to replace and retire tile 123214."),
+        (20260611, 7415, "Turn off partially observed DR9 tiles near DR11 area and add DR11 tiles."),
     ]
     d["NIGHT"] = [x[0] for x in xs]
     d["REVISION"] = [x[1] for x in xs]
