@@ -345,13 +345,24 @@ def compute_qso_tileid_lastnight(survey, specprod, tileid, lastnight):
 
     # AR true QSO/Lya which got a first observation (priority=3400)
     first_obs = prios == desi_mask["QSO"].priorities["UNOBS"]
-    frac_assgn = first_obs.sum() / len(targs)
-    outd["DENS_QSONEW"] = (
-        ((qso) & (first_obs)).sum() / tile_area / frac_assgn
-    )  # reconstructed density of qso
-    outd["DENS_LYANEW"] = (
-        ((lya) & (first_obs)).sum() / tile_area / frac_assgn
-    )  # reconstructed density of lya
+    if len(targs) == 0:
+        log.warning(
+            "no QSO parent targets for tileid={}, lastnight={}; "
+            "setting reconstructed densities to nan".format(tileid, lastnight)
+        )
+        frac_assgn = np.nan
+    else:
+        frac_assgn = first_obs.sum() / len(targs)
+    if frac_assgn > 0:
+        outd["DENS_QSONEW"] = (
+            ((qso) & (first_obs)).sum() / tile_area / frac_assgn
+        )  # reconstructed density of qso
+        outd["DENS_LYANEW"] = (
+            ((lya) & (first_obs)).sum() / tile_area / frac_assgn
+        )  # reconstructed density of lya
+    else:
+        outd["DENS_QSONEW"] = np.nan
+        outd["DENS_LYANEW"] = np.nan
 
     # AR Lya candidates before that observation (priority=3350)
     nlya = ((prios == desi_mask["QSO"].priorities["MORE_ZGOOD"]) & (lya)).sum()
@@ -362,7 +373,6 @@ def compute_qso_tileid_lastnight(survey, specprod, tileid, lastnight):
     outd["N_LYCAND_AFTER"] = nlya
 
     # AR all Lya candidates
-    frac_assgn = len(tids) / len(targs)
     outd["N_LYACAND_ALL"] = lya.sum()
 
     return outd
