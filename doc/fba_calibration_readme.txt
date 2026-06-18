@@ -76,7 +76,7 @@ ls -tlrh $TERTIARY_DESIGN_DIR/${TILEIDPAD:0:3}/fiberassign-$TILEIDPAD.{fits.gz,p
 # note that you just need to checkout the tertiary folder (the mtl folder is large!)
 # export MYSURVEYOPS=your_surveyops_checkout
 # if you do not have a checkout, run this from $MYSURVEYOPS:
-#   svn --username your_wiki_username co https://desi.lbl.gov/svn/data/surveyops/trunk/tertiary
+#   svn --username your_wiki_username co $DESI_SURVEYOPS_SVN_HTTP/trunk/tertiary
 cd $MYSURVEYOPS/tertiary
 svn up
 

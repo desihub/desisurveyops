@@ -323,64 +323,65 @@ def get_shutdowns(survey):
     return start_nights, end_nights, comments
 
 
-def get_history_tiles_infos(survey, outfn=None):
+def edit_history_tiles_file(night, revision, comment, survey='main'):
+    """
+    Edit the tiles-{survey}-history.ecsv file to add a new date, rev, comment row
+
+    Args:
+        night: night that the file is effective YYYYMMDD (int32)
+        revision: SVN revision number (int32)
+        comment: Comment string (str)
+        survey: survey name (str)
+    """
+    assert survey == "main"
+
+    night = int(night)
+    revision = int(revision)
+
+    fn = get_history_tiles_filename(survey=survey)
+    d = Table.read(fn, format="ascii.ecsv")
+
+    if np.any(d["NIGHT"] == night):
+        raise ValueError(f"NIGHT={night} already exists in {fn}")
+    if np.any(d["REVISION"] == revision):
+        raise ValueError(f"REVISION={revision} already exists in {fn}")
+
+    d.add_row({"NIGHT": night, "REVISION": revision, "COMMENT": str(comment)})
+    d.sort("NIGHT")
+    d.write(fn, overwrite=True)
+
+    return fn
+
+    
+def get_history_tiles_infos(survey):
     """
     Get infos about the history of tiles-{survey}.ecsv.
 
     Args:
         survey: survey name (str)
-        outfn (optional, defaults to None): if set, output will be writtento that file (str)
-
-    Notes:
-        This will have to be manually updated in the future.
-        In the future, maybe that could be automated...
     """
     assert survey == "main"
 
-    # TODO: find an automatic way to do that?
-    d = Table()
-    d.meta["FOLDER"] = get_history_tiles_dir()
+    fn = get_history_tiles_filename(survey=survey)
+    d = Table.read(fn, format="ascii.ecsv")
 
-    # AR structure: night, revision, comment
-    xs = [
-        #
-        (20210512, 425, "Initial definition of the tiles"),
-        (20210722, 619, "Retire+replace 15 bright+dark"),
-        (20210913, 633, "Retire+replace 2 bright+dark tiles"),
-        (20211119, 869, "Turn on backup tiles"),
-        (20220314, 1332, "Turn off Dec>80 backup tiles"),
-        (20220425, 1533, "Retire+replace 23 bright+dark tiles"),
-        (20230927, 3091, "Add new bright PASS=4 tiles"),
-        (20241010, 4177, "Add new bright+dark tiles in DES region"),
-        (20250506, 5127, "Turn on three dark1b tiles as test tiles"),
-        (20250507, 5129, "Turn on dark1b tiles in DR9 region"),
-        (20250515, 5166, "Retire+replace 6 bright tiles"),
-        (20250609, 5286, "Turn on bright1b tiles in the NGC"),
-        (20250610, 5301, "Retire+replace 2 dark1b tiles"),
-        (20250721, 5390, "Add very-low priority bright1b layer, and rev5389 on same day added new backup layer"),
-        (20250818, 5550, "Add M31 bright1b tiles"),
-        (20251004, 5760, "Turn off three bright1b tiles"),
-        (20251007, 5782, "Add C19 stream bright1b tiles"),
-        (20251008, 5790, "Turn off nine bright1b tiles (along with rev5786)"),
-        (20251117, 6037, "Turn back on nine bright1b tiles"),
-        (20251202, 6118, "Turn off three bright1b tiles that hang off the footprint edge"),
-        (20251219, 6246, "Correct some dark1b DESIGNHA and add new dark1b tiles in DESI SGC/DES region"),
-        (20260429, 7089, "Adding 14 new tiles to replace bad and retired BRIGHT1B tiles."),
-        (20260605, 7345, "Adding 1 new tile to replace and retire tile 123214."),
-        (20260611, 7415, "Turn off partially observed DR9 tiles near DR11 area and add DR11 tiles."),
-    ]
-    d["NIGHT"] = [x[0] for x in xs]
-    d["REVISION"] = [x[1] for x in xs]
-    d["COMMENT"] = [x[2] for x in xs]
-
+    d.meta["FOLDER"] = os.path.dirname(fn)
+    
     # AR better safe than sorry...
     d = d[d["NIGHT"].argsort()]
 
-    if outfn is not None:
-        d.write(outfn)
-
     return d
 
+
+def get_history_tiles_filename(survey):
+    """
+    Returns the pathname to the tiles-{survey}-history.ecsv file
+
+    Args:
+        survey: survey name (str)
+    """
+    return os.path.join(get_history_tiles_dir(), f"tiles-{survey}-history.ecsv")
+    
 
 def get_history_tiles_dir():
     """

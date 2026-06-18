@@ -1,0 +1,201 @@
+#!/usr/bin/env python
+
+import argparse
+import os
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta, timezone
+from desisurveyops.status_utils import get_history_tiles_dir, edit_history_tiles_file
+
+
+SVN_URL_ENV = "DESI_SURVEYOPS_SVN"
+TUCSON_TZ = timezone(timedelta(hours=-7), "MST")
+
+
+def prompt_yes_no(prompt, default=False):
+    suffix = " [Y/n] " if default else " [y/N] "
+    answer = input(f"{prompt}{suffix}").strip().lower()
+    if answer == "":
+        return default
+    return answer in ["y", "yes"]
+
+
+def get_svn_auth_args(username):
+    args = ["--force-interactive"]
+    if username is not None:
+        args += ["--username", username]
+    return args
+
+
+def get_svn_command(args, username=None):
+    return ["svn", args[0]] + get_svn_auth_args(username) + args[1:]
+
+
+def run_svn_capture(args, username=None):
+    result = subprocess.run(
+        get_svn_command(args, username=username),
+        check=True,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    return result.stdout
+
+
+def get_latest_revision(svn_url, username=None):
+    stdout = run_svn_capture(
+        ["info", "--show-item", "last-changed-revision", svn_url], username=username
+    )
+    return int(stdout.strip())
+
+
+def get_revision_info(svn_url, revision, username=None):
+    stdout = run_svn_capture(
+        ["log", "-r", str(revision), "--xml", svn_url], username=username
+    )
+    root = ET.fromstring(stdout)
+    logentry = root.find("logentry")
+    if logentry is None:
+        raise ValueError(f"Could not parse SVN log entry for revision {revision}")
+
+    date = logentry.findtext("date", default="")
+    revdate = get_tucson_date_string(date)
+
+    message = logentry.findtext("msg", default="")
+    return revdate, message
+
+
+def get_tucson_date_string(svn_date):
+    if svn_date.endswith("Z"):
+        svn_date = svn_date[:-1] + "+00:00"
+
+    try:
+        svn_datetime = datetime.fromisoformat(svn_date)
+    except ValueError as err:
+        raise ValueError(f"Could not parse SVN revision date {svn_date!r}") from err
+
+    if svn_datetime.tzinfo is None:
+        svn_datetime = svn_datetime.replace(tzinfo=timezone.utc)
+
+    return svn_datetime.astimezone(TUCSON_TZ).strftime("%Y%m%d")
+
+
+def get_output_path(outdir, revdate, revision):
+    revstr = f"rev{int(revision):05d}"
+    return os.path.join(outdir, f"tiles-main-{revdate}-{revstr}.ecsv")
+
+
+def export_tiles_main(svn_url, revision, output_path, username=None):
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    subprocess.run(
+        get_svn_command(
+            [
+                "export",
+                "--force",
+                "-r",
+                str(revision),
+                svn_url,
+                output_path,
+            ],
+            username=username,
+        ),
+        check=True,
+    )
+
+
+def add_history_entry(night, revision, svn_message):
+    print(f"\nSVN commit message for rev{int(revision):05d}:")
+    print((svn_message or "").strip() or "(empty commit message)")
+    print("")
+
+    comment = input("Comment for tiles-main history: ").strip()
+    if comment == "":
+        print("No comment entered; history was not updated.")
+        return True
+
+    try:
+        history_fn = edit_history_tiles_file(night, revision, comment)
+    except ValueError as err:
+        print(f"Could not update history: {err}")
+        return False
+
+    print(f"Updated {history_fn}")
+    return True
+
+
+def parse():
+    parser = argparse.ArgumentParser(
+        description="Download a historical tiles-main.ecsv revision and optionally add it to the history table."
+    )
+    parser.add_argument(
+        "revision",
+        nargs="?",
+        default=None,
+        help="SVN revision to download. If omitted, use the latest changed revision for tiles-main.ecsv.",
+    )
+    parser.add_argument(
+        "--svn-url",
+        default=None,
+        help=f"SVN URL for tiles-main.ecsv. If omitted, use ${SVN_URL_ENV}.",
+    )
+    parser.add_argument(
+        "--outdir",
+        default=get_history_tiles_dir(),
+        help=f"Output directory (default: {get_history_tiles_dir()})",
+    )
+    parser.add_argument(
+        "-u",
+        "--username",
+        default=None,
+        help="SVN username. If omitted and credentials are not cached, SVN will prompt interactively.",
+    )
+    args = parser.parse_args()
+    if args.svn_url is None:
+        args.svn_url = os.environ.get(SVN_URL_ENV)
+    if not args.svn_url:
+        parser.error(f"SVN URL is required: set ${SVN_URL_ENV} or pass --svn-url.")
+    return args
+
+
+def main():
+    args = parse()
+    svn_url = args.svn_url
+    outdir = os.path.abspath(args.outdir)
+
+    try:
+        if args.revision is None:
+            revision = get_latest_revision(svn_url, username=args.username)
+        else:
+            revision = int(args.revision)
+
+        revdate, svn_message = get_revision_info(
+            svn_url, revision, username=args.username
+        )
+    except (subprocess.CalledProcessError, ET.ParseError, ValueError) as err:
+        print(f"Could not determine SVN revision information: {err}")
+        return 1
+
+    output_path = get_output_path(outdir, revdate, revision)
+    if not prompt_yes_no(f"Save file as {output_path}?"):
+        print("Not saved.")
+        return 0
+
+    try:
+        export_tiles_main(svn_url, revision, output_path, username=args.username)
+    except subprocess.CalledProcessError as err:
+        print(f"Could not save {output_path}: {err}")
+        return 1
+
+    print(f"Saved {output_path}")
+
+    if prompt_yes_no("Add this file to tiles-main-history.ecsv?"):
+        if not add_history_entry(revdate, revision, svn_message):
+            return 1
+    else:
+        print("History was not updated.")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
