@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 
+from typing import List, Dict
 import os
 from glob import glob
+from pathlib import Path
 import sys
 import tempfile
 import yaml
 import fitsio
 import healpy as hp
 import numpy as np
+from abc import ABC, abstractmethod
 from astropy.table import Table, vstack
 from astropy.io import fits
 from astropy.coordinates import SkyCoord, Longitude
@@ -42,10 +45,150 @@ from matplotlib.ticker import MultipleLocator
 log = get_logger()
 
 
+class TertiaryTileDesignBase(ABC):
+    """Placeholder for the specific tertiary tile design class.
+    The implemented class must be named TertiaryTileDesign and be a subclass of TertiaryTileDesignBase.
+    User can provide these parameters to be used later:
+    yamlfp (str):
+        The path to the yaml file containing the tertiary design configuration.
+    
+    And implement the following methods that only reference self.yamlfp and self.logger
+    the user can provide the yamlfp in the create_* methods separately:
+    create_tiles()
+    create_priorities()
+    create_targets()
+    """
+
+    # def __init__(self, yamlfn: str, desi_logger: logging.Logger):        
+    #     self.yamlfn = yamlfn
+    #     self.logger = desi_logger
+
+    @abstractmethod
+    def create_tiles(self, outfp: str, yamlfp=None):
+        pass
+
+    @abstractmethod
+    def create_priorities(self, outfp: str, yamlfp=None):
+        pass
+
+    @abstractmethod
+    def create_targets(self, outfp: str, yamlfp=None):
+        pass
+
+def merge_target_catalogs(
+    catdir: Path,
+    samples: Dict[str, Dict],
+    remove_duplicates: bool = False,
+    duplicate_radius_arcsec: float = 1.5,
+) -> Table:
+    sample_names = np.array(list(samples.keys()))
+    priorities = np.array([samples[name]["PRIORITY_INIT"] for name in sample_names])
+    ngoals = np.array([samples[name]["NGOAL"] for name in sample_names])
+
+    order = priorities.argsort()[::-1]
+    sample_names = sample_names[order]
+    priorities = priorities[order]
+    ngoals = ngoals[order]
+
+    tables = []
+    log.info("reading targets from %s", catdir)
+    for sample, prio, ngoal in zip(sample_names, priorities, ngoals):
+        sample_cfg = samples[sample]
+        fn = catdir / sample_cfg["FN"]
+        log.info("reading %s (%s)", sample, fn)
+        cat = Table.read(fn)
+
+        if "RA" not in cat.colnames and "ra" in cat.colnames:
+            cat["RA"] = cat["ra"]
+        if "DEC" not in cat.colnames and "dec" in cat.colnames:
+            cat["DEC"] = cat["dec"]
+        for col in ["RA", "DEC"]:
+            if col not in cat.colnames:
+                raise ValueError(f"Missing {col} column in {fn}")
+        for col, default in [("PMRA", 0.0), ("PMDEC", 0.0), ("REF_EPOCH", 2015.5)]:
+            if col not in cat.colnames:
+                cat[col] = default
+
+        merged = Table()
+        for col in ["RA", "DEC", "PMRA", "PMDEC", "REF_EPOCH"]:
+            merged[col] = cat[col]
+        merged["TERTIARY_TARGET"] = sample
+        merged["CHECKER"] = sample_cfg["CHECKER"]
+        merged["PRIORITY_INIT"] = int(prio)
+        merged["NGOAL"] = int(ngoal)
+        tables.append(merged)
+
+    if len(tables) == 0:
+        raise RuntimeError("No targets loaded from yaml samples")
+
+    targets = vstack(tables)
+    if remove_duplicates:
+        if duplicate_radius_arcsec <= 0:
+            raise ValueError("duplicate_radius_arcsec must be > 0")
+
+        coords = SkyCoord(
+            ra=np.asarray(targets["RA"]) * units.deg,
+            dec=np.asarray(targets["DEC"]) * units.deg,
+            frame="icrs",
+        )
+
+        idx1, idx2, _, _ = coords.search_around_sky(
+            coords, duplicate_radius_arcsec * units.arcsec
+        )
+
+        neighbors = [set([index]) for index in range(len(targets))]
+        for left, right in zip(idx1, idx2):
+            if left != right:
+                neighbors[left].add(right)
+
+        seen = np.zeros(len(targets), dtype=bool)
+        keep = np.ones(len(targets), dtype=bool)
+
+        for index in range(len(targets)):
+            if seen[index]:
+                continue
+
+            stack = [index]
+            component = []
+            seen[index] = True
+
+            while len(stack) > 0:
+                current = stack.pop()
+                component.append(current)
+                for neighbor in neighbors[current]:
+                    if not seen[neighbor]:
+                        seen[neighbor] = True
+                        stack.append(neighbor)
+
+            if len(component) <= 1:
+                continue
+
+            component = np.array(component, dtype=int)
+            component_priorities = np.asarray(targets["PRIORITY_INIT"][component], dtype=int)
+            best_priority = component_priorities.max()
+            best_indices = component[component_priorities == best_priority]
+
+            chosen = int(best_indices.min())
+            drop = component[component != chosen]
+            keep[drop] = False
+
+        n_removed = int((~keep).sum())
+        targets = targets[keep]
+        log.info(
+            "removed %d target(s) within %.2f arcsec based on PRIORITY_INIT",
+            n_removed,
+            duplicate_radius_arcsec,
+        )
+        
+    targets.sort("PRIORITY_INIT", reverse=True)
+    log.info("assembled %d targets across %d sample(s)", len(targets), len(tables))
+    return targets
+
+
 def get_environ_settings_ref():
     """ """
     return {
-        "fiberassign": "5.6.0",
+        "fiberassign": "5.8.0",
         "DESIMODEL": "/global/common/software/desi/perlmutter/desiconda/current/code/desimodel/main",
         "SKYHEALPIXS_DIR": os.path.join(
             os.getenv("DESI_ROOT"), "target", "skyhealpixs", "v1"
