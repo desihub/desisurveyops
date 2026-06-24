@@ -24,7 +24,7 @@ from desisurveyops.status_utils import (
     get_obsdone_tiles,
     table_read_for_pool,
     get_tile_selection_from_program,
-    get_observed_tiles_from_program
+    get_observed_selection_from_program
 )
 
 # AR desispec
@@ -108,7 +108,7 @@ def process_zhist(
             rebin = 1
 
         # AR select the tiles
-        sel = get_observed_tiles_from_program(obs_progs, obs_nights, program)
+        sel = get_observed_selection_from_program(obs_progs, obs_nights, program)
         sel &= np.isin(obs_tiles, e["TILEID"])
 
         # DG For any skip cases that get passed, e.g. skipping pass 5 in BRIGHT1B
