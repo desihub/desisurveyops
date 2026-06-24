@@ -606,20 +606,7 @@ def plot_skymap(
     if tilesfn is None:
         tilesfn = fns["ops"]["tiles"]
     t = Table.read(tilesfn)
-    sel = t["PROGRAM"] == program
-    sel &= t["IN_DESI"]
-    if skip_pass is not None:
-        sel &= ~np.isin(t["PASS"], skip_pass)
-
-    # DG - dr11 1a tiles that should be included in the 1b plots.
-    # TODO refactor such that the tiles are determined somewhere more globally.
-    if "1B" in program:
-        if program == "DARK1B":
-            dr11_tiles = ((t["TILEID"] >= 11962) & (t["TILEID"] <= 15688))
-        elif program == "BRIGHT1B":
-            dr11_tiles = ((t["TILEID"] >= 30993) & (t["TILEID"] <= 33654))
-        dr11_tiles &= t["IN_DESI"]
-        sel |= dr11_tiles
+    sel = get_tile_selection_from_program(t, program, in_desi=True, skip_pass=skip_pass)
 
     t = t[sel]
     passids = np.unique(t["PASS"])
