@@ -110,12 +110,23 @@ def process_skymap(
     max_numproc = 128
 
     for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
-
         # AR nights for this program
         sel = obs_progs == program
 
-        ## DG: Skip any passes we want, given a specific survey. Formerly
-        ## this comment indicated that we skip the low priority pass 5 in the
+        # DG - We want to report the dr11 added base BRIGHT/DARK tiles
+        # on the 1b program plots. These were added 6/11 so we look
+        # for 1a tiles and include a cut on that date. We must do this here
+        # first to ensure that we collect the correct nights to process.
+        # We will do it again in the actual plotting function to ensure
+        # we have the correct number of tiles on those nights.
+        if "1B" in program:
+            # log.info("entered block")
+            dr11_1a_tiles = (obs_progs == program.replace("1B", ""))
+            dr11_1a_tiles &= obs_nights > 20260610
+            sel |= dr11_1a_tiles
+
+        # DG: Skip any passes we want, given a specific survey. Formerly
+        # this comment indicated that we skip the low priority pass 5 in the
         # BRIGHT1B program.
         if skip_pass is not None:
             log.warning(f"For PROGRAM={program_str} ignoring PASS={skip_pass}")
@@ -161,7 +172,7 @@ def process_skymap(
                         ext="png",
                     )
                     log.info(f"{outpng = }")
-                    if (not os.path.isfile(outpng)) | (recompute):
+                    if (not os.path.isfile(outpng)) or (recompute):
                         myargs.append(
                             (
                                 outpng,
@@ -471,6 +482,12 @@ def create_skygoal(tilesfn, program, outfn=None, nside=1024, skip_pass=None):
     # AR tiles file
     t = Table.read(tilesfn)
     sel = t["PROGRAM"] == program
+    # DG - DR11 tiles for 1b programs. TODO: Refactor and do this better.
+    if program == "DARK1B":
+        sel |= ((t["TILEID"] >= 11962) & (t["TILEID"] <= 15688))
+    elif program == "BRIGHT1B":
+        sel |= ((t["TILEID"] >= 30993) & (t["TILEID"] <= 33654))
+
     sel &= t["IN_DESI"]
 
     if skip_pass is not None:
@@ -482,7 +499,7 @@ def create_skygoal(tilesfn, program, outfn=None, nside=1024, skip_pass=None):
     else:
         log.info("found {} tiles with PROGRAM = {}".format(len(t), program))
 
-    # AR handle e.g. BRIGHT1B which does not exist yet
+    # AR handle if a program does not exist yet or has no tiles.
     if len(t) == 0:
         log.warning("no tiles found for PROGRAM = {}, no file created".format(program))
         return None
@@ -603,14 +620,25 @@ def plot_skymap(
     if skip_pass is not None:
         sel &= ~np.isin(t["PASS"], skip_pass)
 
-    t = t[sel]
-    passids = np.unique(t["PASS"])
-    npass = len(passids)
-
     # AR obs/done tiles:
     # AR - obs : for this program and with obs_nights <= night
     # AR - done : for this program
     obs_tiles, obs_nights, obs_progs, done_tiles = get_obsdone_tiles(survey, specprod)
+
+    # DG - dr11 1a tiles that should be included in the 1b plots.
+    # TODO refactor such that the tiles are determined somewhere more globally.
+    if "1B" in program:
+        if program == "DARK1B":
+            dr11_tiles = ((t["TILEID"] >= 11962) & (t["TILEID"] <= 15688))
+        elif program == "BRIGHT1B":
+            dr11_tiles = ((t["TILEID"] >= 30993) & (t["TILEID"] <= 33654))
+        dr11_tiles &= t["IN_DESI"]
+        sel |= dr11_tiles
+
+    t = t[sel]
+    passids = np.unique(t["PASS"])
+    npass = len(passids)
+
     sel = np.isin(obs_tiles, t["TILEID"])
     sel &= obs_nights <= night
     obs_tiles, obs_nights, obs_progs = obs_tiles[sel], obs_nights[sel], obs_progs[sel]
@@ -626,6 +654,7 @@ def plot_skymap(
     d = get_skygoal(tilesfn, program, skip_pass=skip_pass)
     nside = d.meta["HPXNSIDE"]
     assert d.meta["HPXNEST"] == nest
+
     # AR to handle overlapping tiles in a single pass
     # AR for BRIGHT1B, first compute the per-tile pixels
     # AR note that tiles2pix() is not an exact solution
