@@ -620,11 +620,6 @@ def plot_skymap(
     if skip_pass is not None:
         sel &= ~np.isin(t["PASS"], skip_pass)
 
-    # AR obs/done tiles:
-    # AR - obs : for this program and with obs_nights <= night
-    # AR - done : for this program
-    obs_tiles, obs_nights, obs_progs, done_tiles = get_obsdone_tiles(survey, specprod)
-
     # DG - dr11 1a tiles that should be included in the 1b plots.
     # TODO refactor such that the tiles are determined somewhere more globally.
     if "1B" in program:
@@ -639,6 +634,10 @@ def plot_skymap(
     passids = np.unique(t["PASS"])
     npass = len(passids)
 
+    # AR obs/done tiles:
+    # AR - obs : for this program and with obs_nights <= night
+    # AR - done : for this program
+    obs_tiles, obs_nights, obs_progs, done_tiles = get_obsdone_tiles(survey, specprod)
     sel = np.isin(obs_tiles, t["TILEID"])
     sel &= obs_nights <= night
     obs_tiles, obs_nights, obs_progs = obs_tiles[sel], obs_nights[sel], obs_progs[sel]
@@ -1281,6 +1280,14 @@ def plot_skycompl_ralst(
         tilesfn = fns["ops"]["tiles"]
     t = Table.read(tilesfn)
     sel = t["PROGRAM"] == program
+
+
+    # DG - DR11 tiles for 1b programs. TODO: Refactor and do this better.
+    if program == "DARK1B":
+        sel |= ((t["TILEID"] >= 11962) & (t["TILEID"] <= 15688))
+    elif program == "BRIGHT1B":
+        sel |= ((t["TILEID"] >= 30993) & (t["TILEID"] <= 33654))
+
     sel &= t["IN_DESI"]
     if skip_pass is not None:
         sel &= ~np.isin(t["PASS"], skip_pass)
@@ -1493,6 +1500,13 @@ def plot_sky_pending(
     tilesfn = fns["ops"]["tiles"]
     t = Table.read(tilesfn)
     sel = t["PROGRAM"] == program
+
+    # DG - DR11 tiles for 1b programs. TODO: Refactor and do this better.
+    if program == "DARK1B":
+        sel |= ((t["TILEID"] >= 11962) & (t["TILEID"] <= 15688))
+    elif program == "BRIGHT1B":
+        sel |= ((t["TILEID"] >= 30993) & (t["TILEID"] <= 33654))
+
     sel &= t["IN_DESI"]
     sel &= (t["STATUS"] != "unobs") & (t["STATUS"] != "done")
     if skip_pass is not None:
