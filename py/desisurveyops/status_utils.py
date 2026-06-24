@@ -1042,6 +1042,25 @@ def get_tile_selection_from_program(t, program, in_desi=True, skip_pass=None):
     return sel
 
 def get_observed_selection_from_program(obs_progs, obs_nights, program):
+    """
+    Get a boolean selection array for observed tiles belonging to a given program.
+
+    Args:
+        obs_progs: program name for each observed tile, as returned by get_obsdone_tiles() (numpy array of str)
+        obs_nights: night of observation for each observed tile, as returned by get_obsdone_tiles() (numpy array of int)
+        program: "BACKUP", "BRIGHT{1B}", or "DARK{1B}" (str)
+
+    Returns:
+        sel: boolean selection array over the rows of obs_progs/obs_nights (numpy array of bool)
+
+    Notes:
+        For BRIGHT1B or DARK1B, additionally includes tiles from the corresponding base program
+            (BRIGHT or DARK respectively) observed after night 20260610,
+            corresponding to 1A DR11 tiles added on 20260611.
+        Unlike get_tile_selection_from_program(), this function operates on the observed-tile
+            arrays from get_obsdone_tiles() rather than on a tiles table, and so uses the
+            observation night as a proxy for the tile timestamp.
+    """
     sel = obs_progs == program
 
     # DG - We want to report the dr11 added base BRIGHT/DARK tiles
