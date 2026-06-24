@@ -23,6 +23,7 @@ from desisurveyops.status_utils import (
     get_fns,
     get_obsdone_tiles,
     table_read_for_pool,
+    get_tile_selection_from_program,
 )
 
 # AR desispec
@@ -360,10 +361,7 @@ def plot_zhist(
 
     tilesfn = get_fns(survey=survey, specprod=specprod)["ops"]["tiles"]
     t = Table.read(tilesfn)
-    sel = t["PROGRAM"] == program
-    sel &= t["IN_DESI"]
-    if skip_pass is not None:
-        sel &= ~np.isin(t["PASS"], skip_pass)
+    sel = get_tile_selection_from_program(t, program, in_desi=True, skip_pass=skip_pass)
     t = t[sel]
 
     title = "{}/{}\n{}/{} (={:.0f}%) completed tiles up to {}".format(

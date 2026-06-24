@@ -113,6 +113,14 @@ def process_qso(
             "{}\tCompute qso stats".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         )
         sel = obs_progs == program
+
+        # DG - Add DR11 1A tiles on 1B  programs.
+        if "1B" in program:
+            # log.info("entered block")
+            dr11_1a_tiles = (obs_progs == program.replace("1B", ""))
+            dr11_1a_tiles &= obs_nights > 20260610
+            sel |= dr11_1a_tiles
+
         tileids, lastnights = obs_tiles[sel], obs_nights[sel]
         _ = np.char.add(tileids.astype(str), ",")
         tileids_lastnights = np.char.add(_, lastnights.astype(str))
