@@ -352,7 +352,7 @@ def edit_history_tiles_file(night, revision, comment, survey='main'):
 
     return fn
 
-    
+
 def get_history_tiles_infos(survey):
     """
     Get infos about the history of tiles-{survey}.ecsv.
@@ -366,7 +366,7 @@ def get_history_tiles_infos(survey):
     d = Table.read(fn, format="ascii.ecsv")
 
     d.meta["FOLDER"] = os.path.dirname(fn)
-    
+
     # AR better safe than sorry...
     d = d[d["NIGHT"].argsort()]
 
@@ -381,7 +381,7 @@ def get_history_tiles_filename(survey):
         survey: survey name (str)
     """
     return os.path.join(get_history_tiles_dir(), f"tiles-{survey}-history.ecsv")
-    
+
 
 def get_history_tiles_dir():
     """
@@ -1002,3 +1002,22 @@ def get_speed(d, source):
         / d["EXPTIME"][sel]
     )
     return speed
+
+def get_tile_selection_from_program(t, program, in_desi=True, skip_pass=None):
+    sel = t["PROGRAM"] == program
+
+    # DG - DR11 tiles for 1b programs.
+    if program == "DARK1B":
+        sel |= ((t["TILEID"] >= 11962) & (t["TILEID"] <= 15688))
+    elif program == "BRIGHT1B":
+        sel |= ((t["TILEID"] >= 30993) & (t["TILEID"] <= 33654))
+
+    if in_desi:
+        sel &= t["IN_DESI"]
+
+    if skip_pass is not None:
+        sel &= ~np.isin(t["PASS"], skip_pass)
+
+    return sel
+
+
