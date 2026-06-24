@@ -215,6 +215,8 @@ def process_zhist(
         d.meta["SURVEY"], d.meta["SPECPROD"] = survey, specprod
         d.write(outfn, overwrite=True)
 
+        log.info(f"Wrote {outfn}")
+
         # AR plot
         plot_zhist(
             outpng,
@@ -390,25 +392,25 @@ def plot_zhist(
         rebin_zcens = zcens.reshape((nbin // rebin, rebin)).mean(axis=1)
     else:
         rebin_zcens = zcens[:-remainder].reshape((nbin // rebin, rebin)).mean(axis=1)
-    nrebin = len(rebin_zcens)
-    tns = np.array(["{}-{}".format(t, n) for t, n in zip(d["TILEID"], d["LASTNIGHT"])])
-    unq_tns = np.unique(tns)
 
     for tracer, color in zip(tracers, colors):
-
-        # AR gather all zhists
         dd = d[d["TRACER"] == tracer]
-        assert len(dd) == unq_tns.size * nbin
-        hs = dd["ZHIST"].reshape((unq_tns.size, nbin))
-        nights = dd["LASTNIGHT"].reshape((unq_tns.size, nbin))[:, 0]
+
+        # DG - We must account for some tiles not having a tracer now that
+        # 1A DR11 DARK tiles are included in 1B plots, since LGE are not in the !A tiles.
+        tns_with_tracer = np.unique(dd["TILEID"])
+
+        assert len(dd) == tns_with_tracer.size * nbin
+        hs = dd["ZHIST"].reshape((tns_with_tracer.size, nbin))
+        nights = dd["LASTNIGHT"].reshape((tns_with_tracer.size, nbin))[:, 0]
 
         # AR rebin
         if remainder == 0:
-            rebin_hs = hs.reshape((unq_tns.size, nbin // rebin, rebin)).sum(axis=-1)
+            rebin_hs = hs.reshape((tns_with_tracer.size, nbin // rebin, rebin)).sum(axis=-1)
         else:
             rebin_hs = (
                 hs[:, :-remainder]
-                .reshape((unq_tns.size, nbin // rebin, rebin))
+                .reshape((tns_with_tracer.size, nbin // rebin, rebin))
                 .sum(axis=-1)
             )
 
