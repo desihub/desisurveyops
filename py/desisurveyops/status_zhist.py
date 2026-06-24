@@ -115,6 +115,7 @@ def process_zhist(
 
         # AR select the tiles
         sel = obs_progs == program
+
         if "1B" in program:
             # log.info("entered block")
             dr11_1a_tiles = (obs_progs == program.replace("1B", ""))
@@ -204,8 +205,10 @@ def process_zhist(
             if key not in keys:
                 for d in ds:
                     d.meta[key] = None
-            else:
-                assert np.unique([d.meta[key] for d in ds]).size == 1
+            # DG - Remove this check, because when we added 1A DR11 tiles to 1B programs
+            # we naturally will have two values here e.g. BRIGHT and BRIGHT1B for FAPRGRM.
+            # else:
+            #     assert np.unique([d.meta[key] for d in ds]).size == 1
 
         # AR vstack + write
         d = vstack(ds)
