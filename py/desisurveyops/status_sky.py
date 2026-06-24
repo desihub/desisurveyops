@@ -32,6 +32,7 @@ from desisurveyops.status_utils import (
     get_expfacs,
     create_mp4,
     get_tile_selection_from_program,
+    get_observed_tiles_from_program,
 )
 
 # AR desimodel
@@ -112,19 +113,7 @@ def process_skymap(
 
     for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
         # AR nights for this program
-        sel = obs_progs == program
-
-        # DG - We want to report the dr11 added base BRIGHT/DARK tiles
-        # on the 1b program plots. These were added 6/11 so we look
-        # for 1a tiles and include a cut on that date. We must do this here
-        # first to ensure that we collect the correct nights to process.
-        # We will do it again in the actual plotting function to ensure
-        # we have the correct number of tiles on those nights.
-        if "1B" in program:
-            # log.info("entered block")
-            dr11_1a_tiles = (obs_progs == program.replace("1B", ""))
-            dr11_1a_tiles &= obs_nights > 20260610
-            sel |= dr11_1a_tiles
+        sel = get_observed_tiles_from_program(obs_progs, obs_nights, program)
 
         # DG: Skip any passes we want, given a specific survey. Formerly
         # this comment indicated that we skip the low priority pass 5 in the

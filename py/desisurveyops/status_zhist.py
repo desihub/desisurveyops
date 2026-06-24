@@ -24,20 +24,15 @@ from desisurveyops.status_utils import (
     get_obsdone_tiles,
     table_read_for_pool,
     get_tile_selection_from_program,
+    get_observed_tiles_from_program
 )
 
 # AR desispec
 from desispec.tile_qa_plot import (
     get_qa_config,
-    get_zbins,
     get_tracer,
     get_zhists,
-    get_qa_badmsks,
-    get_quantz_cmap,
-    make_tile_qa_plot,
 )
-
-# AR fiberassgin
 
 # AR desiutil
 from desiutil.log import get_logger
@@ -45,7 +40,6 @@ from desiutil.log import get_logger
 # AR matplotlib
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib import gridspec
 
 log = get_logger()
 
@@ -114,19 +108,8 @@ def process_zhist(
             rebin = 1
 
         # AR select the tiles
-        sel = obs_progs == program
-
-        if "1B" in program:
-            # log.info("entered block")
-            dr11_1a_tiles = (obs_progs == program.replace("1B", ""))
-            dr11_1a_tiles &= obs_nights > 20260610
-            sel |= dr11_1a_tiles
-
+        sel = get_observed_tiles_from_program(obs_progs, obs_nights, program)
         sel &= np.isin(obs_tiles, e["TILEID"])
-        # if npassmax is not None:
-        #     t = Table.read(out_fns["ops"]["tiles"])
-        #     t = t[t["PASS"] < npassmax]
-        #     sel &= np.isin(obs_tiles, t["TILEID"])
 
         # DG For any skip cases that get passed, e.g. skipping pass 5 in BRIGHT1B
         if skip_pass is not None:
@@ -136,7 +119,6 @@ def process_zhist(
             t = t[~np.isin(t["PASS"], skip_pass)]
             sel &= np.isin(obs_tiles, t["TILEID"])
 
-        # if npassmax is not None:
             log.info(f"found {sel.sum()} tiles with PROGRAM = {program} and SKIP_PASS {skip_pass}")
         else:
             log.info("found {} tiles with PROGRAM = {}".format(sel.sum(), program))

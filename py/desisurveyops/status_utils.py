@@ -1041,4 +1041,20 @@ def get_tile_selection_from_program(t, program, in_desi=True, skip_pass=None):
 
     return sel
 
+def get_observed_selection_from_program(obs_progs, obs_nights, program):
+    sel = obs_progs == program
+
+    # DG - We want to report the dr11 added base BRIGHT/DARK tiles
+    # on the 1b program plots. These were added 6/11 so we look
+    # for 1a tiles and include a cut on that date. We must do this here
+    # first to ensure that we collect the correct nights to process.
+    # We will do it again in the actual plotting function to ensure
+    # we have the correct number of tiles on those nights.
+    if "1B" in program:
+        # log.info("entered block")
+        dr11_1a_tiles = (obs_progs == program.replace("1B", ""))
+        dr11_1a_tiles &= obs_nights > 20260610
+        sel |= dr11_1a_tiles
+
+    return sel
 

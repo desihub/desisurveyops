@@ -25,6 +25,7 @@ from desisurveyops.status_utils import (
     get_filename,
     get_fns,
     get_obsdone_tiles,
+    get_observed_tiles_from_program,
 )
 
 # AR desispec
@@ -112,14 +113,7 @@ def process_qso(
         log.info(
             "{}\tCompute qso stats".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         )
-        sel = obs_progs == program
-
-        # DG - Add DR11 1A tiles on 1B  programs.
-        if "1B" in program:
-            # log.info("entered block")
-            dr11_1a_tiles = (obs_progs == program.replace("1B", ""))
-            dr11_1a_tiles &= obs_nights > 20260610
-            sel |= dr11_1a_tiles
+        sel = get_observed_tiles_from_program(obs_progs, obs_nights, program)
 
         tileids, lastnights = obs_tiles[sel], obs_nights[sel]
         _ = np.char.add(tileids.astype(str), ",")
