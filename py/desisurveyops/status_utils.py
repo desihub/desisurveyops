@@ -1024,6 +1024,12 @@ def get_tile_selection_from_program(t, program, in_desi=True, skip_pass=None):
     """
     sel = t["PROGRAM"] == program
 
+    # DG - skip pass before adding 1A tiles, so that we don't skip
+    # the same pass on the 1A tiles. That is, skip pass should only apply
+    # to the 1B program tiles if this is a 1B program.
+    if skip_pass is not None:
+        sel &= ~np.isin(t["PASS"], skip_pass)
+
     # DG - DR11 tiles for 1b programs.
     if program == "DARK1B":
         sel |= ((t["TILEID"] >= 11962) & (t["TILEID"] <= 15688))
@@ -1032,9 +1038,6 @@ def get_tile_selection_from_program(t, program, in_desi=True, skip_pass=None):
 
     if in_desi:
         sel &= t["IN_DESI"]
-
-    if skip_pass is not None:
-        sel &= ~np.isin(t["PASS"], skip_pass)
 
     return sel
 
