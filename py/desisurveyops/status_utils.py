@@ -1004,6 +1004,24 @@ def get_speed(d, source):
     return speed
 
 def get_tile_selection_from_program(t, program, in_desi=True, skip_pass=None):
+    """
+    Get a boolean selection array for tiles belonging to a given program.
+
+    Args:
+        t: tile table, e.g. from reading tiles-{survey}.ecsv (astropy.table.Table)
+        program: "BACKUP", "BRIGHT{1B}", or "DARK{1B}" (str)
+        in_desi (optional, defaults to True): if True, additionally require IN_DESI=True (bool)
+        skip_pass (optional, defaults to None): if set, exclude tiles whose PASS is in skip_pass (list of int)
+
+    Returns:
+        sel: boolean selection array over the rows of t (numpy array of bool)
+
+    Notes:
+        For BRIGHT1B, additionally includes BRIGHT-program tiles with TILEID in [30993, 33654],
+            corresponding to 1A DR11 tiles added after 20260611.
+        For DARK1B, additionally includes DARK-program tiles with TILEID in [11962, 15688],
+            corresponding to 1A DR11 tiles added after 20260611.
+    """
     sel = t["PROGRAM"] == program
 
     # DG - DR11 tiles for 1b programs.
