@@ -352,7 +352,7 @@ def edit_history_tiles_file(night, revision, comment, survey='main'):
 
     return fn
 
-    
+
 def get_history_tiles_infos(survey):
     """
     Get infos about the history of tiles-{survey}.ecsv.
@@ -366,7 +366,7 @@ def get_history_tiles_infos(survey):
     d = Table.read(fn, format="ascii.ecsv")
 
     d.meta["FOLDER"] = os.path.dirname(fn)
-    
+
     # AR better safe than sorry...
     d = d[d["NIGHT"].argsort()]
 
@@ -381,7 +381,7 @@ def get_history_tiles_filename(survey):
         survey: survey name (str)
     """
     return os.path.join(get_history_tiles_dir(), f"tiles-{survey}-history.ecsv")
-    
+
 
 def get_history_tiles_dir():
     """
@@ -1002,3 +1002,78 @@ def get_speed(d, source):
         / d["EXPTIME"][sel]
     )
     return speed
+
+def get_tile_selection_from_program(t, program, in_desi=True, skip_pass=None):
+    """
+    Get a boolean selection array for tiles belonging to a given program.
+
+    Args:
+        t: tile table, e.g. from reading tiles-{survey}.ecsv (astropy.table.Table)
+        program: "BACKUP", "BRIGHT{1B}", or "DARK{1B}" (str)
+        in_desi (optional, defaults to True): if True, additionally require IN_DESI=True (bool)
+        skip_pass (optional, defaults to None): if set, exclude tiles whose PASS is in skip_pass (list of int)
+
+    Returns:
+        sel: boolean selection array over the rows of t (numpy array of bool)
+
+    Notes:
+        For BRIGHT1B, additionally includes BRIGHT-program tiles with TILEID in [30993, 33654],
+            corresponding to 1A DR11 tiles added after 20260611.
+        For DARK1B, additionally includes DARK-program tiles with TILEID in [11962, 15688],
+            corresponding to 1A DR11 tiles added after 20260611.
+    """
+    sel = t["PROGRAM"] == program
+
+    # DG - skip pass before adding 1A tiles, so that we don't skip
+    # the same pass on the 1A tiles. That is, skip pass should only apply
+    # to the 1B program tiles if this is a 1B program.
+    if skip_pass is not None:
+        sel &= ~np.isin(t["PASS"], skip_pass)
+
+    # DG - DR11 tiles for 1b programs.
+    if program == "DARK1B":
+        sel |= ((t["TILEID"] >= 11962) & (t["TILEID"] <= 15688))
+    elif program == "BRIGHT1B":
+        sel |= ((t["TILEID"] >= 30993) & (t["TILEID"] <= 33654))
+
+    if in_desi:
+        sel &= t["IN_DESI"]
+
+    return sel
+
+def get_observed_selection_from_program(obs_progs, obs_nights, program):
+    """
+    Get a boolean selection array for observed tiles belonging to a given program.
+
+    Args:
+        obs_progs: program name for each observed tile, as returned by get_obsdone_tiles() (numpy array of str)
+        obs_nights: night of observation for each observed tile, as returned by get_obsdone_tiles() (numpy array of int)
+        program: "BACKUP", "BRIGHT{1B}", or "DARK{1B}" (str)
+
+    Returns:
+        sel: boolean selection array over the rows of obs_progs/obs_nights (numpy array of bool)
+
+    Notes:
+        For BRIGHT1B or DARK1B, additionally includes tiles from the corresponding base program
+            (BRIGHT or DARK respectively) observed after night 20260610,
+            corresponding to 1A DR11 tiles added on 20260611.
+        Unlike get_tile_selection_from_program(), this function operates on the observed-tile
+            arrays from get_obsdone_tiles() rather than on a tiles table, and so uses the
+            observation night as a proxy for the tile timestamp.
+    """
+    sel = obs_progs == program
+
+    # DG - We want to report the dr11 added base BRIGHT/DARK tiles
+    # on the 1b program plots. These were added 6/11 so we look
+    # for 1a tiles and include a cut on that date. We must do this here
+    # first to ensure that we collect the correct nights to process.
+    # We will do it again in the actual plotting function to ensure
+    # we have the correct number of tiles on those nights.
+    if "1B" in program:
+        # log.info("entered block")
+        dr11_1a_tiles = (obs_progs == program.replace("1B", ""))
+        dr11_1a_tiles &= obs_nights > 20260610
+        sel |= dr11_1a_tiles
+
+    return sel
+

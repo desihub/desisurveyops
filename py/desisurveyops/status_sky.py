@@ -31,6 +31,8 @@ from desisurveyops.status_utils import (
     get_moon_radecphase,
     get_expfacs,
     create_mp4,
+    get_tile_selection_from_program,
+    get_observed_selection_from_program,
 )
 
 # AR desimodel
@@ -110,12 +112,11 @@ def process_skymap(
     max_numproc = 128
 
     for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
-
         # AR nights for this program
-        sel = obs_progs == program
+        sel = get_observed_selection_from_program(obs_progs, obs_nights, program)
 
-        ## DG: Skip any passes we want, given a specific survey. Formerly
-        ## this comment indicated that we skip the low priority pass 5 in the
+        # DG: Skip any passes we want, given a specific survey. Formerly
+        # this comment indicated that we skip the low priority pass 5 in the
         # BRIGHT1B program.
         if skip_pass is not None:
             log.warning(f"For PROGRAM={program_str} ignoring PASS={skip_pass}")
@@ -161,7 +162,7 @@ def process_skymap(
                         ext="png",
                     )
                     log.info(f"{outpng = }")
-                    if (not os.path.isfile(outpng)) | (recompute):
+                    if (not os.path.isfile(outpng)) or (recompute):
                         myargs.append(
                             (
                                 outpng,
@@ -470,11 +471,7 @@ def create_skygoal(tilesfn, program, outfn=None, nside=1024, skip_pass=None):
 
     # AR tiles file
     t = Table.read(tilesfn)
-    sel = t["PROGRAM"] == program
-    sel &= t["IN_DESI"]
-
-    if skip_pass is not None:
-        sel &= ~np.isin(t["PASS"], skip_pass)
+    sel = get_tile_selection_from_program(t, program, in_desi=True, skip_pass=skip_pass)
 
     t = t[sel]
     if skip_pass is not None:
@@ -482,7 +479,7 @@ def create_skygoal(tilesfn, program, outfn=None, nside=1024, skip_pass=None):
     else:
         log.info("found {} tiles with PROGRAM = {}".format(len(t), program))
 
-    # AR handle e.g. BRIGHT1B which does not exist yet
+    # AR handle if a program does not exist yet or has no tiles.
     if len(t) == 0:
         log.warning("no tiles found for PROGRAM = {}, no file created".format(program))
         return None
@@ -598,10 +595,7 @@ def plot_skymap(
     if tilesfn is None:
         tilesfn = fns["ops"]["tiles"]
     t = Table.read(tilesfn)
-    sel = t["PROGRAM"] == program
-    sel &= t["IN_DESI"]
-    if skip_pass is not None:
-        sel &= ~np.isin(t["PASS"], skip_pass)
+    sel = get_tile_selection_from_program(t, program, in_desi=True, skip_pass=skip_pass)
 
     t = t[sel]
     passids = np.unique(t["PASS"])
@@ -626,6 +620,7 @@ def plot_skymap(
     d = get_skygoal(tilesfn, program, skip_pass=skip_pass)
     nside = d.meta["HPXNSIDE"]
     assert d.meta["HPXNEST"] == nest
+
     # AR to handle overlapping tiles in a single pass
     # AR for BRIGHT1B, first compute the per-tile pixels
     # AR note that tiles2pix() is not an exact solution
@@ -1251,11 +1246,7 @@ def plot_skycompl_ralst(
     if tilesfn is None:
         tilesfn = fns["ops"]["tiles"]
     t = Table.read(tilesfn)
-    sel = t["PROGRAM"] == program
-    sel &= t["IN_DESI"]
-    if skip_pass is not None:
-        sel &= ~np.isin(t["PASS"], skip_pass)
-
+    sel = get_tile_selection_from_program(t, program, in_desi=True, skip_pass=skip_pass)
     t = t[sel]
 
     # AR cap
@@ -1463,8 +1454,7 @@ def plot_sky_pending(
     e = Table.read(fn)
     tilesfn = fns["ops"]["tiles"]
     t = Table.read(tilesfn)
-    sel = t["PROGRAM"] == program
-    sel &= t["IN_DESI"]
+    sel = get_tile_selection_from_program(t, program, in_desi=True)
     sel &= (t["STATUS"] != "unobs") & (t["STATUS"] != "done")
     if skip_pass is not None:
         sel &= ~np.isin(t["PASS"], skip_pass)

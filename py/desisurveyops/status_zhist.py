@@ -23,20 +23,16 @@ from desisurveyops.status_utils import (
     get_fns,
     get_obsdone_tiles,
     table_read_for_pool,
+    get_tile_selection_from_program,
+    get_observed_selection_from_program
 )
 
 # AR desispec
 from desispec.tile_qa_plot import (
     get_qa_config,
-    get_zbins,
     get_tracer,
     get_zhists,
-    get_qa_badmsks,
-    get_quantz_cmap,
-    make_tile_qa_plot,
 )
-
-# AR fiberassgin
 
 # AR desiutil
 from desiutil.log import get_logger
@@ -44,7 +40,6 @@ from desiutil.log import get_logger
 # AR matplotlib
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib import gridspec
 
 log = get_logger()
 
@@ -113,15 +108,10 @@ def process_zhist(
             rebin = 1
 
         # AR select the tiles
-        sel = obs_progs == program
+        sel = get_observed_selection_from_program(obs_progs, obs_nights, program)
         sel &= np.isin(obs_tiles, e["TILEID"])
-        # if npassmax is not None:
-        #     t = Table.read(out_fns["ops"]["tiles"])
-        #     t = t[t["PASS"] < npassmax]
-        #     sel &= np.isin(obs_tiles, t["TILEID"])
 
         # DG For any skip cases that get passed, e.g. skipping pass 5 in BRIGHT1B
-
         if skip_pass is not None:
             log.warning(f"For PROGRAM={program_str} ignoring PASS={skip_pass}")
             fn = out_fns["ops"]["tiles"]
@@ -129,7 +119,6 @@ def process_zhist(
             t = t[~np.isin(t["PASS"], skip_pass)]
             sel &= np.isin(obs_tiles, t["TILEID"])
 
-        # if npassmax is not None:
             log.info(f"found {sel.sum()} tiles with PROGRAM = {program} and SKIP_PASS {skip_pass}")
         else:
             log.info("found {} tiles with PROGRAM = {}".format(sel.sum(), program))
@@ -198,13 +187,17 @@ def process_zhist(
             if key not in keys:
                 for d in ds:
                     d.meta[key] = None
-            else:
-                assert np.unique([d.meta[key] for d in ds]).size == 1
+            # DG - Remove this check, because when we added 1A DR11 tiles to 1B programs
+            # we naturally will have two values here e.g. BRIGHT and BRIGHT1B for FAPRGRM.
+            # else:
+            #     assert np.unique([d.meta[key] for d in ds]).size == 1
 
         # AR vstack + write
         d = vstack(ds)
         d.meta["SURVEY"], d.meta["SPECPROD"] = survey, specprod
         d.write(outfn, overwrite=True)
+
+        log.info(f"Wrote {outfn}")
 
         # AR plot
         plot_zhist(
@@ -360,10 +353,7 @@ def plot_zhist(
 
     tilesfn = get_fns(survey=survey, specprod=specprod)["ops"]["tiles"]
     t = Table.read(tilesfn)
-    sel = t["PROGRAM"] == program
-    sel &= t["IN_DESI"]
-    if skip_pass is not None:
-        sel &= ~np.isin(t["PASS"], skip_pass)
+    sel = get_tile_selection_from_program(t, program, in_desi=True, skip_pass=skip_pass)
     t = t[sel]
 
     title = "{}/{}\n{}/{} (={:.0f}%) completed tiles up to {}".format(
@@ -384,25 +374,25 @@ def plot_zhist(
         rebin_zcens = zcens.reshape((nbin // rebin, rebin)).mean(axis=1)
     else:
         rebin_zcens = zcens[:-remainder].reshape((nbin // rebin, rebin)).mean(axis=1)
-    nrebin = len(rebin_zcens)
-    tns = np.array(["{}-{}".format(t, n) for t, n in zip(d["TILEID"], d["LASTNIGHT"])])
-    unq_tns = np.unique(tns)
 
     for tracer, color in zip(tracers, colors):
-
-        # AR gather all zhists
         dd = d[d["TRACER"] == tracer]
-        assert len(dd) == unq_tns.size * nbin
-        hs = dd["ZHIST"].reshape((unq_tns.size, nbin))
-        nights = dd["LASTNIGHT"].reshape((unq_tns.size, nbin))[:, 0]
+
+        # DG - We must account for some tiles not having a tracer now that
+        # 1A DR11 DARK tiles are included in 1B plots, since LGE are not in the !A tiles.
+        tns_with_tracer = np.unique(dd["TILEID"])
+
+        assert len(dd) == tns_with_tracer.size * nbin
+        hs = dd["ZHIST"].reshape((tns_with_tracer.size, nbin))
+        nights = dd["LASTNIGHT"].reshape((tns_with_tracer.size, nbin))[:, 0]
 
         # AR rebin
         if remainder == 0:
-            rebin_hs = hs.reshape((unq_tns.size, nbin // rebin, rebin)).sum(axis=-1)
+            rebin_hs = hs.reshape((tns_with_tracer.size, nbin // rebin, rebin)).sum(axis=-1)
         else:
             rebin_hs = (
                 hs[:, :-remainder]
-                .reshape((unq_tns.size, nbin // rebin, rebin))
+                .reshape((tns_with_tracer.size, nbin // rebin, rebin))
                 .sum(axis=-1)
             )
 
