@@ -28,8 +28,15 @@ parser.add_argument("--oldstyletoo", default=False, action="store_true",
         help=("Use the style of ToO file from the first part of the DESI "
         "survey, before the addition of Rubin ToOs")
         )
+parser.add_argument("--send_email", default=None, type=str,
+        help=("If provided, send an email on completion to this email address with the results"))
+parser.add_argument("--from_email", default=None, type=str,
+        help=("The from address for the sent email"))
 
 args = parser.parse_args()
+
+if bool(args.send_email) != bool(args.from_email):
+    raise ValueError("If providing either args.send_email or args.from_email, you must provide both!")
 
 if args.night is None:
     args.night = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y%m%d')
@@ -157,7 +164,7 @@ if docheck:
             if len(tids) > 0:
                 sel = tids > 0
                 if len(tids[sel]) > 0:
-                    print('found '+str(len(tids[sel]))+' positive targetid that are different')
+                    print('Found '+str(len(tids[sel]))+' positive targetid that are different')
                     print('FOLLOW-UP NEEDED, DO NOT ALLOW ZDONE FOR TILEID '+str(rerun_tids[ii])+'!!!')
                 else:
                     print('TILEID '+str(rerun_tids[ii])+' PASSED')
@@ -194,9 +201,29 @@ for tid in tids_passl:
                 shutil.move(fn, mv_fn)
                 # os.system("mv {} {}".format(fn, mv_fn))
 
+final_result = ""
 if len(tids_passl) == len(tidl):
-    print('SUCCESS all tiles ('+str(len(tidl))+') passed; quickly double check above that files were copied as expected')
+    final_result = f"SUCCESS all tiles ({str(len(tidl))}) passed; quickly double check above that files were copied as expected"
 else:
-    print('FAIL!!! at lease one tile failed; investigate output above')
+    final_result = "FAIL!!! at lease one tile failed; investigate output above"
+print(final_result)
 
+# TODO: os.system is deprecated. Switch this to subporcess.run
 os.system(f"fix_permissions.sh {args.outroot}")
+
+if args.send_email:
+    # DG - This entire block is basically just from the Python docs.
+    import smtplib
+    from email.message import EmailMessage
+
+    msg = EmailMessage()
+
+    msg["From"] = args.from_email
+    msg["To"] = args.send_email
+
+    msg["Subject"] = f"{args.night} validate_lastnight_fba: {final_result.split()[0]}"
+    msg.set_content(final_result)
+
+    s = smtplib.SMTP('localhost')
+    s.send_message(msg)
+    s.quit()
