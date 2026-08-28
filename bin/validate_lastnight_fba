@@ -141,6 +141,7 @@ docheck = True
 print("Checking old vs new assignments", flush=True)
 
 tids_passl = []
+details_for_send = []
 if docheck:
     diff_names = []
     orig_names = []
@@ -159,21 +160,26 @@ if docheck:
         p.starmap(fba_rerun_check, zip(repro_names, orig_names, diff_names))
 
     for ii, dfn in enumerate(diff_names):
+        success_msg = f"TILEID {str(rerun_tids[ii])} PASSED"
         if len(open(dfn).readlines())>1:
             tids = np.atleast_1d(np.genfromtxt(dfn, usecols = (3,), dtype=int))
             if len(tids) > 0:
                 sel = tids > 0
                 if len(tids[sel]) > 0:
-                    print('Found '+str(len(tids[sel]))+' positive targetid that are different')
-                    print('FOLLOW-UP NEEDED, DO NOT ALLOW ZDONE FOR TILEID '+str(rerun_tids[ii])+'!!!')
+                    print(f"Found {str(len(tids[sel]))} positive targetid that are different")
+                    print(f"FOLLOW-UP NEEDED, DO NOT ALLOW ZDONE FOR TILEID {str(rerun_tids[ii])} !!!")
+                    details_for_send.append(f"FOLLOW-UP NEEDED, TILEID {str(rerun_tids[ii])} ({str(len(tids[sel]))} different positive targetids)")
                 else:
-                    print('TILEID '+str(rerun_tids[ii])+' PASSED')
+                    print(success_msg)
+                    details_for_send.append(success_msg)
                     tids_passl.append(rerun_tids[ii])
             else:
-                print('TILEID '+str(rerun_tids[ii])+' PASSED')
+                print(success_msg)
+                details_for_send.append(success_msg)
                 tids_passl.append(rerun_tids[ii])
         else:
-            print('TILEID '+str(rerun_tids[ii])+' PASSED')
+            print(success_msg)
+            details_for_send.append(success_msg)
             tids_passl.append(rerun_tids[ii])
 
 
@@ -207,6 +213,7 @@ if len(tids_passl) == len(tidl):
 else:
     final_result = "FAIL!!! at lease one tile failed; investigate output above"
 print(final_result)
+details_for_send.append(final_result)
 
 # TODO: os.system is deprecated. Switch this to subporcess.run
 os.system(f"fix_permissions.sh {args.outroot}")
@@ -222,7 +229,8 @@ if args.send_email:
     msg["To"] = args.send_email
 
     msg["Subject"] = f"{args.night} validate_lastnight_fba: {final_result.split()[0]}"
-    msg.set_content(final_result)
+    to_send = "\n".join(details_for_send)
+    msg.set_content(to_send)
 
     s = smtplib.SMTP('localhost')
     s.send_message(msg)
