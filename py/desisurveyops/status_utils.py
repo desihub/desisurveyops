@@ -1003,6 +1003,7 @@ def get_speed(d, source):
     )
     return speed
 
+
 def get_tile_selection_from_program(t, program, in_desi=True, skip_pass=None):
     """
     Get a boolean selection array for tiles belonging to a given program.
@@ -1017,10 +1018,8 @@ def get_tile_selection_from_program(t, program, in_desi=True, skip_pass=None):
         sel: boolean selection array over the rows of t (numpy array of bool)
 
     Notes:
-        For BRIGHT1B, additionally includes BRIGHT-program tiles with TILEID in [30993, 33654],
-            corresponding to 1A DR11 tiles added after 20260611.
-        For DARK1B, additionally includes DARK-program tiles with TILEID in [11962, 15688],
-            corresponding to 1A DR11 tiles added after 20260611.
+        For BRIGHT1B (DARK1B), additionally includes any BRIGHT (DARK) tile observed after Run1a.
+        For BRIGHT (DARK), we remove tiles not observed in Run1a.
     """
     sel = t["PROGRAM"] == program
 
@@ -1030,11 +1029,28 @@ def get_tile_selection_from_program(t, program, in_desi=True, skip_pass=None):
     if skip_pass is not None:
         sel &= ~np.isin(t["PASS"], skip_pass)
 
-    # DG - DR11 tiles for 1b programs.
-    if program == "DARK1B":
-        sel |= ((t["TILEID"] >= 11962) & (t["TILEID"] <= 15688))
-    elif program == "BRIGHT1B":
-        sel |= ((t["TILEID"] >= 30993) & (t["TILEID"] <= 33654))
+    # AR for BRIGHT1B (DARK1B), additionally includes any BRIGHT (DARK) tile observed after Run1a
+    # AR for BRIGHT (DARK), we remove tiles not observed in Run1a
+    if program in ["BRIGHT", "BRIGHT1B", "DARK", "DARK1B"]:
+        fn = str(files("desisurveyops").joinpath("..", "..", "data", "tiles-main-brightdark-run1a.ecsv"))
+        d = Table.read(fn)
+        run1a_tileids = d[d["FAPRGRM"] == program.replace("1B", "").lower()]["TILEID"]
+        run1b_sel = (t["PROGRAM"] == program.replace("1B", "")) & (~np.isin(t["TILEID"], run1a_tileids))
+        run1b_tileids = t["TILEID"][run1b_sel]
+        if program in ["BRIGHT", "DARK"]:
+            sel &= ~np.isin(t["TILEID"], run1b_tileids)
+            log.info(
+                "Remove {} {} tiles for {} (i.e. tiles not from Run1a)".format(
+                    len(run1b_tileids),  program, program,
+                )
+            )
+        if program in ["BRIGHT1B", "DARK1B"]:
+            sel |= np.isin(t["TILEID"], run1b_tileids)
+            log.info(
+                "Add {} {} tiles for {} (i.e. tiles not from Run1a)".format(
+                    len(run1b_tileids),  program.replace("1B", ""), program,
+                )
+            )
 
     if in_desi:
         sel &= t["IN_DESI"]
