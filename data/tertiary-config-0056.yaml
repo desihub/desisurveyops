@@ -1,0 +1,68 @@
+# overall settings
+settings:
+    prognum: 56
+    targdir: "/pscratch/sd/b/brookluo/tertiary-design/gw_cosmo/0056"
+    ntile: 2
+    field_ra: 7.4 # tiles have been defined, these are just placeholders
+    field_dec: 45.9
+    tileid_start: 99900
+    rundate: "2026-08-11T17:00:43+00:00"
+    obsconds: "BRIGHT"
+    sbprof: "BGS"
+    goaltime: 150
+    std_dtver: "2.2.0"
+    np_rand_seed: 1234
+
+# per-sample settings
+# One catalog already carries TERTIARY_TARGET. FN is shared; create_targets
+# strips TARGETID and encodes new ones for prognum 56.
+samples:
+    NED_ZAGREE:
+        {
+            "PRIORITY_INIT": 9600,
+            "NGOAL": 1,
+            "CHECKER": "AA",
+            "FN": "inputcats/AA-tertiary-targets-9998.fits",
+        }
+    PS1_ZAGREE:
+        {
+            "PRIORITY_INIT": 9500,
+            "NGOAL": 1,
+            "CHECKER": "AA",
+            "FN": "inputcats/AA-tertiary-targets-9998.fits",
+        }
+    NED_NOZ:
+        {
+            "PRIORITY_INIT": 9400,
+            "NGOAL": 1,
+            "CHECKER": "AA",
+            "FN": "inputcats/AA-tertiary-targets-9998.fits",
+        }
+    PS1_NOZ:
+        {
+            "PRIORITY_INIT": 9300,
+            "NGOAL": 1,
+            "CHECKER": "AA",
+            "FN": "inputcats/AA-tertiary-targets-9998.fits",
+        }
+    PS1_ZDISAGREE:
+        {
+            "PRIORITY_INIT": 9200,
+            "NGOAL": 1,
+            "CHECKER": "AA",
+            "FN": "inputcats/AA-tertiary-targets-9998.fits",
+        }
+    NED_ZDISAGREE:
+        {
+            "PRIORITY_INIT": 9100,
+            "NGOAL": 1,
+            "CHECKER": "AA",
+            "FN": "inputcats/AA-tertiary-targets-9998.fits",
+        }
+    NED_SPECZ:
+        {
+            "PRIORITY_INIT": 9000,
+            "NGOAL": 1,
+            "CHECKER": "AA",
+            "FN": "inputcats/AA-tertiary-targets-9998.fits",
+        }

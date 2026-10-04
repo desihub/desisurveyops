@@ -209,6 +209,24 @@ def execute_fba(args):
     tiles = Table.read(tilesfn)
     ntile = len(tiles)
 
+    # fba_tertiary_too copies its output columns from
+    # $DESI_SURVEYOPS/mtl/main/ToO/ToO.ecsv. surveyops tags/2.0 has no mtl
+    # tree; that catalog is in trunk. Override only the subprocess env.
+    surveyops_for_too = os.getenv("DESI_SURVEYOPS")
+    maintoofn = os.path.join(surveyops_for_too, "mtl", "main", "ToO", "ToO.ecsv")
+    ftt_env = os.environ.copy()
+    if not os.path.isfile(maintoofn):
+        surveyops_for_too = os.path.join(
+            os.getenv("DESI_ROOT"), "survey", "ops", "surveyops", "trunk"
+        )
+        maintoofn = os.path.join(surveyops_for_too, "mtl", "main", "ToO", "ToO.ecsv")
+        ftt_env["DESI_SURVEYOPS"] = surveyops_for_too
+        logger.info(
+            "no main ToO under $DESI_SURVEYOPS; fba_tertiary_too will use {}".format(
+                maintoofn
+            )
+        )
+
     # AR loop on tiles
     if args.only_tileid:
         tile_idx = [np.where(tiles["TILEID"] == args.only_tileid)[0][0]]
@@ -243,7 +261,9 @@ def execute_fba(args):
         logger.info("Running command: {}".format(" ".join(ftt_cmd)))
         if not args.dry_run:
             with open(logfn, "a+") as fp:
-                result = subprocess.run(ftt_cmd, stderr=subprocess.STDOUT, stdout=fp)
+                result = subprocess.run(
+                    ftt_cmd, stderr=subprocess.STDOUT, stdout=fp, env=ftt_env
+                )
                 if result.returncode != 0:
                     logger.error(f"Error executing fba_tertiary_too: exit code {result.returncode}. Check {logfn} for details.")
         # AR fba_launch call
@@ -269,12 +289,9 @@ def execute_fba(args):
             # GOALTIME, SURVEY and FAPRGRM header keywords
             "--goaltype", obsconds, "--hdr_survey", hdr_survey, "--hdr_faprgrm", hdr_faprgrm,
         ]
-        # Add ToO file
+        # Add ToO file. maintoofn is the catalog located above.
         all_toofn = toofn
         if args.add_main_too:
-            maintoofn = os.path.join(
-                os.getenv("DESI_SURVEYOPS"), "mtl", "main", "ToO", "ToO.ecsv"
-            )
             all_toofn += f",{maintoofn}"
         fl_cmd.extend(["--too_tile", "--custom_too_file", all_toofn])
         # AR force tileid?
@@ -289,7 +306,7 @@ def execute_fba(args):
         logger.info("Running command: {}".format(" ".join(fl_cmd)))
         if not args.dry_run:
             with open(logfn, "a+") as fp:
-                result = subprocess.run(fl_cmd, stderr=subprocess.STDOUT, stdout=fp)
+                result = subprocess.run(fl_cmd, stderr=subprocess.STDOUT, stdout=fp, env=ftt_env)
                 if result.returncode != 0:
                     logger.error(f"Error executing fba_launch: exit code {result.returncode}. Check {logfn} for details.")
 
@@ -308,7 +325,7 @@ if __name__ == "__main__":
                 execute_tertiary_design(args)
             if args.workflow in ("fba", "all"):
                 execute_fba(args)
-            if args.workflow in ("special_fba"):
+            if args.workflow == "special_fba":
                 logger.info(f"Running special FBA workflow for tertiary program {prognum}")
                 design_module = import_design_module(args.design_file_path)
                 design_module.execute_fba(args)
