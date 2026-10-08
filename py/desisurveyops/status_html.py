@@ -145,6 +145,19 @@ def process_html(
             t = t[sel]
             return t
 
+        # AR program clarification
+        html.write("\t<p>Program defined as tiles with:</p>\n")
+        if program in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
+            txt = "- FAPRGRM/PROGRAM={}, or FAPRGRM/PROGRAM={} and observed with NIGHT>20260414 (200260414 is the end of Run1a)".format(
+                program.replace("_RUN", ""), program.replace("_RUN1B", ""),
+            )
+        else:
+            txt = "- FAPRGRM/PROGRAM={}.".format(program)
+        html.write("\t<p>{}</p>\n".format(txt))
+        if skip_pass is not None:
+            txt = "- PASS!={}.".format(",".join([str(_) for _ in skip_pass]))
+            html.write("\t<p>{}</p>\n".format(txt))
+
         # AR history...
         d = get_history_tiles_infos(survey)
         tilesdir = d.meta["FOLDER"]
