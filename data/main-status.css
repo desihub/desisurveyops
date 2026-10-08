@@ -100,6 +100,22 @@
 .active_bright1bwithpass5, .collapsible_bright1bwithpass5:hover {
     background-color: #00ff00;
 }
+.collapsible_bright_run1b {
+    background-color: #ccffcc;
+    color: #444;
+    cursor: pointer;
+    padding-left: 12px;
+    margin-top:8px;
+    width: 100%;
+    height: 28px;
+    border: 1px solid #444;
+    text-align: left;
+    outline: none;
+    font-size: 12px;
+}
+.active_bright_run1b, .collapsible_bright_run1b:hover {
+    background-color: #00ff00;
+}
 .collapsible_dark {
     background-color: #cce6ff;
     color: #444;
@@ -130,6 +146,22 @@
     font-size: 12px;
 }
 .active_dark1b, .collapsible_dark1b:hover {
+    background-color: #0080ff;
+}
+.collapsible_dark_run1b {
+    background-color: #cce6ff;
+    color: #444;
+    cursor: pointer;
+    padding-left: 12px;
+    margin-top:8px;
+    width: 100%;
+    height: 28px;
+    border: 1px solid #444;
+    text-align: left;
+    outline: none;
+    font-size: 12px;
+}
+.active_dark_run1b, .collapsible_dark_run1b:hover {
     background-color: #0080ff;
 }
 .collapsible_subbackup {
@@ -212,6 +244,22 @@
 .active_subbright1bwithpass5, .collapsible_subbright1bwithpass5:hover {
     background-color: #00ff00;
 }
+.collapsible_subbright_run1b {
+    background-color: #ccffcc;
+    color: #444;
+    cursor: pointer;
+    padding-left: 12px;
+    margin-top:8px;
+    width: 45%;
+    height: 28px;
+    border: 1px solid #444;
+    text-align: left;
+    outline: none;
+    font-size: 12px;
+}
+.active_subbright_run1b, .collapsible_subbright_run1b:hover {
+    background-color: #00ff00;
+}
 .collapsible_subdark {
     background-color: #cce6ff;
     color: #444;
@@ -242,6 +290,22 @@
     font-size: 12px;
 }
 .active_subdark1b, .collapsible_subdark1b:hover {
+    background-color: #0080ff;
+}
+.collapsible_subdark_run1b {
+    background-color: #cce6ff;
+    color: #444;
+    cursor: pointer;
+    padding-left: 12px;
+    margin-top:8px;
+    width: 45%;
+    height: 28px;
+    border: 1px solid #444;
+    text-align: left;
+    outline: none;
+    font-size: 12px;
+}
+.active_subdark_run1b, .collapsible_subdark_run1b:hover {
     background-color: #0080ff;
 }
 .collapsible_month {
