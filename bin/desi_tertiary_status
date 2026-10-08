@@ -18,7 +18,7 @@ log = get_logger()
 
 def parse():
     default_outdir = os.path.join(
-        os.getenv("DESI_ROOT"), "users", "raichoor", "tertiary-status"
+        os.getenv("DESI_ROOT"), "users", "brookluo", "tertiary-status"
     )
     parser = ArgumentParser()
     parser.add_argument(
