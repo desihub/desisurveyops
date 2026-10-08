@@ -18,6 +18,7 @@ from desisurveyops.status_utils import (
     get_fns,
     get_obsdone_tiles,
     get_programs_passparams,
+    get_observed_selection,
     get_shutdowns,
     get_history_tiles_infos,
     get_history_tiles_dir,
@@ -104,7 +105,8 @@ def process_html(
     for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
 
         # AR have we already observed this program?
-        sel = obs_progs == program
+        #sel = obs_progs == program
+        sel = get_observed_selection(obs_tiles, obs_progs, program)
         # if npassmax is not None:
         #     fns = get_fns(survey=survey, specprod=specprod)
         #     fn = fns["ops"]["tiles"]
@@ -219,7 +221,8 @@ def process_html(
                 "\t\t<p>The color-coding represents the {}.</p>\n".format(quantlab2)
             )
             if case == "obs":
-                sel = obs_progs == program
+                # sel = obs_progs == program
+                sel = get_observed_selection(obs_tiles, obs_progs, program)
                 if sel.sum() == 0:
                     txt = "No {} tiles {} observed so far".format(
                         program_str, caselab.lower()
