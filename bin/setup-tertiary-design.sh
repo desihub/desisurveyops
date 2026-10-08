@@ -1,5 +1,5 @@
 #!/bin/bash
-source /global/cfs/cdirs/desi/software/desi_environment.sh main
+source /global/cfs/cdirs/desi/software/desi_environment.sh 25.3
 module load fiberassign/5.8.0
 if [[ $1 == "local" ]]; then
     export PYTHONPATH=/global/u1/b/brookluo/desihub/mydesi/desisurveyops/py:$PYTHONPATH

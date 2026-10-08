@@ -80,6 +80,9 @@ def get_prognum_desc(prognum=None):
         53: {"TARGETS": "DWARF_GALAXY", "FIELD": "COSMOS"},
         54: {"TARGETS": "LAE/LBG", "FIELD": "COSMOS"},
         55: {"TARGETS": "STEEL", "FIELD" : "COSMOS"},
+        56: {"TARGETS": "GW240615_113620", "FIELD": "RA,DEC=150.1,2.2"},
+        57: {"TARGETS": "GW241102_124058", "FIELD": "RA,DEC=345.3, 42.7"},
+        58: {"TARGETS": "XLG", "FIELD": "RA,DEC=270.1, 66.0"},
     }
     if prognum is None:
         return myd
