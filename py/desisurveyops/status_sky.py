@@ -166,7 +166,7 @@ def process_skymap(
                         night=night,
                         ext="png",
                     )
-                    log.info(f"{outpng = }")
+                    # log.info(f"{outpng = }")
                     if (not os.path.isfile(outpng)) or (recompute):
                         myargs.append(
                             (
