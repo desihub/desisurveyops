@@ -1694,8 +1694,8 @@ def plot_skyseq(
         # AR exposure number
         if i % 5 == 0:
             ax.text(
-                ax.projection_ra(e["TILERA"][[i]]),
-                ax.projection_dec(e["TILEDEC"][[i]] + 5),
+                ax.projection_ra(e["TILERA"][[i]])[0],
+                ax.projection_dec(e["TILEDEC"][[i]] + 5)[0],
                 str(i),
                 c=col,
                 fontsize=1.5 * fontsize,
