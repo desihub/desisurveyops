@@ -284,7 +284,7 @@ def get_programs_passparams(survey="main"):
             ("BRIGHT", None, "BRIGHT"),
             ("BRIGHT1B", [5], "BRIGHT1B"), # "official" BRIGHT1B skips pass 5
             ("BRIGHT1B", None, "BRIGHT1BWITHPASS5"), # "Full" BRIGHT1B incldues pass 5
-            ("BRIGHT_RUN1B", [5], "BRIGHT_RUN1B"), # run1b
+            ("BRIGHT_RUN1B", None, "BRIGHT_RUN1B"), # run1b
             ("DARK", None, "DARK"),
             ("DARK1B", None, "DARK1B"),
             ("DARK_RUN1B", None, "DARK_RUN1B"), # run1b
