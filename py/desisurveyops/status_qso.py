@@ -96,7 +96,7 @@ def process_qso(
 
     for program, _, program_str in zip(programs, skip_passes, program_strs):
 
-        if program not in ["DARK", "DARK1B"]:
+        if program not in ["DARK", "DARK1B", "DARK_RUN1B"]:
             continue
 
         # AR output files

@@ -487,7 +487,7 @@ def process_html(
             html.write("\t</div>\n")
 
         # AR QSO / Lya
-        if (program == "DARK") | (program == "DARK1B"):
+        if program in ["DARK", "DARK1B", "DARK_RUN1B"]:
             html.write(
                 "\t<button style='margin-left:25px;' type='button' class='{}'><strong>QSO / Lya diagnoses</strong></button>\n".format(
                     collapsible_names["sub{}".format(program_str)]
