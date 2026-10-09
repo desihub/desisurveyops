@@ -265,9 +265,6 @@ def process_skyseq(
     outdir,
     survey,
     specprod,
-    programs,
-    skip_passes,
-    program_strs,
     numproc,
     recompute=False,
 ):
@@ -278,9 +275,6 @@ def process_skyseq(
         outdir: output folder (str)
         survey: survey name (str)
         specprod: spectroscopic production (e.g. daily) (str)
-        programs: list of programs (str)
-        skip_passes: passes to skip in each program (np.ndarray of ints)
-        program_strs: list of program_strs (str)
         numproc: number of parallel processes to run (int)
         recompute (optional, defaults to False): if True recompute all maps;
             if False, only compute missing maps (bool)
