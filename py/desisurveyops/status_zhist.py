@@ -130,7 +130,7 @@ def process_zhist(
             )
             continue
 
-        tileids, lastnights = obs_tiles[sel], obs_nights[sel]
+        tileids, lastnights, progs = obs_tiles[sel], obs_nights[sel], obs_progs[sel]
         fns = [
             get_filename(
                 outdir, survey, "zhist", tileid=tileid, night=lastnight, ext="ecsv"
@@ -139,8 +139,10 @@ def process_zhist(
         ]
 
         # AR compute?
+        # AR we use here progs, the per-tile program
+        # AR (as using program would break the code with {BRIGHT,DARK}_RUN1B)
         myargs = []
-        for i, (tileid, lastnight, fn) in enumerate(zip(tileids, lastnights, fns)):
+        for i, (tileid, lastnight, prog, fn) in enumerate(zip(tileids, lastnights, progs, fns)):
             if (not os.path.isfile(fns[i])) or (recompute):
                 # if "{},{}".format(tileid, lastnight) in black_tileids_nights:
                 if False:
@@ -149,7 +151,7 @@ def process_zhist(
                     if (recompute) & (os.path.isfile(fns[i])):
                         log.info("zhist: remove existing {}".format(fns[i]))
                         os.remove(fns[i])
-                    myargs.append((fn, specprod, tileid, lastnight, program, dchi2min))
+                    myargs.append((fn, specprod, tileid, lastnight, prog, dchi2min))
                     log.info("zhist: (re)compute {},{}".format(tileid, lastnight))
         if len(myargs) > 0:
             log.info(
@@ -295,17 +297,25 @@ def get_prgrm_traccols(program):
     Get the plotted tracers and colors for the n(z) plots.
 
     Args:
-        program: "BACKUP", "BRIGHT", or "DARK" (str)
+        program: "BACKUP", "BRIGHT", "BRIGHT{1B,RUN_1B}", "DARK", or "DARK{1B,RUN_1B}" (str)
 
     Returns:
         tracers: list of tracers (str)
         colors: list of colors (str)
+
+    Notes:
+        For {BRIGHT,DARK}_RUN1B, we use {BRIGHT,DARK}1B, so that it includes
+            all tracers.
     """
+    if program in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
+        prog = program.replace("_RUN", "")
+    else:
+        prog = program
     config = get_qa_config()
     tracers = [
         tracer
         for tracer in list(config["tile_qa_plot"]["tracers"].keys())
-        if program in config["tile_qa_plot"]["tracers"][tracer]["program"].split(",")
+        if prog in config["tile_qa_plot"]["tracers"][tracer]["program"].split(",")
     ]
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"][: len(tracers)]
     return tracers, colors
@@ -439,10 +449,10 @@ def plot_zhist(
     ax.set_title(title)
     ax.set_xlabel("Z")
     ax.set_ylabel("Per tile fractional count")
-    if program in ["BRIGHT", "BRIGHT1B"]:
+    if program in ["BRIGHT", "BRIGHT1B", "BRIGHT_RUN1B"]:
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 0.4)
-    if program in ["DARK", "DARK1B"]:
+    if program in ["DARK", "DARK1B", "DARK_RUN1B"]:
         ax.set_xlim(0, 5)
         ax.set_ylim(0, 0.3)
     ax.grid()
