@@ -186,7 +186,7 @@ def process_skymap(
                         # TODO: better approach?
                         skygoal_args.append(
                             {
-                                "fn": get_history_tilesfn(survey, opsnight=night),
+                                "fn": get_history_tilesfn(survey, opsnight=night, verbose=False),
                                 "program": program,
                                 "skip_pass": skip_pass,
                             }
