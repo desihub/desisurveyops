@@ -32,7 +32,7 @@ from desisurveyops.status_utils import (
     get_expfacs,
     create_mp4,
     get_tile_selection_from_program,
-    get_observed_selection_from_program,
+    get_observed_selection,
 )
 
 # AR desimodel
@@ -113,7 +113,7 @@ def process_skymap(
 
     for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
         # AR nights for this program
-        sel = get_observed_selection_from_program(obs_progs, obs_nights, program)
+        sel = get_observed_selection(obs_tiles, obs_progs, program)
 
         # DG: Skip any passes we want, given a specific survey. Formerly
         # this comment indicated that we skip the low priority pass 5 in the
@@ -161,7 +161,8 @@ def process_skymap(
                         night=night,
                         ext="png",
                     )
-                    log.info(f"{outpng = }")
+                    # AR commenting out as it kind of pollutes the log files
+                    # log.info(f"{outpng = }")
                     if (not os.path.isfile(outpng)) or (recompute):
                         myargs.append(
                             (
@@ -241,7 +242,7 @@ def process_skymap(
         )
 
         # AR pending tiles
-        if program in ["BRIGHT", "BRIGHT1B", "DARK", "DARK1B"]:
+        if program in ["BRIGHT", "BRIGHT1B", "DARK", "DARK1B", "BRIGHT_RUN1B", "DARK_RUN1B"]:
             if program_str not in prog_obs_nights:
                 log.warning(
                     "no found observed tiles for {}, not running plot_sky_pending()".format(
@@ -264,9 +265,6 @@ def process_skyseq(
     outdir,
     survey,
     specprod,
-    programs,
-    skip_passes,
-    program_strs,
     numproc,
     recompute=False,
 ):
@@ -277,9 +275,6 @@ def process_skyseq(
         outdir: output folder (str)
         survey: survey name (str)
         specprod: spectroscopic production (e.g. daily) (str)
-        programs: list of programs (str)
-        skip_passes: passes to skip in each program (np.ndarray of ints)
-        program_strs: list of program_strs (str)
         numproc: number of parallel processes to run (int)
         recompute (optional, defaults to False): if True recompute all maps;
             if False, only compute missing maps (bool)

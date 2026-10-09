@@ -25,7 +25,7 @@ from desisurveyops.status_utils import (
     get_filename,
     get_fns,
     get_obsdone_tiles,
-    get_observed_selection_from_program,
+    get_observed_selection,
 )
 
 # AR desispec
@@ -96,7 +96,7 @@ def process_qso(
 
     for program, _, program_str in zip(programs, skip_passes, program_strs):
 
-        if program not in ["DARK", "DARK1B"]:
+        if program not in ["DARK", "DARK1B", "DARK_RUN1B"]:
             continue
 
         # AR output files
@@ -113,7 +113,7 @@ def process_qso(
         log.info(
             "{}\tCompute qso stats".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         )
-        sel = get_observed_selection_from_program(obs_progs, obs_nights, program)
+        sel = get_observed_selection(obs_tiles, obs_progs, program)
 
         tileids, lastnights = obs_tiles[sel], obs_nights[sel]
         _ = np.char.add(tileids.astype(str), ",")

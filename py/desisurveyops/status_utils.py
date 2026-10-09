@@ -229,7 +229,11 @@ def create_folders_structure(outdir):
     mydirs = []
     # TODO this should be derived from the program + passparams defined in get_programs_passparams
     # it should absolutely NOT be hardcoded like this.
-    for prog in ["backup", "bright4pass", "bright", "bright1b", "bright1bwithpass5", "dark", "dark1b"]:
+    for prog in [
+        "backup",
+        "bright4pass", "bright", "bright1b", "bright1bwithpass5", "bright_run1b",
+        "dark", "dark1b", "dark_run1b",
+    ]:
         mydirs.append(os.path.join(outdir, "skymap", prog))
     for name in [
         "qso",
@@ -280,8 +284,10 @@ def get_programs_passparams(survey="main"):
             ("BRIGHT", None, "BRIGHT"),
             ("BRIGHT1B", [5], "BRIGHT1B"), # "official" BRIGHT1B skips pass 5
             ("BRIGHT1B", None, "BRIGHT1BWITHPASS5"), # "Full" BRIGHT1B incldues pass 5
+            ("BRIGHT_RUN1B", None, "BRIGHT_RUN1B"), # run1b
             ("DARK", None, "DARK"),
             ("DARK1B", None, "DARK1B"),
+            ("DARK_RUN1B", None, "DARK_RUN1B"), # run1b
         ]
         programs = np.array([_[0] for _ in xs])
         skips = np.array([info[1] for info in xs], dtype=object)
@@ -1003,13 +1009,40 @@ def get_speed(d, source):
     )
     return speed
 
+
+def get_run1b_selection(program, tileids, progs):
+    """
+    Get a boolean selection array for tiles belonging to BRIGHT_RUN1B or DARK_RUN1B.
+
+    Args:
+        program: "BRIGHT_RUN1B" or "DARK_RUN1B" (str)
+        tileids: tileids (numpy array of int)
+        progs: PROGRAM values (numpy array of str)
+
+    Returns:
+        sel: boolean selection array over the rows of tileids (numpy array of bool)
+
+    Notes:
+        {BRIGHT,DARK}_RUN1B definition: {BRIGHT,DARK}1B tiles, plus {BRIGHT,DARK} tiles
+            observed with NIGHT>20260414 (20260414 is the end of RUN1A).
+    """
+    assert program in ["BRIGHT_RUN1B", "DARK_RUN1B"]
+    sel = progs == program.replace("_RUN", "") # BRIGHT1B or DARK1B
+    fn = str(files("desisurveyops").joinpath("..", "..", "data", "tiles-main-brightdark-run1a.ecsv"))
+    d = Table.read(fn)
+    run1a_tileids = d[d["FAPRGRM"] == program.replace("_RUN1B", "").lower()]["TILEID"]
+    sel_add = (progs == program.replace("_RUN1B", "")) & (~np.isin(tileids, run1a_tileids))
+    sel |= sel_add
+    return sel
+
+
 def get_tile_selection_from_program(t, program, in_desi=True, skip_pass=None):
     """
     Get a boolean selection array for tiles belonging to a given program.
 
     Args:
         t: tile table, e.g. from reading tiles-{survey}.ecsv (astropy.table.Table)
-        program: "BACKUP", "BRIGHT{1B}", or "DARK{1B}" (str)
+        program: "BACKUP", "BRIGHT{1B}", or "DARK{1B}"  or "{BRIGHT,DARK}_RUN1B" (str)
         in_desi (optional, defaults to True): if True, additionally require IN_DESI=True (bool)
         skip_pass (optional, defaults to None): if set, exclude tiles whose PASS is in skip_pass (list of int)
 
@@ -1017,63 +1050,41 @@ def get_tile_selection_from_program(t, program, in_desi=True, skip_pass=None):
         sel: boolean selection array over the rows of t (numpy array of bool)
 
     Notes:
-        For BRIGHT1B, additionally includes BRIGHT-program tiles with TILEID in [30993, 33654],
-            corresponding to 1A DR11 tiles added after 20260611.
-        For DARK1B, additionally includes DARK-program tiles with TILEID in [11962, 15688],
-            corresponding to 1A DR11 tiles added after 20260611.
+        {BRIGHT,DARK}_RUN1B definition: {BRIGHT,DARK}1B tiles, plus {BRIGHT,DARK} tiles
+            observed with NIGHT>20260414 (20260414 is the end of RUN1A).
     """
-    sel = t["PROGRAM"] == program
 
-    # DG - skip pass before adding 1A tiles, so that we don't skip
-    # the same pass on the 1A tiles. That is, skip pass should only apply
-    # to the 1B program tiles if this is a 1B program.
+    if program in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
+        sel = get_run1b_selection(program, t["TILEID"], t["PROGRAM"])
+    else:
+        sel = t["PROGRAM"] == program
+
     if skip_pass is not None:
         sel &= ~np.isin(t["PASS"], skip_pass)
-
-    # DG - DR11 tiles for 1b programs.
-    if program == "DARK1B":
-        sel |= ((t["TILEID"] >= 11962) & (t["TILEID"] <= 15688))
-    elif program == "BRIGHT1B":
-        sel |= ((t["TILEID"] >= 30993) & (t["TILEID"] <= 33654))
 
     if in_desi:
         sel &= t["IN_DESI"]
 
     return sel
 
-def get_observed_selection_from_program(obs_progs, obs_nights, program):
+
+def get_observed_selection(obs_tiles, obs_progs, program):
     """
     Get a boolean selection array for observed tiles belonging to a given program.
 
     Args:
+        obs_tiles: tileid for each observed tile, as returned by get_obsdone_tiles() (numpy array of str)
         obs_progs: program name for each observed tile, as returned by get_obsdone_tiles() (numpy array of str)
-        obs_nights: night of observation for each observed tile, as returned by get_obsdone_tiles() (numpy array of int)
-        program: "BACKUP", "BRIGHT{1B}", or "DARK{1B}" (str)
+        program: "BACKUP", "BRIGHT{1B}", or "DARK{1B}" or "{BRIGHT,DARK}_RUN1B" (str)
 
     Returns:
-        sel: boolean selection array over the rows of obs_progs/obs_nights (numpy array of bool)
-
-    Notes:
-        For BRIGHT1B or DARK1B, additionally includes tiles from the corresponding base program
-            (BRIGHT or DARK respectively) observed after night 20260610,
-            corresponding to 1A DR11 tiles added on 20260611.
-        Unlike get_tile_selection_from_program(), this function operates on the observed-tile
-            arrays from get_obsdone_tiles() rather than on a tiles table, and so uses the
-            observation night as a proxy for the tile timestamp.
+        sel: boolean selection array over the rows of obs_tiles/obs_progs (numpy array of bool)
     """
-    sel = obs_progs == program
 
-    # DG - We want to report the dr11 added base BRIGHT/DARK tiles
-    # on the 1b program plots. These were added 6/11 so we look
-    # for 1a tiles and include a cut on that date. We must do this here
-    # first to ensure that we collect the correct nights to process.
-    # We will do it again in the actual plotting function to ensure
-    # we have the correct number of tiles on those nights.
-    if "1B" in program:
-        # log.info("entered block")
-        dr11_1a_tiles = (obs_progs == program.replace("1B", ""))
-        dr11_1a_tiles &= obs_nights > 20260610
-        sel |= dr11_1a_tiles
+    if program in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
+        sel = get_run1b_selection(program, obs_tiles, obs_progs)
+    else:
+        sel = obs_progs == program
 
     return sel
 
