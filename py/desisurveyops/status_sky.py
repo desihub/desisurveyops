@@ -242,7 +242,7 @@ def process_skymap(
         )
 
         # AR pending tiles
-        if program in ["BRIGHT", "BRIGHT1B", "DARK", "DARK1B"]:
+        if program in ["BRIGHT", "BRIGHT1B", "DARK", "DARK1B", "BRIGHT_RUN1B", "DARK_RUN1B"]:
             if program_str not in prog_obs_nights:
                 log.warning(
                     "no found observed tiles for {}, not running plot_sky_pending()".format(
