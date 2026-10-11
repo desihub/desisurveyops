@@ -1307,6 +1307,8 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
         items[program_str] = [
             ("skymap", "obs", "ntile", ["png", "mp4"]),
             ("skymap", "obs", "fraccov", ["png", "mp4"]),
+            ("skymap", "complra", None, ["png"]),
+            ("skymap", "compllst", None, ["png"]),
         ]
         if (program_str[:6] == "BRIGHT") | (program_str[:4] == "DARK"):
             items[program_str] += [
