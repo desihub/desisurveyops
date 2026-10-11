@@ -1382,7 +1382,6 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
         "fileSel.length = 1;",
         "formatSel.length = 1;",
         "var file = Object.keys(programObject[programSel.value]);",
-        "file.sort();",
         "for (var i = 0; i < file.length; i++) {",
         "fileSel.options[fileSel.options.length] = new Option(file[i], file[i]);",
         "\t}",
