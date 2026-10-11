@@ -241,7 +241,6 @@ def process_html(
                         nlast, program_str, caselab.lower(), lastnight
                     )
                 html.write("\t\t<p>{}.</p>\n".format(txt))
-            html.write("\t\t<br>\n")
             outpng = path_full2web(
                 get_filename(
                     outdir,
@@ -252,6 +251,13 @@ def process_html(
                     quant=quant,
                     night=None,
                     ext="png",
+                )
+            )
+            # AR link to mp4 file (so that main-status.html hopefully is lighter)
+            outmp4 = outpng.replace(".png", ".mp4")
+            html.write(
+                "\t<p>An animated movie since the start of the program is available at this <a href='{}' target='external'> link.</p>\n".format(
+                    outmp4
                 )
             )
             txt = "<a href='{}'><img SRC='{}' width=55% height=auto></a>".format(
@@ -277,39 +283,6 @@ def process_html(
             html.write("\t\t</tr>\n")
             html.write("\t</div>\n")
             html.write("\n")
-
-            # AR mp4
-            if case == "obs":
-                html.write(
-                    "\t<button style='margin-left:25px;' type='button' class='{}'><strong>{} tiles</strong>: animated per-night {} skymap</button>\n".format(
-                        collapsible_names["sub{}".format(program_str)],
-                        caselab,
-                        quantlab,
-                    )
-                )
-                html.write("\t<div class='content'>\n")
-                html.write(
-                    "\t\t<p>The color-coding represents the {}.</p>\n".format(quantlab2)
-                )
-                html.write("\t\t<br>\n")
-                outmp4 = path_full2web(
-                    get_filename(
-                        outdir,
-                        survey,
-                        "skymap",
-                        program_str=program_str,
-                        case=case,
-                        quant=quant,
-                        ext="mp4",
-                    )
-                )
-                html.write("\t\t<tr>\n")
-                html.write("\t\t<video width=55% height=auto controls autoplay loop>\n")
-                html.write("\t\t\t<source src='{}' type='video/mp4'>\n".format(outmp4))
-                html.write("\t\t</video>\n")
-                html.write("\t\t</tr>\n")
-                html.write("\t</div>\n")
-                html.write("\n")
 
         # AR coverage per slice of ra / lst
         for racase, racaselab in zip(["complra", "compllst"], ["R.A.", "LST"]):
