@@ -1328,7 +1328,7 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
 
     # AR initialize
     button_cont_txts = [
-        "Pick a png/mp4 file to display:",
+        "<p>Pick a png/mp4 file to display:",
     ]
 
     # AR button: per-case box
@@ -1341,6 +1341,7 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
     # AR button: "go" box
     button_cont_txts += [
         "<button onclick='getprog()' id='myProgButton' class='btn request-callback' > Go! </button>",
+        "</p>",
         "<p id='proglink'></p>",
         "<p> <span class='output'></span> </p>",
     ]
@@ -1474,7 +1475,7 @@ def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
 
     # AR button: initialize
     button_cont_txts = [
-        "Product:",
+        "<p>Pick a product to display:",
         "<select id='product'>",
     ]
     # AR button: per-case box
@@ -1499,6 +1500,7 @@ def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
     # AR button: "go" box
     button_cont_txts += [
         "<button onclick='getnight()' id='myNightButton' class='btn request-callback' > Go! </button>",
+        "</p>",
         "<p id='nightlink'></p>",
         "<p> <span class='output'></span> </p>",
     ]
