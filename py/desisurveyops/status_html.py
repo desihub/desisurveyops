@@ -1226,6 +1226,7 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
         onload_func_txts: a list of strings to print to define the function (in the window.onload call)
     """
 
+    # TODO: add BRIGHT_RUN1B and DARK_RUN1B
     program_strs = ["BACKUP", "BRIGHT", "BRIGHT4PASS", "BRIGHT1B", "BRIGHT1BNOPASS5", "DARK", "DARK1B"]
 
     # AR (name, case, quant, [fmts]) ; last element is a list of formats
