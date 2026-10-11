@@ -845,7 +845,7 @@ def write_html_night(html, outdir, case, e):
         fmt = "html"
     else:
         fmt = "mp4"
-    print(case, fmt)
+    # print(case, fmt)
     #
     # year_word = "<span class='blue'><strong>YEAR</strong></span>"
     # month_word = "<span class='green'><strong>MONTH</strong></span>"
@@ -1379,7 +1379,7 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
     started = None
     for program_str in program_strs:
         for item in items[program_str]:
-            print(program_str, item)
+            # print(program_str, item)
             name, case, quant, fmts = item
             file = "-".join([_ for _ in item[:-1] if _ is not None])
             for fmt in fmts:
