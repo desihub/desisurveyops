@@ -735,12 +735,15 @@ def process_html(
     html.write("\n")
 
     # AR lines to make collapsing sections
+    prog_collapsibles = np.unique(
+        [collapsible_names[program] for program in collapsible_names]
+    ).tolist()
     for collapsible in [
         "collapsible",
         "collapsible_sub",
         "collapsible_year",
         "collapsible_month",
-    ] + [collapsible_names[program] for program in collapsible_names]:
+    ] + prog_collapsibles:
         write_html_collapse_script(html, collapsible)
 
     # ADM html postamble for main page.
@@ -925,11 +928,18 @@ def get_collapsible_names(survey):
     """
     collapsible_names = {}
 
+    # AR to simplify files, only define 3 categories of collapsibles: BACKUP, BRIGHT, DARK
     _, _, program_strs = get_programs_passparams(survey=survey)
     for program_str in program_strs:
-        collapsible_names[program_str] = "collapsible_{}".format(program_str.lower())
+        progshort = None
+        for progtest in ["BACKUP", "BRIGHT", "DARK"]:
+            if program_str[:len(progtest)] == progtest:
+                progshort = progtest
+        if progshort is None:
+            raise ValueError("Unexpected program_str = {}".format(program_str))
+        collapsible_names[program_str] = "collapsible_{}".format(progshort.lower())
         collapsible_names["sub{}".format(program_str)] = "collapsible_sub{}".format(
-            program_str.lower()
+            progshort.lower()
         )
 
     return collapsible_names
