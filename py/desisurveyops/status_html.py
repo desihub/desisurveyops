@@ -122,9 +122,13 @@ def process_html(
     html.write("</div>\n")
     html.write("\n")
 
+    # AR we only display full tabs for BACKUP, BRIGHT1B, DARK1B to keep a minimal number of tabs
+    # AR for other programs, the clickable menu will allow one to check any desired plot "on demand"
+    # AR when pr488 will be merge, we will display: BACKUP, BRIGHT_RUN1B, DARK_RUN1B
+    sel2show = np.isin(program_strs, ["BACKUP", "BRIGHT1B", "DARK1B"])
 
-    # AR sky/zhist
-    for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
+    # AR sky/zhist/qso/pending
+    for program, skip_pass, program_str in zip(programs[sel2show], skip_passes[sel2show], program_strs[sel2show]):
 
         # AR have we already observed this program?
         sel = obs_progs == program
