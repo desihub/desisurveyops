@@ -104,23 +104,6 @@ def process_html(
     # AR collapsibles
     collapsible_names = get_collapsible_names(survey)
 
-    # AR per-program menu
-    html.write(
-        "<button type='button' class='collapsible'><strong>Per-program menu</strong></button>\n"
-    )
-    html.write("<div class='content'>\n")
-    # AR retrieve button coding + function to call in window.onload
-    button_cont_txts, perprog_onload_func_txts = get_perprog_menu(
-        outdir,
-        perprog_func_name,
-        survey=survey,
-    )
-    # AR print button coding
-    for txt in button_cont_txts:
-        html.write(txt)
-    # AR close
-    html.write("</div>\n")
-    html.write("\n")
 
     # AR we only display full tabs for BACKUP, BRIGHT1B, DARK1B to keep a minimal number of tabs
     # AR for other programs, the clickable menu will allow one to check any desired plot "on demand"
@@ -525,6 +508,26 @@ def process_html(
         # AR vertical space
         html.write("</div>\n")
         html.write("\n")
+
+
+    # AR per-program products
+    html.write(
+        "<button type='button' class='collapsible'><strong>Per-program plots/movies</strong></button>\n"
+    )
+    html.write("<div class='content'>\n")
+    # AR retrieve button coding + function to call in window.onload
+    button_cont_txts, perprog_onload_func_txts = get_perprog_menu(
+        outdir,
+        perprog_func_name,
+        survey=survey,
+    )
+    # AR print button coding
+    for txt in button_cont_txts:
+        html.write(txt)
+    # AR close
+    html.write("</div>\n")
+    html.write("\n")
+
 
     # AR Number of spectra
     yrs = obs_nights // 10000
