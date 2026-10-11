@@ -527,7 +527,7 @@ def process_html(
     html.write("\t\t<li><p>skymap-compllst: sky map of observed tiles; the color-coding represents the (weighted) completeness per LST slice of 30 deg.</p></li>\n")
     html.write("\t\t<li><p>skymap-pending (for BRIGHT* and DARK* programs only): sky map of pending tiles, identified from tiles-main.ecsv with: (IN_DESI=True) & ((STATUS == 'obsstart') | (STATUS == 'obsend').</p></li>\n")
     html.write("\t\t<li><p>zhist (for BRIGHT* and DARK* programs only): redshift histogram.</p></li>\n")
-    html.write("\t\t<li><p>qso: QSO/Lya diagnosis.</p></li>\n")
+    html.write("\t\t<li><p>qso (for DARK* programs only): QSO/Lya diagnosis.</p></li>\n")
     html.write("\t</ul>\n")
 
     # AR close
