@@ -500,8 +500,8 @@ def process_html(
 
     # AR programs clarification
     html.write("\t<p>\n")
-    html.write("Programs are defined as tiles with:\n")
-    html.write("<ul>\n")
+    html.write("\tPrograms are defined as tiles with:\n")
+    html.write("\t<ul>\n")
     for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
         txt = "{}: ".format(program_str)
         if program_str in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
@@ -512,23 +512,23 @@ def process_html(
             txt += "FAPRGRM/PROGRAM={}".format(program)
         if skip_pass is not None:
             txt += ", PASS!={}".format(",".join([str(_) for _ in skip_pass]))
-        html.write("\t<li><p>{}.</p></li>\n".format(txt.lower()))
-    html.write("</ul>\n")
-    html.write("<br>\n")
+        html.write("\t\t<li><p>{}.</p></li>\n".format(txt.lower()))
+    html.write("\t</ul>\n")
+    html.write("\t<br>\n")
 
     # AR plots clarification
-    html.write("<p>We consider a tile observed if it has EFFTIME_SPEC > MINTFRAC * GOALTIME (except for BACKUP: EFFTIME_SPEC > 1.0s).</p>\n")
-    html.write("<p>See e.g. the DARK section for a more detailed explanation for each plot.</p>\n")
-    html.write("\t<p>Available plots/movies are:</p>\n")
-    html.write("<ul>\n")
-    html.write("\t<li><p>skymap-obs-ntile: sky map of observed tiles; the color-coding represents the number of tiles.</p></li>\n")
-    html.write("\t<li><p>skymap-obs-fraccov: sky map of observed tiles; the color-coding represents the fraction of the final coverage.</p></li>\n")
-    html.write("\t<li><p>skymap-complra: sky map of observed tiles; the color-coding represents the (weighted) completeness per R.A. slice of 30 deg.</p></li>\n")
-    html.write("\t<li><p>skymap-compllst: sky map of observed tiles; the color-coding represents the (weighted) completeness per LST slice of 30 deg.</p></li>\n")
-    html.write("\t<li><p>skymap-pending (for BRIGHT* and DARK* programs only): sky map of pending tiles, identified from tiles-main.ecsv with: (IN_DESI=True) & ((STATUS == 'obsstart') | (STATUS == 'obsend').</p></li>\n")
-    html.write("\t<li><p>zhist (for BRIGHT* and DARK* programs only): redshift histogram.</p></li>\n")
-    html.write("\t<li><p>qso: QSO/Lya diagnosis.</p></li>\n")
-    html.write("</ul>\n")
+    html.write("\t<p>We consider a tile observed if it has EFFTIME_SPEC > MINTFRAC * GOALTIME (except for BACKUP: EFFTIME_SPEC > 1.0s).</p>\n")
+    html.write("\t<p>See e.g. the DARK section for a more detailed explanation for each plot.</p>\n")
+    html.write("\t\t<p>Available plots/movies are:</p>\n")
+    html.write("\t<ul>\n")
+    html.write("\t\t<li><p>skymap-obs-ntile: sky map of observed tiles; the color-coding represents the number of tiles.</p></li>\n")
+    html.write("\t\t<li><p>skymap-obs-fraccov: sky map of observed tiles; the color-coding represents the fraction of the final coverage.</p></li>\n")
+    html.write("\t\t<li><p>skymap-complra: sky map of observed tiles; the color-coding represents the (weighted) completeness per R.A. slice of 30 deg.</p></li>\n")
+    html.write("\t\t<li><p>skymap-compllst: sky map of observed tiles; the color-coding represents the (weighted) completeness per LST slice of 30 deg.</p></li>\n")
+    html.write("\t\t<li><p>skymap-pending (for BRIGHT* and DARK* programs only): sky map of pending tiles, identified from tiles-main.ecsv with: (IN_DESI=True) & ((STATUS == 'obsstart') | (STATUS == 'obsend').</p></li>\n")
+    html.write("\t\t<li><p>zhist (for BRIGHT* and DARK* programs only): redshift histogram.</p></li>\n")
+    html.write("\t\t<li><p>qso: QSO/Lya diagnosis.</p></li>\n")
+    html.write("\t</ul>\n")
 
     # AR close
     html.write("</div>\n")
