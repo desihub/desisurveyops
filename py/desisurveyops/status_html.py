@@ -79,6 +79,10 @@ def process_html(
         log.info("run {}".format(cmd))
         os.system(cmd)
 
+    # AR function names
+    perprog_func_name = "perprog_func"
+    pernight_func_name = "pernight_func"
+
     # AR exposures
     fns = get_fns(survey=survey, specprod=specprod)
     e = Table.read(fns["spec"]["exps"])
@@ -99,6 +103,25 @@ def process_html(
 
     # AR collapsibles
     collapsible_names = get_collapsible_names(survey)
+
+    # AR per-program menu
+    html.write(
+        "<button type='button' class='collapsible'><strong>Per-program menu</strong></button>\n"
+    )
+    html.write("<div class='content'>\n")
+    # AR retrieve button coding + function to call in window.onload
+    button_cont_txts, perprog_onload_func_txts = get_perprog_menu(
+        outdir,
+        perprog_func_name,
+        survey=survey,
+    )
+    # AR print button coding
+    for txt in button_cont_txts:
+        html.write(txt)
+    # AR close
+    html.write("</div>\n")
+    html.write("\n")
+
 
     # AR sky/zhist
     for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
@@ -621,13 +644,35 @@ def process_html(
             np.unique(e["NIGHT"]).size
         )
     )
-    txts = get_pernight_menu(
-        outdir, ["spacewatch", "skyseq", "obsconds", "exposures"], np.unique(obs_nights)
+    html.write("<div class='content'>\n")
+    # AR retrieve button coding + function to call in window.onload
+    button_cont_txts, pernight_onload_func_txts = get_pernight_menu(
+        outdir,
+        ["spacewatch", "skyseq", "obsconds", "exposures"],
+        np.unique(obs_nights),
+        pernight_func_name,
     )
-    for txt in txts:
+    # AR print button coding
+    for txt in button_cont_txts:
         html.write(txt)
-
+    # AR close
+    html.write("</div>\n")
     html.write("\n")
+
+
+    # AR window.onload: defined functions to use the per-program and per-night buttons
+    for txt in perprog_onload_func_txts:
+        html.write(txt)
+    for txt in pernight_onload_func_txts:
+        html.write(txt)
+    html.write("<script type='text/javascript'>\n")
+    html.write("window.onload = function() {\n")
+    # AR order apparently matters... need to put pernight_func_name first
+    html.write("\t{}();\n".format(pernight_func_name))
+    html.write("\t{}();\n".format(perprog_func_name))
+    html.write("}\n")
+    html.write("</script>\n")
+
 
     # AR Expid / tileid finder
     """
@@ -1232,7 +1277,154 @@ def write_html_collapse_script(html, classname):
     html.write("</script>\n")
 
 
-def get_pernight_menu(outdir, cases, nights):
+def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
+    """
+    Get the text to write in html to have the per-program clickable menu.
+
+    Args:
+        outdir: output folder (str)
+        function_name: name of the defined function (str)
+        survey (optional, defaults to main): survey (str)
+        n_indent (optional, defaults to 1): indentation level (int)
+
+    Returns:
+        button_cont_txts: a list of strings to print to define the buttons content (list of str)
+        onload_func_txts: a list of strings to print to define the function (in the window.onload call)
+    """
+
+    program_strs = ["BACKUP", "BRIGHT", "BRIGHT4PASS", "BRIGHT1B", "BRIGHT1BNOPASS5", "DARK", "DARK1B"]
+
+    # AR (name, case, quant, [fmts]) ; last element is a list of formats
+    items = {}
+    for program_str in program_strs:
+        items[program_str] = [
+            ("skymap", "obs", "ntile", ["png", "mp4"]),
+            ("skymap", "obs", "fraccov", ["png", "mp4"]),
+        ]
+        if (program_str[:6] == "BRIGHT") | (program_str[:4] == "DARK"):
+            items[program_str] += [
+                ("skymap", "pending", None, ["png"]),
+                ("zhist", None, None, ["png"]),
+            ]
+        if program_str[:4] == "DARK":
+             items[program_str] += [
+                ("qso", None, None, ["png"]) ,
+            ]
+
+    # AR initialize
+    button_cont_txts = [
+        "Pick a png/mp4 file to display:",
+    ]
+
+    # AR button: per-case box
+    for name in ["program", "file", "format"]:
+        button_cont_txts += [
+            "<select name='{}' id='{}'>".format(name, name),
+            "\t<option value='' selected='selected'>{}</option>".format(name),
+            "</select>",
+        ]
+    # AR button: "go" box
+    button_cont_txts += [
+        "<button onclick='getprog()' id='myProgButton' class='btn request-callback' > Go! </button>",
+        "<p id='proglink'></p>",
+        "<p> <span class='output'></span> </p>",
+    ]
+
+    # AR button: dictionary with content
+    button_cont_txts += [
+        "<script type='text/javascript'>",
+        "var programObject = {",
+    ]
+    for program_str in program_strs:
+        button_cont_txts += ["\t'{}': {{".format(program_str)]
+        for item in items[program_str]:
+            button_cont_txts += [
+                "\t\t'{}': {},".format(
+                    "-".join([_ for _ in item[:-1] if _ is not None]),
+                    str(item[-1]),
+                )
+            ]
+        button_cont_txts += ["\t},"]
+    button_cont_txts += ["}"]
+
+    # AR button: function
+    button_cont_txts += [
+        "function getprog() {",
+        "\tvar x;",
+        "\tvar link;",
+        "\tvar program;",
+        "\tvar file;",
+        "\tvar format;",
+        "\tprogram = document.querySelector('#program').value;",
+        "\tfile = document.querySelector('#file').value;",
+        "\tformat = document.querySelector('#format').value;",
+        "\tx = program + '-' + file + '.' + format;",
+    ]
+    started = None
+    for program_str in program_strs:
+        for item in items[program_str]:
+            print(program_str, item)
+            name, case, quant, fmts = item
+            file = "-".join([_ for _ in item[:-1] if _ is not None])
+            for fmt in fmts:
+                if started is None:
+                    cond_str = "if"
+                    started = 1
+                else:
+                    cond_str = "} else if"
+                button_cont_txts += [
+                    "\t" + cond_str + " (x == '" + program_str + "-" + file +"." + fmt + "') {",
+                    "\t\tlink = '" + path_full2web(get_filename(outdir, survey, name, program_str=program_str, case=case, quant=quant, ext=fmt)) + "';",
+                ]
+    button_cont_txts += [
+        "\t} else {",
+        "\t1==1",
+        "\t}",
+        "document.getElementById('proglink').innerHTML = 'Opening ' + link;",
+        "\twindow.open(link);",
+        "}",
+        "</script>",
+    ]
+
+    # AR button: function
+    onload_func_txts = [
+        "<script type='text/javascript'>",
+        "function " + function_name + "() {",
+        "var programSel = document.getElementById('program');",
+        "var fileSel = document.getElementById('file');",
+        "var formatSel = document.getElementById('format');",
+        "for (var x in programObject) {",
+        "\tprogramSel.options[programSel.options.length] = new Option(x, x);",
+        "}",
+        "programSel.onchange = function() {",
+        "fileSel.length = 1;",
+        "formatSel.length = 1;",
+        "var file = Object.keys(programObject[programSel.value]);",
+        "file.sort();",
+        "for (var i = 0; i < file.length; i++) {",
+        "fileSel.options[fileSel.options.length] = new Option(file[i], file[i]);",
+        "\t}",
+        "}",
+        "fileSel.onchange = function() {",
+        "formatSel.length = 1;",
+        "var z = programObject[programSel.value][this.value];",
+        "for (var i = 0; i < z.length; i++) {",
+        "\tformatSel.options[formatSel.options.length] = new Option(z[i], z[i]);",
+        "\t}",
+        "}",
+        "}",
+        "</script>",
+    ]
+
+    # AR add indents + end of line
+    indent_str = "".join(["\t" for _ in range(n_indent)])
+    button_cont_txts = ["{}{}\n".format(indent_str, _) for _ in button_cont_txts]
+    onload_func_txts = ["{}{}\n".format(indent_str, _) for _ in onload_func_txts]
+
+    return button_cont_txts, onload_func_txts
+
+
+def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
     """
     Get the text to write in html to have the clickable menu.
 
@@ -1240,9 +1432,12 @@ def get_pernight_menu(outdir, cases, nights):
         outdir: output folder (str)
         cases: list "first level" cases (str)
         nights: list of all nights (str)
+        function_name: name of the defined function (str)
+        n_indent (optional, defaults to 1): indentation level (int)
 
     Returns:
-        txts: a list of strings to print (str)
+        button_cont_txts: a list of strings to print to define the buttons content (list of str)
+        onload_func_txts: a list of strings to print to define the function (in the window.onload call)
 
     Notes:
         cases can be: ["spacewatch", "skyseq", "obsconds", "exposures"].
@@ -1263,119 +1458,116 @@ def get_pernight_menu(outdir, cases, nights):
         log.error(msg)
         raise ValueError(msg)
 
-    # AR initialize
-    txts = [
-        "<div class='content'>\n",
-        "\t<p>\n",
-        "\t\tProduct:\n",
-        "\t\t<select id='product'>\n",
+    # AR button: initialize
+    button_cont_txts = [
+        "Product:",
+        "<select id='product'>",
     ]
-    # AR per-case box
+    # AR button: per-case box
     for case in cases:
-        txts += [
-            "\t\t\t<option value='{}'>{}</option>\n".format(case, case),
+        button_cont_txts += [
+            "\t<option value='{}'>{}</option>".format(case, case),
         ]
+    # AR button: yyyy, mm dd boxes
+    button_cont_txts += [
+        "</select>",
+        "&nbsp",
+        "<select name='yyyy' id='yyyy'>",
+        "\t<option value='' selected='selected'>yyyy</option>",
+        "</select>",
+        "<select name='mm' id='mm'>",
+        "\t<option value='' selected='selected'>mm</option>",
+        "</select>",
+        "<select name='dd' id='dd'>",
+        "\t<option value='' selected='selected'>dd</option>",
+        "</select>",
+    ]
+    # AR button: "go" box
+    button_cont_txts += [
+        "<button onclick='getnight()' id='myNightButton' class='btn request-callback' > Go! </button>",
+        "<p id='nightlink'></p>",
+        "<p> <span class='output'></span> </p>",
+    ]
 
-    # AR yyyy, mm dd boxes
-    txts += [
-        "\t\t</select>\n",
-        "\t\t&nbsp\n",
-        "\t\t<select name='yyyy' id='yyyy'>\n",
-        "\t\t\t<option value='' selected='selected'>yyyy</option>\n",
-        # "\t<option value='{}' selected='selected'>{}</option>\n".format(last_yyyy, last_yyyy),
-        "\t\t</select>\n",
-        "\t\t<select name='mm' id='mm'>\n",
-        "\t\t\t<option value='' selected='selected'>mm</option>\n",
-        # "\t<option value='{}' selected='selected'>{}</option>\n".format(last_mm, last_mm),
-        "\t\t</select>\n",
-        "\t\t<select name='dd' id='dd'>\n",
-        "\t\t\t<option value='' selected='selected'>dd</option>\n",
-        # "\t<option value='{}' selected='selected'>{}</option>\n".format(last_dd, last_dd),
-        "\t\t</select>\n",
-        "<script type='text/javascript'>\n",
-        "var yyyyObject = {\n",
+    # AR button: dictionary with content
+    button_cont_txts += [
+        "<script type='text/javascript'>",
+        "var yyyyObject = {",
     ]
     for yyyy in np.unique(my_yyyys)[::-1]:
-        txts += ["\t'{}': {{\n".format(yyyy)]
+        button_cont_txts += ["\t'{}': {{".format(yyyy)]
         yyyy_sel = my_yyyys == yyyy
         for mm in np.unique(my_mms[yyyy_sel]):
             yyyymm_sel = (yyyy_sel) & (my_mms == mm)
             dds = my_dds[yyyymm_sel]
             dds = ["'{}'".format(_) for _ in dds]
-            txts += ["\t\t'{}': [{}],\n".format(mm, ", ".join(dds))]
-        txts += ["\t},\n"]
-    txts += ["}\n"]
+            button_cont_txts += ["'{}': [{}],".format(mm, ", ".join(dds))]
+        button_cont_txts += ["},"]
+    button_cont_txts += ["}"]
 
-    # AR now the function
-    txts += [
-        "window.onload = function() {\n",
-        "\tvar yyyySel = document.getElementById('yyyy');\n",
-        "\tvar mmSel = document.getElementById('mm');\n",
-        "\tvar ddSel = document.getElementById('dd');\n",
-        "\tfor (var x in yyyyObject) {\n",
-        "\t\tyyyySel.options[yyyySel.options.length] = new Option(x, x);\n",
-        "\t}\n",
-        "\tyyyySel.onchange = function() {\n",
-        "\tddSel.length = 1;\n",
-        "\tmmSel.length = 1;\n",
-        "\tvar mm = Object.keys(yyyyObject[yyyySel.value]);\n",
-        "\tmm.sort();\n",
-        "\tfor (var i = 0; i < mm.length; i++) {\n",
-        # "\tfor (var i = mm.length; i > 0; i--) {\n",
-        "\tmmSel.options[mmSel.options.length] = new Option(mm[i], mm[i]);\n",
-        "\t\t}\n",
-        "\t}\n",
-        "\tmmSel.onchange = function() {\n",
-        "\tddSel.length = 1;\n",
-        "\tvar z = yyyyObject[yyyySel.value][this.value];\n",
-        "\tfor (var i = 0; i < z.length; i++) {\n",
-        # "\tfor (var i = z.length; i > 0; i--) {\n",
-        "\t\tddSel.options[ddSel.options.length] = new Option(z[i], z[i]);\n",
-        "\t\t}\n",
-        "\t}\n",
-        "}\n",
-        "</script>\n",
-    ]
-
-    # AR now the action
-    txts += [
-        "<button onclick='getnight()' id='myButton' class='btn request-callback' > Go! </button>\n",
-        "</p>\n",
-        "<p id='link'></p>\n",
-        "<p> <span class='output'></span> </p>\n",
-        "<script type='text/javascript'>\n",
-        "function getnight() {\n",
-        "\tvar x;\n",
-        "\tvar yyyy;\n",
-        "\tvar mm;\n",
-        "\tvar dd;\n",
-        "\tvar ext;\n",
-        "\tproduct = document.querySelector('#product').value;\n",
-        "\tyyyy = document.querySelector('#yyyy').value;\n",
-        "\tmm = document.querySelector('#mm').value;\n",
-        "\tdd = document.querySelector('#dd').value;\n",
-        "\tif (product == 'spacewatch'){\n",
-        "\t ext = 'mp4';\n",
-        "\t} else if (product == 'skyseq') {\n",
-        "\text = 'png';\n",
-        "\t} else if ((product == 'obsconds') || (product == 'sframesky') || (product == 'tileqa')){\n",
-        "\text = 'pdf';\n",
-        "\t} else {\n",
-        "\text = 'html';\n",
-        "\t}\n",
-        "\tx = '{}/' + product + '/' + product + '-' + yyyy + mm + dd + '.' + ext\n".format(
+    # AR button: function
+    button_cont_txts += [
+        "function getnight() {",
+        "var yyyy;",
+        "var mm;",
+        "var dd;",
+        "var ext;",
+        "var link;",
+        "product = document.querySelector('#product').value;",
+        "yyyy = document.querySelector('#yyyy').value;",
+        "mm = document.querySelector('#mm').value;",
+        "dd = document.querySelector('#dd').value;",
+        "if (product == 'spacewatch'){",
+        " ext = 'mp4';",
+        "} else if (product == 'skyseq') {",
+        "ext = 'png';",
+        "} else if ((product == 'obsconds') || (product == 'sframesky') || (product == 'tileqa')) {",
+        "ext = 'pdf';",
+        "} else {",
+        "ext = 'html';",
+        "}",
+        "link = '{}/' + product + '/' + product + '-' + yyyy + mm + dd + '.' + ext".format(
             path_full2web(outdir)
         ),
-        "document.getElementById('link').innerHTML = 'Opening ' + x;\n",
-        "\twindow.open(x);\n",
-        "}\n",
-        "</script>\n",
+        "document.getElementById('nightlink').innerHTML = 'Opening ' + link;",
+        "window.open(link);",
+        "}",
+        "</script>",
     ]
 
-    # AR close
-    txts += [
-        "\t</tr>\n",
-        "</div>\n",
+    # AR function to be loaded in window.onload
+    onload_func_txts = [
+        "<script type='text/javascript'>",
+        "function " + function_name + "() {",
+        "var yyyySel = document.getElementById('yyyy');",
+        "var mmSel = document.getElementById('mm');",
+        "var ddSel = document.getElementById('dd');",
+        "for (var x in yyyyObject) {",
+        "\tyyyySel.options[yyyySel.options.length] = new Option(x, x);",
+        "}",
+        "yyyySel.onchange = function() {",
+        "ddSel.length = 1;",
+        "mmSel.length = 1;",
+        "var mm = Object.keys(yyyyObject[yyyySel.value]);",
+        "mm.sort();",
+        "for (var i = 0; i < mm.length; i++) {",
+        "mmSel.options[mmSel.options.length] = new Option(mm[i], mm[i]);",
+        "\t}",
+        "}",
+        "mmSel.onchange = function() {",
+        "ddSel.length = 1;",
+        "var z = yyyyObject[yyyySel.value][this.value];",
+        "for (var i = 0; i < z.length; i++) {",
+        "\tddSel.options[ddSel.options.length] = new Option(z[i], z[i]);",
+        "\t}",
+        "}",
+        "}",
+        "</script>",
     ]
 
-    return txts
+    # AR add indents + end of line
+    indent_str = "".join(["\t" for _ in range(n_indent)])
+    button_cont_txts = ["{}{}\n".format(indent_str, _) for _ in button_cont_txts]
+    onload_func_txts = ["{}{}\n".format(indent_str, _) for _ in onload_func_txts]
+
+    return button_cont_txts, onload_func_txts
