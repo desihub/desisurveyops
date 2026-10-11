@@ -116,38 +116,6 @@
 .active_subdark, .collapsible_subdark:hover {
     background-color: #0080ff;
 }
-.collapsible_month {
-    background-color: #ccffcc;
-    color: #444;
-    cursor: pointer;
-    padding-left: 12px;
-    margin-top:8px;
-    width: 9%;
-    height: 28px;
-    border: 1px solid #444;
-    text-align: left;
-    outline: none;
-    font-size: 12px;
-}
-.active_month, .collapsible_month:hover {
-    background-color: #00ff00;
-}
-.collapsible_year {
-    background-color: #cce6ff;
-    color: #444;
-    cursor: pointer;
-    padding-left: 12px;
-    margin-top:8px;
-    width: 9%;
-    height: 28px;
-    border: 1px solid #444;
-    text-align: left;
-    outline: none;
-    font-size: 12px;
-}
-.active_year, .collapsible_year:hover {
-    background-color: #0080ff;
-}
 .content {
     padding: 0px;
     display: none;

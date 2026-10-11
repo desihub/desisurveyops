@@ -741,8 +741,6 @@ def process_html(
     for collapsible in [
         "collapsible",
         "collapsible_sub",
-        "collapsible_year",
-        "collapsible_month",
     ] + prog_collapsibles:
         write_html_collapse_script(html, collapsible)
 
