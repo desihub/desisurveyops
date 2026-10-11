@@ -107,7 +107,7 @@ def process_html(
 
     # AR we only display full tabs for BACKUP, BRIGHT1B, DARK1B to keep a minimal number of tabs
     # AR for other programs, the clickable menu will allow one to check any desired plot "on demand"
-    # AR when pr488 will be merge, we will display: BACKUP, BRIGHT_RUN1B, DARK_RUN1B
+    # AR TODO: when pr488 will be merged, we will display: BACKUP, BRIGHT_RUN1B, DARK_RUN1B
     sel2show = np.isin(program_strs, ["BACKUP", "BRIGHT1B", "DARK1B"])
 
     # AR sky/zhist/qso/pending
