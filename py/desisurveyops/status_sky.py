@@ -5,7 +5,6 @@ import matplotlib
 matplotlib.use("Agg")
 # AR general
 import os
-from sys import getsizeof
 from glob import glob
 from datetime import datetime
 from time import time
@@ -97,7 +96,10 @@ def process_skymap(
         Files will be in {outdir}/{program_str}/.
         Usually use specprod=daily.
         skygoal_dict_max_tables is used to avoid OOM errors; we run the code in multiple batches,
-            where _skygoal_dict will contain skygoal_dict_max_tables; one table typically is 4.5GB.
+            where _skygoal_dict will contain skygoal_dict_max_tables; one table typically is 1-2GB.
+        We use the "fork" start method for multiprocessing so that the workers
+            inherit _skygoal_dict (python>=3.14 defaults to "forkserver" on linux,
+            in which case each worker would recompute its own _skygoal_dict).
     """
 
     log.info(
@@ -257,9 +259,15 @@ def process_skymap(
                     unq_skygoal_args[istart:iend].size,
                 )
             )
-            pool = multiprocessing.Pool(processes=np.min([numproc, max_numproc]))
+            # AR use "fork" so that the workers inherit _skygoal_dict
+            pool = multiprocessing.get_context("fork").Pool(
+                processes=np.min([numproc, max_numproc])
+            )
             with pool:
                 _ = pool.starmap(plot_skymap, myargs[ii])
+
+        # AR free memory
+        _skygoal_dict = {}
 
     # AR return prog_obs_nights, prog_done_night
     # AR mp4 movie for case=obs
@@ -607,7 +615,10 @@ def get_skygoal(tilesfn, program, skip_pass=None):
                 for key2 in _skygoal_dict[key0][key1]:
                     n_tables += 1
                     d = _skygoal_dict[key0][key1][key2]
-                    size += len(d) * np.sum([getsizeof(d[_][0]) for _ in d.colnames])
+                    # AR create_skygoal() returns None if no tiles
+                    if d is None:
+                        continue
+                    size += np.sum([d[_].nbytes for _ in d.colnames])
         log.info(
             "computed skygoal for: tilesfn={}, program={}, skip_pass={} (now _skygoal_dict has {} tables and size={:.2f}GB)".format(
                 os.path.basename(tilesfn), program, str(skip_pass), n_tables, size / 1024. ** 3,
