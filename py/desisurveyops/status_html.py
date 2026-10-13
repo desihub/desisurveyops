@@ -161,16 +161,10 @@ def process_html(
 
         # AR program clarification
         html.write("\t<p>Program defined as tiles with:</p>\n")
-        if program in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
-            txt = "- FAPRGRM/PROGRAM={}, or FAPRGRM/PROGRAM={} and not observed during Run1a (i.e. not in data/tiles-main-brightdark-run1a.ecsv; Run1a ended on 20260414)".format(
-                program.replace("_RUN", ""), program.replace("_RUN1B", ""),
-            )
-        else:
-            txt = "- FAPRGRM/PROGRAM={}.".format(program)
-        html.write("\t<p>{}</p>\n".format(txt))
-        if skip_pass is not None:
-            txt = "- PASS!={}.".format(",".join([str(_) for _ in skip_pass]))
-            html.write("\t<p>{}</p>\n".format(txt))
+        prog_txt, pass_txt = get_program_definition_txts(program, skip_pass)
+        html.write("\t<p>- {}.</p>\n".format(prog_txt))
+        if pass_txt is not None:
+            html.write("\t<p>- {}.</p>\n".format(pass_txt))
 
         # AR history...
         d = get_history_tiles_infos(survey)
@@ -276,7 +270,7 @@ def process_html(
             # AR link to mp4 file (so that main-status.html hopefully is lighter)
             outmp4 = outpng.replace(".png", ".mp4")
             html.write(
-                "\t<p>An animated movie since the start of the program is available at this <a href='{}' target='external'> link.</p>\n".format(
+                "\t<p>An animated movie since the start of the program is available at this <a href='{}' target='external'>link</a>.</p>\n".format(
                     outmp4
                 )
             )
@@ -519,26 +513,29 @@ def process_html(
         html.write(txt)
 
     # AR programs clarification
-    html.write("\t<p>\n")
-    html.write("\tPrograms are defined as tiles with:\n")
+    html.write("\t<p>Programs are defined as tiles with:</p>\n")
     html.write("\t<ul>\n")
     for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
-        txt = "{}: ".format(program_str)
-        if program_str in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
-            txt += "FAPRGRM/PROGRAM={}, or FAPRGRM/PROGRAM={} and observed with NIGHT>20260414 (200260414 is the end of Run1a)".format(
-                program_str.replace("_RUN", ""), program_str.replace("_RUN1B", ""),
-            )
-        else:
-            txt += "FAPRGRM/PROGRAM={}".format(program)
-        if skip_pass is not None:
-            txt += ", PASS!={}".format(",".join([str(_) for _ in skip_pass]))
-        html.write("\t\t<li><p>{}.</p></li>\n".format(txt.lower()))
+        prog_txt, pass_txt = get_program_definition_txts(program, skip_pass)
+        txt = "{}: {}".format(program_str, prog_txt)
+        if pass_txt is not None:
+            txt += ", {}".format(pass_txt)
+        html.write("\t\t<li><p>{}.</p></li>\n".format(txt))
     html.write("\t</ul>\n")
     html.write("\t<br>\n")
 
     # AR plots clarification
-    html.write("\t<p>We consider a tile observed if it has EFFTIME_SPEC > MINTFRAC * GOALTIME (except for BACKUP: EFFTIME_SPEC > 1.0s).</p>\n")
-    html.write("\t<p>See e.g. the DARK section for a more detailed explanation for each plot.</p>\n")
+    html.write(
+        "\t<p>We consider a tile observed if it has EFFTIME_SPEC > MINTFRAC * GOALTIME (except for BACKUP: EFFTIME_SPEC > {}s).</p>\n".format(
+            get_backup_minefftime()
+        )
+    )
+    dark_display_program_str = [_ for _ in DISPLAY_PROGRAM_STRS if _[:4] == "DARK"][0]
+    html.write(
+        "\t<p>See e.g. the {} section for a more detailed explanation for each plot.</p>\n".format(
+            dark_display_program_str
+        )
+    )
     html.write("\t\t<p>Available plots/movies are:</p>\n")
     html.write("\t<ul>\n")
     html.write("\t\t<li><p>skymap-obs-ntile: sky map of observed tiles; the color-coding represents the number of tiles.</p></li>\n")
@@ -634,7 +631,7 @@ def process_html(
         "\t<p>We show here the focal plane state as of {}.</p>\n".format(fpstate_lastnight)
     )
     html.write(
-        "\t<p>An animated movie since the start of the survey is available at this <a href='{}' target='external'> link.</p>\n".format(
+        "\t<p>An animated movie since the start of the survey is available at this <a href='{}' target='external'>link</a>.</p>\n".format(
             outmp4
         )
     )
@@ -700,7 +697,6 @@ def process_html(
         html.write(txt)
     html.write("<script type='text/javascript'>\n")
     html.write("window.onload = function() {\n")
-    # AR order apparently matters... need to put pernight_func_name first
     html.write("\t{}();\n".format(pernight_func_name))
     html.write("\t{}();\n".format(perprog_func_name))
     html.write("}\n")
@@ -844,6 +840,33 @@ def write_html_today(html):
             datetime.now().astimezone().strftime("%H:%M %Z, %b %-d, %Y")
         )
     )
+
+
+def get_program_definition_txts(program, skip_pass):
+    """
+    Get the text describing which tiles define a program.
+
+    Args:
+        program: "BACKUP", "BRIGHT{1B}", or "DARK{1B}" or "{BRIGHT,DARK}_RUN1B" (str)
+        skip_pass: passes to skip (list of int or None)
+
+    Returns:
+        prog_txt: text describing the FAPRGRM/PROGRAM selection (str)
+        pass_txt: text describing the PASS selection, None if skip_pass is None (str)
+
+    Notes:
+        For {BRIGHT,DARK}_RUN1B, see desisurveyops.status_utils.get_run1b_selection().
+    """
+    if program in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
+        prog_txt = "FAPRGRM/PROGRAM={}, or FAPRGRM/PROGRAM={} and not observed during Run1a (i.e. not in data/tiles-main-brightdark-run1a.ecsv; Run1a ended on 20260414)".format(
+            program.replace("_RUN", ""), program.replace("_RUN1B", ""),
+        )
+    else:
+        prog_txt = "FAPRGRM/PROGRAM={}".format(program)
+    pass_txt = None
+    if skip_pass is not None:
+        pass_txt = "PASS!={}".format(",".join([str(_) for _ in skip_pass]))
+    return prog_txt, pass_txt
 
 
 # AR collapsible
