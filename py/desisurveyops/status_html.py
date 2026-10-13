@@ -68,19 +68,23 @@ def process_html(
     cssfn = get_filename(outdir, survey, "html", ext="css")
 
     # AR need to copy the css?
+    # AR the git version is the reference: copy it if cssfn is missing or different
     git_cssfn = os.path.join(
         get_history_tiles_dir(), os.path.basename(cssfn)
     )
+    copy_css = True
     if os.path.isfile(cssfn):
         f = open(cssfn, "r").read()
         git_f = open(git_cssfn, "r").read()
-        if f != git_f:
+        if f == git_f:
+            copy_css = False
+        else:
             log.warning(
-                "{} and {} are different; {} page may look not as expected".format(
-                    cssfn, git_cssfn, htmlfn
+                "{} and {} are different; overwriting {} with {}".format(
+                    cssfn, git_cssfn, cssfn, git_cssfn
                 )
             )
-    else:
+    if copy_css:
         cmd = "cp -p {} {}".format(git_cssfn, cssfn)
         log.info("run {}".format(cmd))
         os.system(cmd)
@@ -116,6 +120,8 @@ def process_html(
     # AR we only display full tabs for DISPLAY_PROGRAM_STRS to keep a minimal number of tabs
     # AR for other programs, the clickable menu will allow one to check any desired plot "on demand"
     sel2show = np.isin(program_strs, DISPLAY_PROGRAM_STRS)
+    # AR program_strs for which a section is actually written
+    shown_program_strs = []
 
     # AR sky/zhist/qso/pending
     for program, skip_pass, program_str in zip(programs[sel2show], skip_passes[sel2show], program_strs[sel2show]):
@@ -140,6 +146,7 @@ def process_html(
         # AR handle e.g. bright1b which does not exist yet
         if sel.sum() == 0:
             continue
+        shown_program_strs.append(program_str)
 
         # AR section
         html.write(
@@ -513,9 +520,10 @@ def process_html(
         html.write(txt)
 
     # AR programs clarification
+    # AR use all programs (not only the ones passed as argument), as in the clickable menu
     html.write("\t<p>Programs are defined as tiles with:</p>\n")
     html.write("\t<ul>\n")
-    for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
+    for program, skip_pass, program_str in zip(*get_programs_passparams(survey=survey)):
         prog_txt, pass_txt = get_program_definition_txts(program, skip_pass)
         txt = "{}: {}".format(program_str, prog_txt)
         if pass_txt is not None:
@@ -530,12 +538,14 @@ def process_html(
             get_backup_minefftime()
         )
     )
-    dark_display_program_str = [_ for _ in DISPLAY_PROGRAM_STRS if _[:4] == "DARK"][0]
-    html.write(
-        "\t<p>See e.g. the {} section for a more detailed explanation for each plot.</p>\n".format(
-            dark_display_program_str
+    # AR point to a section actually displayed (preferably a DARK* one, which has all the plots)
+    ref_program_strs = [_ for _ in shown_program_strs if _[:4] == "DARK"] + shown_program_strs
+    if len(ref_program_strs) > 0:
+        html.write(
+            "\t<p>See e.g. the {} section for a more detailed explanation for each plot.</p>\n".format(
+                ref_program_strs[0]
+            )
         )
-    )
     html.write("\t\t<p>Available plots/movies are:</p>\n")
     html.write("\t<ul>\n")
     html.write("\t\t<li><p>skymap-obs-ntile: sky map of observed tiles; the color-coding represents the number of tiles.</p></li>\n")
