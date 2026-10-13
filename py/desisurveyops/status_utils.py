@@ -321,6 +321,7 @@ def get_shutdowns(survey):
             (20240410, 20240602, "Fibers guider crush"),
             (20250403, 20250414, "Dome slip ring failure"),
             (20250612, 20250619, "Planned shutdown; dome repairs"),
+            (20260810, 20260921, "Planned shutdown; mirror realuminization"),
         ]
         start_nights = np.array([_[0] for _ in xs])
         end_nights = np.array([_[1] for _ in xs])
@@ -396,7 +397,7 @@ def get_history_tiles_dir():
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data"))
 
 
-def get_history_tilesfn(survey, opsnight=None):
+def get_history_tilesfn(survey, opsnight=None, verbose=True):
     """
     Get the relevant "historical" tiles-{survey} name for a given program and night.
 
@@ -405,6 +406,7 @@ def get_history_tilesfn(survey, opsnight=None):
         survey: survey name (str)
         program_str: program full name (str)
         opsnight (optional, defaults to None): night of observation; if set to None, just pick the latest file (int)
+        verbose (optional, defaults to True): verbose? (bool)
 
     Returns:
         fn: full path of the tiles-{survey}.ecsv file (str)
@@ -441,7 +443,8 @@ def get_history_tilesfn(survey, opsnight=None):
     fn = get_filename(
         tilesdir, survey, "tiles", night=d["NIGHT"][i], rev=d["REVISION"][i], ext="ecsv"
     )
-    log.info("as opsnight={}, we pick {}".format(opsnight, fn))
+    if verbose:
+        log.info("as opsnight={}, we pick {}".format(opsnight, fn))
 
     return fn
 
