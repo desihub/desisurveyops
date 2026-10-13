@@ -92,6 +92,8 @@ def process_html(
     # AR exposures
     fns = get_fns(survey=survey, specprod=specprod)
     e = Table.read(fns["spec"]["exps"])
+    # AR last night displayed in the fpstate png (process_fpstate() does not cut on survey/efftime)
+    fpstate_lastnight = e["NIGHT"].max()
     sel = (e["SURVEY"] == survey) & (e["EFFTIME_SPEC"] > 0)
     e = e[sel]
 
@@ -629,7 +631,7 @@ def process_html(
     outmp4 = path_full2web(get_filename(outdir, survey, "fpstate", ext="mp4"))
     outpng = path_full2web(get_filename(outdir, survey, "fpstate", ext="png"))
     html.write(
-        "\t<p>We show here the focal plane state as of {}.</p>\n".format(lastnight)
+        "\t<p>We show here the focal plane state as of {}.</p>\n".format(fpstate_lastnight)
     )
     html.write(
         "\t<p>An animated movie since the start of the survey is available at this <a href='{}' target='external'> link.</p>\n".format(
