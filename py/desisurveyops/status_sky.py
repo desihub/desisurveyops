@@ -32,7 +32,7 @@ from desisurveyops.status_utils import (
     get_expfacs,
     create_mp4,
     get_tile_selection_from_program,
-    get_observed_selection_from_program,
+    get_observed_selection,
 )
 
 # AR desimodel
@@ -73,6 +73,7 @@ def process_skymap(
     program_strs,
     numproc,
     recompute=False,
+    skygoal_dict_max_tables=10,
 ):
     """
     Wrapper function to generate the coverage plots
@@ -88,11 +89,17 @@ def process_skymap(
         numproc: number of parallel processes to run (int)
         recompute (optional, defaults to False): if True recompute all maps;
             if False, only compute missing maps (bool)
+        skygoal_dict_max_tables: max. number of tables stored in _skygoal_dict (int)
 
     Notes:
         For (programs, skip_passes, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
         Files will be in {outdir}/{program_str}/.
         Usually use specprod=daily.
+        skygoal_dict_max_tables is used to avoid OOM errors; we run the code in multiple batches,
+            where _skygoal_dict will contain skygoal_dict_max_tables; one table typically is 1-2GB.
+        We use the "fork" start method for multiprocessing so that the workers
+            inherit _skygoal_dict (python>=3.14 defaults to "forkserver" on linux,
+            in which case each worker would recompute its own _skygoal_dict).
     """
 
     log.info(
@@ -106,6 +113,7 @@ def process_skymap(
     prog_obs_nights = {}
     prog_done_night = {}
     myargs = []
+    skygoal_args = []
 
     global _skygoal_dict
 
@@ -113,7 +121,7 @@ def process_skymap(
 
     for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
         # AR nights for this program
-        sel = get_observed_selection_from_program(obs_progs, obs_nights, program)
+        sel = get_observed_selection(obs_tiles, obs_progs, program)
 
         # DG: Skip any passes we want, given a specific survey. Formerly
         # this comment indicated that we skip the low priority pass 5 in the
@@ -146,8 +154,7 @@ def process_skymap(
                 cases += ["done"]
                 nightss += [[prog_done_night[program_str]]]
 
-        # AR update myargs
-        skygoal_nights = []
+        # AR update myargs, skygoal_tilesfns, skygoal_nights
         for case, nights in zip(cases, nightss):
             for night in nights:
                 for quant in ["ntile", "fraccov"]:
@@ -161,7 +168,8 @@ def process_skymap(
                         night=night,
                         ext="png",
                     )
-                    log.info(f"{outpng = }")
+                    # AR commenting out as it kind of pollutes the log files
+                    # log.info(f"{outpng = }")
                     if (not os.path.isfile(outpng)) or (recompute):
                         myargs.append(
                             (
@@ -176,17 +184,37 @@ def process_skymap(
                                 night,
                             )
                         )
-                        skygoal_nights.append(night)
+                        # AR use dictionary, as it allows to store info in a flexible way
+                        # AR and can be used in a list to test equality
+                        # TODO: better approach?
+                        skygoal_args.append(
+                            {
+                                "fn": get_history_tilesfn(survey, opsnight=night, verbose=False),
+                                "program": program,
+                                "skip_pass": skip_pass,
+                            }
+                        )
 
-        # AR compute cached _skygoal?
-        skygoal_nights = np.unique(skygoal_nights)
-        skygoal_tilesfns = np.unique(
-            [get_history_tilesfn(survey, opsnight=night) for night in skygoal_nights]
+    myargs = np.array(myargs, dtype=object)
+    skygoal_args = np.array(skygoal_args)
+    # AR a bit ugly to get unique values... there should be some better coding
+    unq_skygoal_args = np.array([], dtype=object)
+    for _ in skygoal_args:
+        if (unq_skygoal_args == _).sum() == 0:
+            unq_skygoal_args = np.append(unq_skygoal_args, _)
+    log.info(
+        "Deal with {} unique skygoal_args:".format(
+            unq_skygoal_args.size,
         )
-        log.info("{}\tskygoal_nights: {}".format(program_str, skygoal_nights))
-        log.info("{}\tskygoal_tilesfns: {}".format(program_str, skygoal_tilesfns))
-        for skygoal_tilesfn in skygoal_tilesfns:
-            _ = get_skygoal(skygoal_tilesfn, program, skip_pass=skip_pass)
+    )
+    for unq_skygoal_arg in unq_skygoal_args:
+        log.info(
+            "\t\t{}\t{}\t{}".format(
+                os.path.basename(unq_skygoal_arg["fn"]),
+                unq_skygoal_arg["program"],
+                unq_skygoal_arg["skip_pass"],
+            )
+        )
 
     # AR process, if any
     if len(myargs) > 0:
@@ -197,9 +225,50 @@ def process_skymap(
                 ",".join(program_strs),
             )
         )
-        pool = multiprocessing.Pool(processes=np.min([numproc, max_numproc]))
-        with pool:
-            _ = pool.starmap(plot_skymap, myargs)
+
+        # AR number of batch calls to multiprocessing
+        # AR we proceed so that _skygoal_dict contains skygoal_dict_max_tables at maximum
+        # AR (we re-initialize _skygoal_dict for each call)
+        n_tables = len(unq_skygoal_args)
+        icuts = np.arange(0, n_tables + skygoal_dict_max_tables, skygoal_dict_max_tables, dtype=int)
+        icuts[-1] = n_tables
+        log.info(
+            "{}\tWe launch {} calls to multiprocessing (skygoal_dict_max_tables={})".format(
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                len(icuts) - 1,
+                skygoal_dict_max_tables,
+            )
+        )
+        for istart, iend in zip(icuts[:-1], icuts[1:]):
+
+            # AR first compute _skygoal_dict for the considered sets
+            _skygoal_dict = {}
+            for unq_skygoal_arg in unq_skygoal_args[istart:iend]:
+                _ = get_skygoal(
+                    unq_skygoal_arg["fn"],
+                    unq_skygoal_arg["program"],
+                    skip_pass=unq_skygoal_arg["skip_pass"],
+                )
+
+            # AR then run plot_skymap
+            sel = np.isin(skygoal_args, unq_skygoal_args[istart:iend])
+            ii = np.where(sel)[0]
+            log.info(
+                "{}\tGenerate {} skymaps from {} skygoal maps".format(
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    len(ii),
+                    unq_skygoal_args[istart:iend].size,
+                )
+            )
+            # AR use "fork" so that the workers inherit _skygoal_dict
+            pool = multiprocessing.get_context("fork").Pool(
+                processes=np.min([numproc, max_numproc])
+            )
+            with pool:
+                _ = pool.starmap(plot_skymap, myargs[ii])
+
+        # AR free memory
+        _skygoal_dict = {}
 
     # AR return prog_obs_nights, prog_done_night
     # AR mp4 movie for case=obs
@@ -241,7 +310,7 @@ def process_skymap(
         )
 
         # AR pending tiles
-        if program in ["BRIGHT", "BRIGHT1B", "DARK", "DARK1B"]:
+        if program in ["BRIGHT", "BRIGHT1B", "DARK", "DARK1B", "BRIGHT_RUN1B", "DARK_RUN1B"]:
             if program_str not in prog_obs_nights:
                 log.warning(
                     "no found observed tiles for {}, not running plot_sky_pending()".format(
@@ -264,9 +333,6 @@ def process_skyseq(
     outdir,
     survey,
     specprod,
-    programs,
-    skip_passes,
-    program_strs,
     numproc,
     recompute=False,
 ):
@@ -277,9 +343,6 @@ def process_skyseq(
         outdir: output folder (str)
         survey: survey name (str)
         specprod: spectroscopic production (e.g. daily) (str)
-        programs: list of programs (str)
-        skip_passes: passes to skip in each program (np.ndarray of ints)
-        program_strs: list of program_strs (str)
         numproc: number of parallel processes to run (int)
         recompute (optional, defaults to False): if True recompute all maps;
             if False, only compute missing maps (bool)
@@ -454,11 +517,7 @@ def create_skygoal(tilesfn, program, outfn=None, nside=1024, skip_pass=None):
         nside (optional, defaults to 1024): healpix nside (int)
         skip_pass (optional, defaults to None): if set skip this pass in the calc (int)
     """
-    log.info(
-        "(outfn, tilesfn, program, skip_pass)\t= ({}, {}, {}, {})".format(
-            outfn, tilesfn, program, skip_pass
-        )
-    )
+    log.info("{}\t{}\t{})".format(os.path.basename(tilesfn), program, skip_pass))
 
     # AR prepare healpix file
     d = Table()
@@ -542,7 +601,23 @@ def get_skygoal(tilesfn, program, skip_pass=None):
         _skygoal_dict[tilesfn][program] = {}
     if str(skip_pass) not in _skygoal_dict[tilesfn][program]: # To use skip pass as a key it must not be a list.
         _skygoal_dict[tilesfn][program][str(skip_pass)] = create_skygoal(
-            tilesfn, program, skip_pass=skip_pass
+            tilesfn, program, skip_pass=skip_pass,
+        )
+        size = 0
+        n_tables = 0
+        for key0 in _skygoal_dict:
+            for key1 in _skygoal_dict[key0]:
+                for key2 in _skygoal_dict[key0][key1]:
+                    n_tables += 1
+                    d = _skygoal_dict[key0][key1][key2]
+                    # AR create_skygoal() returns None if no tiles
+                    if d is None:
+                        continue
+                    size += np.sum([d[_].nbytes for _ in d.colnames])
+        log.info(
+            "computed skygoal for: tilesfn={}, program={}, skip_pass={} (now _skygoal_dict has {} tables and size={:.2f}GB)".format(
+                os.path.basename(tilesfn), program, str(skip_pass), n_tables, size / 1024. ** 3,
+            )
         )
 
     return _skygoal_dict[tilesfn][program][str(skip_pass)]

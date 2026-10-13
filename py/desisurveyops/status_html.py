@@ -18,6 +18,8 @@ from desisurveyops.status_utils import (
     get_fns,
     get_obsdone_tiles,
     get_programs_passparams,
+    get_observed_selection,
+    get_tile_selection_from_program,
     get_shutdowns,
     get_history_tiles_infos,
     get_history_tiles_dir,
@@ -114,7 +116,8 @@ def process_html(
     for program, skip_pass, program_str in zip(programs[sel2show], skip_passes[sel2show], program_strs[sel2show]):
 
         # AR have we already observed this program?
-        sel = obs_progs == program
+        #sel = obs_progs == program
+        sel = get_observed_selection(obs_tiles, obs_progs, program)
         # if npassmax is not None:
         #     fns = get_fns(survey=survey, specprod=specprod)
         #     fn = fns["ops"]["tiles"]
@@ -147,11 +150,22 @@ def process_html(
                 tilesdir, survey, "tiles", night=night, rev=rev, ext="ecsv"
             )
             t = Table.read(fn)
-            sel = (t["IN_DESI"]) & (t["PROGRAM"] == program)
-            if skip_pass is not None:
-                sel &= ~np.isin(t["PASS"], skip_pass)
+            sel = get_tile_selection_from_program(t, program, in_desi=True, skip_pass=skip_pass)
             t = t[sel]
             return t
+
+        # AR program clarification
+        html.write("\t<p>Program defined as tiles with:</p>\n")
+        if program in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
+            txt = "- FAPRGRM/PROGRAM={}, or FAPRGRM/PROGRAM={} and not observed during Run1a (i.e. not in data/tiles-main-brightdark-run1a.ecsv; Run1a ended on 20260414)".format(
+                program.replace("_RUN", ""), program.replace("_RUN1B", ""),
+            )
+        else:
+            txt = "- FAPRGRM/PROGRAM={}.".format(program)
+        html.write("\t<p>{}</p>\n".format(txt))
+        if skip_pass is not None:
+            txt = "- PASS!={}.".format(",".join([str(_) for _ in skip_pass]))
+            html.write("\t<p>{}</p>\n".format(txt))
 
         # AR history...
         d = get_history_tiles_infos(survey)
@@ -229,7 +243,8 @@ def process_html(
                 "\t\t<p>The color-coding represents the {}.</p>\n".format(quantlab2)
             )
             if case == "obs":
-                sel = obs_progs == program
+                # sel = obs_progs == program
+                sel = get_observed_selection(obs_tiles, obs_progs, program)
                 if sel.sum() == 0:
                     txt = "No {} tiles {} observed so far".format(
                         program_str, caselab.lower()
@@ -266,7 +281,7 @@ def process_html(
             html.write("\t\t<td> {} </td>\n".format(txt))
 
             # AR zhist
-            if program in ["DARK", "BRIGHT", "DARK1B", "BRIGHT1B"]:
+            if program in ["DARK", "BRIGHT", "DARK1B", "BRIGHT1B", "DARK_RUN1B", "BRIGHT_RUN1B"]:
                 outpng = path_full2web(
                     get_filename(
                         outdir, survey, "zhist", program_str=program_str, ext="png"
@@ -324,7 +339,7 @@ def process_html(
             html.write("\n")
 
         # AR pending tiles
-        if program in ["BRIGHT", "DARK", "DARK1B", "BRIGHT1B"]:
+        if program in ["BRIGHT", "DARK", "DARK1B", "BRIGHT1B", "BRIGHT_RUN1B", "DARK_RUN1B"]:
 
             # AR we highlight in the table tiles older than frac_year = 1
             frac_year = 1
@@ -454,7 +469,7 @@ def process_html(
             html.write("\t</div>\n")
 
         # AR QSO / Lya
-        if (program == "DARK") | (program == "DARK1B"):
+        if program in ["DARK", "DARK1B", "DARK_RUN1B"]:
             html.write(
                 "\t<button style='margin-left:25px;' type='button' class='{}'><strong>QSO / Lya diagnoses</strong></button>\n".format(
                     collapsible_names["sub{}".format(program_str)]
