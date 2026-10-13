@@ -32,6 +32,10 @@ from desiutil.log import get_logger
 
 log = get_logger()
 
+# AR programs for which we display a full section in the main-status.html page
+# AR other programs are accessible through the per-program clickable menu
+DISPLAY_PROGRAM_STRS = ["BACKUP", "BRIGHT_RUN1B", "DARK_RUN1B"]
+
 
 def process_html(
     outdir, survey, specprod, specprod_ref, programs, skip_passes, program_strs
@@ -64,26 +68,36 @@ def process_html(
     cssfn = get_filename(outdir, survey, "html", ext="css")
 
     # AR need to copy the css?
+    # AR the git version is the reference: copy it if cssfn is missing or different
     git_cssfn = os.path.join(
         get_history_tiles_dir(), os.path.basename(cssfn)
     )
+    copy_css = True
     if os.path.isfile(cssfn):
         f = open(cssfn, "r").read()
         git_f = open(git_cssfn, "r").read()
-        if f != git_f:
+        if f == git_f:
+            copy_css = False
+        else:
             log.warning(
-                "{} and {} are different; {} page may look not as expected".format(
-                    cssfn, git_cssfn, htmlfn
+                "{} and {} are different; overwriting {} with {}".format(
+                    cssfn, git_cssfn, cssfn, git_cssfn
                 )
             )
-    else:
+    if copy_css:
         cmd = "cp -p {} {}".format(git_cssfn, cssfn)
         log.info("run {}".format(cmd))
         os.system(cmd)
 
+    # AR function names
+    perprog_func_name = "perprog_func"
+    pernight_func_name = "pernight_func"
+
     # AR exposures
     fns = get_fns(survey=survey, specprod=specprod)
     e = Table.read(fns["spec"]["exps"])
+    # AR last night displayed in the fpstate png (process_fpstate() does not cut on survey/efftime)
+    fpstate_lastnight = e["NIGHT"].max()
     sel = (e["SURVEY"] == survey) & (e["EFFTIME_SPEC"] > 0)
     e = e[sel]
 
@@ -102,8 +116,15 @@ def process_html(
     # AR collapsibles
     collapsible_names = get_collapsible_names(survey)
 
-    # AR sky/zhist
-    for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
+
+    # AR we only display full tabs for DISPLAY_PROGRAM_STRS to keep a minimal number of tabs
+    # AR for other programs, the clickable menu will allow one to check any desired plot "on demand"
+    sel2show = np.isin(program_strs, DISPLAY_PROGRAM_STRS)
+    # AR program_strs for which a section is actually written
+    shown_program_strs = []
+
+    # AR sky/zhist/qso/pending
+    for program, skip_pass, program_str in zip(programs[sel2show], skip_passes[sel2show], program_strs[sel2show]):
 
         # AR have we already observed this program?
         #sel = obs_progs == program
@@ -125,6 +146,7 @@ def process_html(
         # AR handle e.g. bright1b which does not exist yet
         if sel.sum() == 0:
             continue
+        shown_program_strs.append(program_str)
 
         # AR section
         html.write(
@@ -146,16 +168,10 @@ def process_html(
 
         # AR program clarification
         html.write("\t<p>Program defined as tiles with:</p>\n")
-        if program in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
-            txt = "- FAPRGRM/PROGRAM={}, or FAPRGRM/PROGRAM={} and not observed during Run1a (i.e. not in data/tiles-main-brightdark-run1a.ecsv; Run1a ended on 20260414)".format(
-                program.replace("_RUN", ""), program.replace("_RUN1B", ""),
-            )
-        else:
-            txt = "- FAPRGRM/PROGRAM={}.".format(program)
-        html.write("\t<p>{}</p>\n".format(txt))
-        if skip_pass is not None:
-            txt = "- PASS!={}.".format(",".join([str(_) for _ in skip_pass]))
-            html.write("\t<p>{}</p>\n".format(txt))
+        prog_txt, pass_txt = get_program_definition_txts(program, skip_pass)
+        html.write("\t<p>- {}.</p>\n".format(prog_txt))
+        if pass_txt is not None:
+            html.write("\t<p>- {}.</p>\n".format(pass_txt))
 
         # AR history...
         d = get_history_tiles_infos(survey)
@@ -246,7 +262,6 @@ def process_html(
                         nlast, program_str, caselab.lower(), lastnight
                     )
                 html.write("\t\t<p>{}.</p>\n".format(txt))
-            html.write("\t\t<br>\n")
             outpng = path_full2web(
                 get_filename(
                     outdir,
@@ -257,6 +272,13 @@ def process_html(
                     quant=quant,
                     night=None,
                     ext="png",
+                )
+            )
+            # AR link to mp4 file (so that main-status.html hopefully is lighter)
+            outmp4 = outpng.replace(".png", ".mp4")
+            html.write(
+                "\t<p>An animated movie since the start of the program is available at this <a href='{}' target='external'>link</a>.</p>\n".format(
+                    outmp4
                 )
             )
             txt = "<a href='{}'><img SRC='{}' width=55% height=auto></a>".format(
@@ -282,39 +304,6 @@ def process_html(
             html.write("\t\t</tr>\n")
             html.write("\t</div>\n")
             html.write("\n")
-
-            # AR mp4
-            if case == "obs":
-                html.write(
-                    "\t<button style='margin-left:25px;' type='button' class='{}'><strong>{} tiles</strong>: animated per-night {} skymap</button>\n".format(
-                        collapsible_names["sub{}".format(program_str)],
-                        caselab,
-                        quantlab,
-                    )
-                )
-                html.write("\t<div class='content'>\n")
-                html.write(
-                    "\t\t<p>The color-coding represents the {}.</p>\n".format(quantlab2)
-                )
-                html.write("\t\t<br>\n")
-                outmp4 = path_full2web(
-                    get_filename(
-                        outdir,
-                        survey,
-                        "skymap",
-                        program_str=program_str,
-                        case=case,
-                        quant=quant,
-                        ext="mp4",
-                    )
-                )
-                html.write("\t\t<tr>\n")
-                html.write("\t\t<video width=55% height=auto controls autoplay loop>\n")
-                html.write("\t\t\t<source src='{}' type='video/mp4'>\n".format(outmp4))
-                html.write("\t\t</video>\n")
-                html.write("\t\t</tr>\n")
-                html.write("\t</div>\n")
-                html.write("\n")
 
         # AR coverage per slice of ra / lst
         for racase, racaselab in zip(["complra", "compllst"], ["R.A.", "LST"]):
@@ -514,6 +503,65 @@ def process_html(
         html.write("</div>\n")
         html.write("\n")
 
+
+    # AR per-program products
+    html.write(
+        "<button type='button' class='collapsible'><strong>Per-program plots/movies</strong></button>\n"
+    )
+    html.write("<div class='content'>\n")
+    # AR retrieve button coding + function to call in window.onload
+    button_cont_txts, perprog_onload_func_txts = get_perprog_menu(
+        outdir,
+        perprog_func_name,
+        survey=survey,
+    )
+    # AR print button coding
+    for txt in button_cont_txts:
+        html.write(txt)
+
+    # AR programs clarification
+    # AR use all programs (not only the ones passed as argument), as in the clickable menu
+    html.write("\t<p>Programs are defined as tiles with:</p>\n")
+    html.write("\t<ul>\n")
+    for program, skip_pass, program_str in zip(*get_programs_passparams(survey=survey)):
+        prog_txt, pass_txt = get_program_definition_txts(program, skip_pass)
+        txt = "{}: {}".format(program_str, prog_txt)
+        if pass_txt is not None:
+            txt += ", {}".format(pass_txt)
+        html.write("\t\t<li><p>{}.</p></li>\n".format(txt))
+    html.write("\t</ul>\n")
+    html.write("\t<br>\n")
+
+    # AR plots clarification
+    html.write(
+        "\t<p>We consider a tile observed if it has EFFTIME_SPEC > MINTFRAC * GOALTIME (except for BACKUP: EFFTIME_SPEC > {}s).</p>\n".format(
+            get_backup_minefftime()
+        )
+    )
+    # AR point to a section actually displayed (preferably a DARK* one, which has all the plots)
+    ref_program_strs = [_ for _ in shown_program_strs if _[:4] == "DARK"] + shown_program_strs
+    if len(ref_program_strs) > 0:
+        html.write(
+            "\t<p>See e.g. the {} section for a more detailed explanation for each plot.</p>\n".format(
+                ref_program_strs[0]
+            )
+        )
+    html.write("\t\t<p>Available plots/movies are:</p>\n")
+    html.write("\t<ul>\n")
+    html.write("\t\t<li><p>skymap-obs-ntile: sky map of observed tiles; the color-coding represents the number of tiles.</p></li>\n")
+    html.write("\t\t<li><p>skymap-obs-fraccov: sky map of observed tiles; the color-coding represents the fraction of the final coverage.</p></li>\n")
+    html.write("\t\t<li><p>skymap-complra: sky map of observed tiles; the color-coding represents the (weighted) completeness per R.A. slice of 30 deg.</p></li>\n")
+    html.write("\t\t<li><p>skymap-compllst: sky map of observed tiles; the color-coding represents the (weighted) completeness per LST slice of 30 deg.</p></li>\n")
+    html.write("\t\t<li><p>skymap-pending (for BRIGHT* and DARK* programs only): sky map of pending tiles, identified from tiles-main.ecsv with: (IN_DESI=True) & ((STATUS == 'obsstart') | (STATUS == 'obsend').</p></li>\n")
+    html.write("\t\t<li><p>zhist (for BRIGHT* and DARK* programs only): redshift histogram.</p></li>\n")
+    html.write("\t\t<li><p>qso (for DARK* programs only): QSO/Lya diagnosis.</p></li>\n")
+    html.write("\t</ul>\n")
+
+    # AR close
+    html.write("</div>\n")
+    html.write("\n")
+
+
     # AR Number of spectra
     yrs = obs_nights // 10000
     unq_yrs = np.unique(yrs)
@@ -590,10 +638,10 @@ def process_html(
     outmp4 = path_full2web(get_filename(outdir, survey, "fpstate", ext="mp4"))
     outpng = path_full2web(get_filename(outdir, survey, "fpstate", ext="png"))
     html.write(
-        "\t<p>We show here the focal plane state as of {}.</p>\n".format(lastnight)
+        "\t<p>We show here the focal plane state as of {}.</p>\n".format(fpstate_lastnight)
     )
     html.write(
-        "\t<p>An animated movie since the start of the survey is available at this <a href='{}' target='external'> link.</p>\n".format(
+        "\t<p>An animated movie since the start of the survey is available at this <a href='{}' target='external'>link</a>.</p>\n".format(
             outmp4
         )
     )
@@ -636,13 +684,34 @@ def process_html(
             np.unique(e["NIGHT"]).size
         )
     )
-    txts = get_pernight_menu(
-        outdir, ["spacewatch", "skyseq", "obsconds", "exposures"], np.unique(obs_nights)
+    html.write("<div class='content'>\n")
+    # AR retrieve button coding + function to call in window.onload
+    button_cont_txts, pernight_onload_func_txts = get_pernight_menu(
+        outdir,
+        ["spacewatch", "skyseq", "obsconds", "exposures"],
+        np.unique(obs_nights),
+        pernight_func_name,
     )
-    for txt in txts:
+    # AR print button coding
+    for txt in button_cont_txts:
         html.write(txt)
-
+    # AR close
+    html.write("</div>\n")
     html.write("\n")
+
+
+    # AR window.onload: defined functions to use the per-program and per-night buttons
+    for txt in perprog_onload_func_txts:
+        html.write(txt)
+    for txt in pernight_onload_func_txts:
+        html.write(txt)
+    html.write("<script type='text/javascript'>\n")
+    html.write("window.onload = function() {\n")
+    html.write("\t{}();\n".format(pernight_func_name))
+    html.write("\t{}();\n".format(perprog_func_name))
+    html.write("}\n")
+    html.write("</script>\n")
+
 
     # AR Expid / tileid finder
     """
@@ -692,12 +761,13 @@ def process_html(
     html.write("\n")
 
     # AR lines to make collapsing sections
+    prog_collapsibles = np.unique(
+        [collapsible_names[program] for program in collapsible_names]
+    ).tolist()
     for collapsible in [
         "collapsible",
         "collapsible_sub",
-        "collapsible_year",
-        "collapsible_month",
-    ] + [collapsible_names[program] for program in collapsible_names]:
+    ] + prog_collapsibles:
         write_html_collapse_script(html, collapsible)
 
     # ADM html postamble for main page.
@@ -782,91 +852,31 @@ def write_html_today(html):
     )
 
 
-# AR html per-night observing sequence, observing conditions, sframesky, tileqa, exposures
-def write_html_night(html, outdir, case, e):
+def get_program_definition_txts(program, skip_pass):
     """
-    Write in an html object the per-night observing conditions section.
+    Get the text describing which tiles define a program.
 
     Args:
-        html: html file object
-        outdir: output folder name (str)
-        case: "skyseq", "obsconds" or "sframesky", "tileqa", "exposures" (str)
-        e: Table with exposures (i.e. reading of exposures-daily.csv)
+        program: "BACKUP", "BRIGHT{1B}", or "DARK{1B}" or "{BRIGHT,DARK}_RUN1B" (str)
+        skip_pass: passes to skip (list of int or None)
+
+    Returns:
+        prog_txt: text describing the FAPRGRM/PROGRAM selection (str)
+        pass_txt: text describing the PASS selection, None if skip_pass is None (str)
+
+    Notes:
+        For {BRIGHT,DARK}_RUN1B, see desisurveyops.status_utils.get_run1b_selection().
     """
-    #
-    if case == "skyseq":
-        fmt = "png"
-    elif case in ["sframesky", "tileqa"]:
-        fmt = "pdf"
-    elif case in ["exposures"]:
-        fmt = "html"
-    else:
-        fmt = "mp4"
-    print(case, fmt)
-    #
-    # year_word = "<span class='blue'><strong>YEAR</strong></span>"
-    # month_word = "<span class='green'><strong>MONTH</strong></span>"
-    # html.write(
-    #    "\t<p>First click on the {} to access the list of the months for that year; ".format(year_word)+
-    #    "then click on the {} to access the list of nights for that month; ".format(month_word)+
-    #    "then click on the NIGHT to access the {} for that night.</a></p>\n".format(fmt)
-    # )
-    # AR per year
-    years = np.unique(e["NIGHT"] // 10000)
-    month_ncol = 10
-    for year in years:
-        isyear = e["NIGHT"] // 10000 == year
-        # AR per month
-        months = np.unique(e["NIGHT"][isyear] // 100)
-        night_ncol = 10
-        html.write(
-            "\t<button type='button' class='collapsible_year'><strong>{}</strong> ({} nights)</button>\n".format(
-                year,
-                np.unique(e["NIGHT"][isyear]).size,
-            )
+    if program in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
+        prog_txt = "FAPRGRM/PROGRAM={}, or FAPRGRM/PROGRAM={} and not observed during Run1a (i.e. not in data/tiles-main-brightdark-run1a.ecsv; Run1a ended on 20260414)".format(
+            program.replace("_RUN", ""), program.replace("_RUN1B", ""),
         )
-        html.write("\t<div class='content'>\n")
-        month_col = 0
-        for month in months:
-            if case == "exposures":
-                yyyymm = "{}{:02}".format(year, month)
-            else:
-                yyyymm = None
-            nights = np.unique(e["NIGHT"][e["NIGHT"] // 100 == month])
-            html.write(
-                "\t\t<button style='margin-left:25px;' type='button' class='collapsible_month'><strong>{}</strong> ({} nights)</button>\n".format(
-                    month,
-                    nights.size,
-                )
-            )
-            html.write("\t\t<div class='content'>\n")
-            # AR building array
-            html.write("\t\t\t<table style='margin-left:50px;' cellspacing='10px;'>\n")
-            night_col = 0
-            for night in nights:
-                html.write(
-                    "\t\t\t\t<td><a href='{}' target='external'> {} </td>\n".format(
-                        path_full2web(
-                            get_filename(
-                                "{}{}".format(case, fmt),
-                                outdir,
-                                night=night,
-                                yyyymm=yyyymm,
-                            )
-                        ),
-                        night,
-                    )
-                )
-                night_col += 1
-                #
-                if (night_col == night_ncol) | (night == nights[-1]):
-                    html.write("\t\t\t\t</tr>\n")
-                    night_col = 0
-            html.write("\t\t\t</table>\n")
-            html.write("\t\t</div>\n")
-        html.write("\t</div>\n")
-    html.write("\t</div>\n")
-    html.write("\n")
+    else:
+        prog_txt = "FAPRGRM/PROGRAM={}".format(program)
+    pass_txt = None
+    if skip_pass is not None:
+        pass_txt = "PASS!={}".format(",".join([str(_) for _ in skip_pass]))
+    return prog_txt, pass_txt
 
 
 # AR collapsible
@@ -882,11 +892,18 @@ def get_collapsible_names(survey):
     """
     collapsible_names = {}
 
+    # AR to simplify files, only define 3 categories of collapsibles: BACKUP, BRIGHT, DARK
     _, _, program_strs = get_programs_passparams(survey=survey)
     for program_str in program_strs:
-        collapsible_names[program_str] = "collapsible_{}".format(program_str.lower())
+        progshort = None
+        for progtest in ["BACKUP", "BRIGHT", "DARK"]:
+            if program_str[:len(progtest)] == progtest:
+                progshort = progtest
+        if progshort is None:
+            raise ValueError("Unexpected program_str = {}".format(program_str))
+        collapsible_names[program_str] = "collapsible_{}".format(progshort.lower())
         collapsible_names["sub{}".format(program_str)] = "collapsible_sub{}".format(
-            program_str.lower()
+            progshort.lower()
         )
 
     return collapsible_names
@@ -1247,7 +1264,157 @@ def write_html_collapse_script(html, classname):
     html.write("</script>\n")
 
 
-def get_pernight_menu(outdir, cases, nights):
+def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
+    """
+    Get the text to write in html to have the per-program clickable menu.
+
+    Args:
+        outdir: output folder (str)
+        function_name: name of the defined function (str)
+        survey (optional, defaults to main): survey (str)
+        n_indent (optional, defaults to 1): indentation level (int)
+
+    Returns:
+        button_cont_txts: a list of strings to print to define the buttons content (list of str)
+        onload_func_txts: a list of strings to print to define the function (in the window.onload call)
+    """
+
+    # AR programs (use the same definitions as the rest of the code)
+    _, _, program_strs = get_programs_passparams(survey=survey)
+
+    # AR (name, case, quant, [fmts]) ; last element is a list of formats
+    items = {}
+    for program_str in program_strs:
+        items[program_str] = [
+            ("skymap", "obs", "ntile", ["png", "mp4"]),
+            ("skymap", "obs", "fraccov", ["png", "mp4"]),
+            ("skymap", "complra", None, ["png"]),
+            ("skymap", "compllst", None, ["png"]),
+        ]
+        if (program_str[:6] == "BRIGHT") | (program_str[:4] == "DARK"):
+            items[program_str] += [
+                ("skymap", "pending", None, ["png"]),
+                ("zhist", None, None, ["png"]),
+            ]
+        if program_str[:4] == "DARK":
+             items[program_str] += [
+                ("qso", None, None, ["png"]) ,
+            ]
+
+    # AR initialize
+    button_cont_txts = [
+        "<p>Pick a png/mp4 file to display:",
+    ]
+
+    # AR button: per-case box
+    for name in ["program", "file", "format"]:
+        button_cont_txts += [
+            "<select name='{}' id='{}'>".format(name, name),
+            "\t<option value='' selected='selected'>{}</option>".format(name),
+            "</select>",
+        ]
+    # AR button: "go" box
+    button_cont_txts += [
+        "<button onclick='getprog()' id='myProgButton' class='btn request-callback' > Go! </button>",
+        "</p>",
+        "<p id='proglink'></p>",
+        "<p> <span class='output'></span> </p>",
+    ]
+
+    # AR button: dictionary with content
+    button_cont_txts += [
+        "<script type='text/javascript'>",
+        "var programObject = {",
+    ]
+    for program_str in program_strs:
+        button_cont_txts += ["\t'{}': {{".format(program_str)]
+        for item in items[program_str]:
+            button_cont_txts += [
+                "\t\t'{}': {},".format(
+                    "-".join([_ for _ in item[:-1] if _ is not None]),
+                    str(item[-1]),
+                )
+            ]
+        button_cont_txts += ["\t},"]
+    button_cont_txts += ["}"]
+
+    # AR button: function
+    button_cont_txts += [
+        "function getprog() {",
+        "\tvar x;",
+        "\tvar link;",
+        "\tvar program;",
+        "\tvar file;",
+        "\tvar format;",
+        "\tprogram = document.querySelector('#program').value;",
+        "\tfile = document.querySelector('#file').value;",
+        "\tformat = document.querySelector('#format').value;",
+        "\tx = program + '-' + file + '.' + format;",
+    ]
+    started = None
+    for program_str in program_strs:
+        for item in items[program_str]:
+            # print(program_str, item)
+            name, case, quant, fmts = item
+            file = "-".join([_ for _ in item[:-1] if _ is not None])
+            for fmt in fmts:
+                if started is None:
+                    cond_str = "if"
+                    started = 1
+                else:
+                    cond_str = "} else if"
+                button_cont_txts += [
+                    "\t" + cond_str + " (x == '" + program_str + "-" + file +"." + fmt + "') {",
+                    "\t\tlink = '" + path_full2web(get_filename(outdir, survey, name, program_str=program_str, case=case, quant=quant, ext=fmt)) + "';",
+                ]
+    button_cont_txts += [
+        "\t} else {",
+        "\t1==1",
+        "\t}",
+        "document.getElementById('proglink').innerHTML = 'Opening ' + link;",
+        "\twindow.open(link);",
+        "}",
+        "</script>",
+    ]
+
+    # AR button: function
+    onload_func_txts = [
+        "<script type='text/javascript'>",
+        "function " + function_name + "() {",
+        "var programSel = document.getElementById('program');",
+        "var fileSel = document.getElementById('file');",
+        "var formatSel = document.getElementById('format');",
+        "for (var x in programObject) {",
+        "\tprogramSel.options[programSel.options.length] = new Option(x, x);",
+        "}",
+        "programSel.onchange = function() {",
+        "fileSel.length = 1;",
+        "formatSel.length = 1;",
+        "var file = Object.keys(programObject[programSel.value]);",
+        "for (var i = 0; i < file.length; i++) {",
+        "fileSel.options[fileSel.options.length] = new Option(file[i], file[i]);",
+        "\t}",
+        "}",
+        "fileSel.onchange = function() {",
+        "formatSel.length = 1;",
+        "var z = programObject[programSel.value][this.value];",
+        "for (var i = 0; i < z.length; i++) {",
+        "\tformatSel.options[formatSel.options.length] = new Option(z[i], z[i]);",
+        "\t}",
+        "}",
+        "}",
+        "</script>",
+    ]
+
+    # AR add indents + end of line
+    indent_str = "".join(["\t" for _ in range(n_indent)])
+    button_cont_txts = ["{}{}\n".format(indent_str, _) for _ in button_cont_txts]
+    onload_func_txts = ["{}{}\n".format(indent_str, _) for _ in onload_func_txts]
+
+    return button_cont_txts, onload_func_txts
+
+
+def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
     """
     Get the text to write in html to have the clickable menu.
 
@@ -1255,9 +1422,12 @@ def get_pernight_menu(outdir, cases, nights):
         outdir: output folder (str)
         cases: list "first level" cases (str)
         nights: list of all nights (str)
+        function_name: name of the defined function (str)
+        n_indent (optional, defaults to 1): indentation level (int)
 
     Returns:
-        txts: a list of strings to print (str)
+        button_cont_txts: a list of strings to print to define the buttons content (list of str)
+        onload_func_txts: a list of strings to print to define the function (in the window.onload call)
 
     Notes:
         cases can be: ["spacewatch", "skyseq", "obsconds", "exposures"].
@@ -1278,119 +1448,117 @@ def get_pernight_menu(outdir, cases, nights):
         log.error(msg)
         raise ValueError(msg)
 
-    # AR initialize
-    txts = [
-        "<div class='content'>\n",
-        "\t<p>\n",
-        "\t\tProduct:\n",
-        "\t\t<select id='product'>\n",
+    # AR button: initialize
+    button_cont_txts = [
+        "<p>Pick a product to display:",
+        "<select id='product'>",
     ]
-    # AR per-case box
+    # AR button: per-case box
     for case in cases:
-        txts += [
-            "\t\t\t<option value='{}'>{}</option>\n".format(case, case),
+        button_cont_txts += [
+            "\t<option value='{}'>{}</option>".format(case, case),
         ]
+    # AR button: yyyy, mm dd boxes
+    button_cont_txts += [
+        "</select>",
+        "&nbsp",
+        "<select name='yyyy' id='yyyy'>",
+        "\t<option value='' selected='selected'>yyyy</option>",
+        "</select>",
+        "<select name='mm' id='mm'>",
+        "\t<option value='' selected='selected'>mm</option>",
+        "</select>",
+        "<select name='dd' id='dd'>",
+        "\t<option value='' selected='selected'>dd</option>",
+        "</select>",
+    ]
+    # AR button: "go" box
+    button_cont_txts += [
+        "<button onclick='getnight()' id='myNightButton' class='btn request-callback' > Go! </button>",
+        "</p>",
+        "<p id='nightlink'></p>",
+        "<p> <span class='output'></span> </p>",
+    ]
 
-    # AR yyyy, mm dd boxes
-    txts += [
-        "\t\t</select>\n",
-        "\t\t&nbsp\n",
-        "\t\t<select name='yyyy' id='yyyy'>\n",
-        "\t\t\t<option value='' selected='selected'>yyyy</option>\n",
-        # "\t<option value='{}' selected='selected'>{}</option>\n".format(last_yyyy, last_yyyy),
-        "\t\t</select>\n",
-        "\t\t<select name='mm' id='mm'>\n",
-        "\t\t\t<option value='' selected='selected'>mm</option>\n",
-        # "\t<option value='{}' selected='selected'>{}</option>\n".format(last_mm, last_mm),
-        "\t\t</select>\n",
-        "\t\t<select name='dd' id='dd'>\n",
-        "\t\t\t<option value='' selected='selected'>dd</option>\n",
-        # "\t<option value='{}' selected='selected'>{}</option>\n".format(last_dd, last_dd),
-        "\t\t</select>\n",
-        "<script type='text/javascript'>\n",
-        "var yyyyObject = {\n",
+    # AR button: dictionary with content
+    button_cont_txts += [
+        "<script type='text/javascript'>",
+        "var yyyyObject = {",
     ]
     for yyyy in np.unique(my_yyyys)[::-1]:
-        txts += ["\t'{}': {{\n".format(yyyy)]
+        button_cont_txts += ["\t'{}': {{".format(yyyy)]
         yyyy_sel = my_yyyys == yyyy
         for mm in np.unique(my_mms[yyyy_sel]):
             yyyymm_sel = (yyyy_sel) & (my_mms == mm)
             dds = my_dds[yyyymm_sel]
             dds = ["'{}'".format(_) for _ in dds]
-            txts += ["\t\t'{}': [{}],\n".format(mm, ", ".join(dds))]
-        txts += ["\t},\n"]
-    txts += ["}\n"]
+            button_cont_txts += ["'{}': [{}],".format(mm, ", ".join(dds))]
+        button_cont_txts += ["},"]
+    button_cont_txts += ["}"]
 
-    # AR now the function
-    txts += [
-        "window.onload = function() {\n",
-        "\tvar yyyySel = document.getElementById('yyyy');\n",
-        "\tvar mmSel = document.getElementById('mm');\n",
-        "\tvar ddSel = document.getElementById('dd');\n",
-        "\tfor (var x in yyyyObject) {\n",
-        "\t\tyyyySel.options[yyyySel.options.length] = new Option(x, x);\n",
-        "\t}\n",
-        "\tyyyySel.onchange = function() {\n",
-        "\tddSel.length = 1;\n",
-        "\tmmSel.length = 1;\n",
-        "\tvar mm = Object.keys(yyyyObject[yyyySel.value]);\n",
-        "\tmm.sort();\n",
-        "\tfor (var i = 0; i < mm.length; i++) {\n",
-        # "\tfor (var i = mm.length; i > 0; i--) {\n",
-        "\tmmSel.options[mmSel.options.length] = new Option(mm[i], mm[i]);\n",
-        "\t\t}\n",
-        "\t}\n",
-        "\tmmSel.onchange = function() {\n",
-        "\tddSel.length = 1;\n",
-        "\tvar z = yyyyObject[yyyySel.value][this.value];\n",
-        "\tfor (var i = 0; i < z.length; i++) {\n",
-        # "\tfor (var i = z.length; i > 0; i--) {\n",
-        "\t\tddSel.options[ddSel.options.length] = new Option(z[i], z[i]);\n",
-        "\t\t}\n",
-        "\t}\n",
-        "}\n",
-        "</script>\n",
-    ]
-
-    # AR now the action
-    txts += [
-        "<button onclick='getnight()' id='myButton' class='btn request-callback' > Go! </button>\n",
-        "</p>\n",
-        "<p id='link'></p>\n",
-        "<p> <span class='output'></span> </p>\n",
-        "<script type='text/javascript'>\n",
-        "function getnight() {\n",
-        "\tvar x;\n",
-        "\tvar yyyy;\n",
-        "\tvar mm;\n",
-        "\tvar dd;\n",
-        "\tvar ext;\n",
-        "\tproduct = document.querySelector('#product').value;\n",
-        "\tyyyy = document.querySelector('#yyyy').value;\n",
-        "\tmm = document.querySelector('#mm').value;\n",
-        "\tdd = document.querySelector('#dd').value;\n",
-        "\tif (product == 'spacewatch'){\n",
-        "\t ext = 'mp4';\n",
-        "\t} else if (product == 'skyseq') {\n",
-        "\text = 'png';\n",
-        "\t} else if ((product == 'obsconds') || (product == 'sframesky') || (product == 'tileqa')){\n",
-        "\text = 'pdf';\n",
-        "\t} else {\n",
-        "\text = 'html';\n",
-        "\t}\n",
-        "\tx = '{}/' + product + '/' + product + '-' + yyyy + mm + dd + '.' + ext\n".format(
+    # AR button: function
+    button_cont_txts += [
+        "function getnight() {",
+        "var yyyy;",
+        "var mm;",
+        "var dd;",
+        "var ext;",
+        "var link;",
+        "product = document.querySelector('#product').value;",
+        "yyyy = document.querySelector('#yyyy').value;",
+        "mm = document.querySelector('#mm').value;",
+        "dd = document.querySelector('#dd').value;",
+        "if (product == 'spacewatch'){",
+        " ext = 'mp4';",
+        "} else if (product == 'skyseq') {",
+        "ext = 'png';",
+        "} else if ((product == 'obsconds') || (product == 'sframesky') || (product == 'tileqa')) {",
+        "ext = 'pdf';",
+        "} else {",
+        "ext = 'html';",
+        "}",
+        "link = '{}/' + product + '/' + product + '-' + yyyy + mm + dd + '.' + ext".format(
             path_full2web(outdir)
         ),
-        "document.getElementById('link').innerHTML = 'Opening ' + x;\n",
-        "\twindow.open(x);\n",
-        "}\n",
-        "</script>\n",
+        "document.getElementById('nightlink').innerHTML = 'Opening ' + link;",
+        "window.open(link);",
+        "}",
+        "</script>",
     ]
 
-    # AR close
-    txts += [
-        "\t</tr>\n",
-        "</div>\n",
+    # AR function to be loaded in window.onload
+    onload_func_txts = [
+        "<script type='text/javascript'>",
+        "function " + function_name + "() {",
+        "var yyyySel = document.getElementById('yyyy');",
+        "var mmSel = document.getElementById('mm');",
+        "var ddSel = document.getElementById('dd');",
+        "for (var x in yyyyObject) {",
+        "\tyyyySel.options[yyyySel.options.length] = new Option(x, x);",
+        "}",
+        "yyyySel.onchange = function() {",
+        "ddSel.length = 1;",
+        "mmSel.length = 1;",
+        "var mm = Object.keys(yyyyObject[yyyySel.value]);",
+        "mm.sort();",
+        "for (var i = 0; i < mm.length; i++) {",
+        "mmSel.options[mmSel.options.length] = new Option(mm[i], mm[i]);",
+        "\t}",
+        "}",
+        "mmSel.onchange = function() {",
+        "ddSel.length = 1;",
+        "var z = yyyyObject[yyyySel.value][this.value];",
+        "for (var i = 0; i < z.length; i++) {",
+        "\tddSel.options[ddSel.options.length] = new Option(z[i], z[i]);",
+        "\t}",
+        "}",
+        "}",
+        "</script>",
     ]
 
-    return txts
+    # AR add indents + end of line
+    indent_str = "".join(["\t" for _ in range(n_indent)])
+    button_cont_txts = ["{}{}\n".format(indent_str, _) for _ in button_cont_txts]
+    onload_func_txts = ["{}{}\n".format(indent_str, _) for _ in onload_func_txts]
+
+    return button_cont_txts, onload_func_txts
