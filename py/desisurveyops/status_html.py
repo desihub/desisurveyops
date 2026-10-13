@@ -19,6 +19,7 @@ from desisurveyops.status_utils import (
     get_obsdone_tiles,
     get_programs_passparams,
     get_observed_selection,
+    get_tile_selection_from_program,
     get_shutdowns,
     get_history_tiles_infos,
     get_history_tiles_dir,
@@ -139,16 +140,14 @@ def process_html(
                 tilesdir, survey, "tiles", night=night, rev=rev, ext="ecsv"
             )
             t = Table.read(fn)
-            sel = (t["IN_DESI"]) & (t["PROGRAM"] == program)
-            if skip_pass is not None:
-                sel &= ~np.isin(t["PASS"], skip_pass)
+            sel = get_tile_selection_from_program(t, program, in_desi=True, skip_pass=skip_pass)
             t = t[sel]
             return t
 
         # AR program clarification
         html.write("\t<p>Program defined as tiles with:</p>\n")
         if program in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
-            txt = "- FAPRGRM/PROGRAM={}, or FAPRGRM/PROGRAM={} and observed with NIGHT>20260414 (200260414 is the end of Run1a)".format(
+            txt = "- FAPRGRM/PROGRAM={}, or FAPRGRM/PROGRAM={} and not observed during Run1a (i.e. not in data/tiles-main-brightdark-run1a.ecsv; Run1a ended on 20260414)".format(
                 program.replace("_RUN", ""), program.replace("_RUN1B", ""),
             )
         else:
@@ -357,7 +356,7 @@ def process_html(
             html.write("\n")
 
         # AR pending tiles
-        if program in ["BRIGHT", "DARK", "DARK1B", "BRIGHT1B", "BRIGHT_1B", "DARK_RUN1B"]:
+        if program in ["BRIGHT", "DARK", "DARK1B", "BRIGHT1B", "BRIGHT_RUN1B", "DARK_RUN1B"]:
 
             # AR we highlight in the table tiles older than frac_year = 1
             frac_year = 1

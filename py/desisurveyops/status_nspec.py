@@ -556,6 +556,10 @@ def compute_nspec(outfn, zmtl):
 
     # AR identify tileids per program (based on main...)
     all_programs, _, _ = get_programs_passparams(survey=survey)
+    # AR {BRIGHT,DARK}_RUN1B are combinations of existing programs, not tile programs
+    all_programs = [
+        program for program in all_programs if program not in ["BRIGHT_RUN1B", "DARK_RUN1B"]
+    ]
     all_programs = np.unique(all_programs)
     all_progshorts = np.array([program.replace("1B", "") for program in all_programs])
     progdict = {
