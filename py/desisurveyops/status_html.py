@@ -32,6 +32,10 @@ from desiutil.log import get_logger
 
 log = get_logger()
 
+# AR programs for which we display a full section in the main-status.html page
+# AR other programs are accessible through the per-program clickable menu
+DISPLAY_PROGRAM_STRS = ["BACKUP", "BRIGHT_RUN1B", "DARK_RUN1B"]
+
 
 def process_html(
     outdir, survey, specprod, specprod_ref, programs, skip_passes, program_strs
@@ -107,10 +111,9 @@ def process_html(
     collapsible_names = get_collapsible_names(survey)
 
 
-    # AR we only display full tabs for BACKUP, BRIGHT1B, DARK1B to keep a minimal number of tabs
+    # AR we only display full tabs for DISPLAY_PROGRAM_STRS to keep a minimal number of tabs
     # AR for other programs, the clickable menu will allow one to check any desired plot "on demand"
-    # AR TODO: when pr488 will be merged, we will display: BACKUP, BRIGHT_RUN1B, DARK_RUN1B
-    sel2show = np.isin(program_strs, ["BACKUP", "BRIGHT1B", "DARK1B"])
+    sel2show = np.isin(program_strs, DISPLAY_PROGRAM_STRS)
 
     # AR sky/zhist/qso/pending
     for program, skip_pass, program_str in zip(programs[sel2show], skip_passes[sel2show], program_strs[sel2show]):
