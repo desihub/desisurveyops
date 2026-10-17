@@ -56,6 +56,8 @@ def process_html(
     Notes:
         For (programs, skip_passes, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
         Usually use specprod=daily and specprod_ref=loa.
+        If there is an existing main-status.css file which differs from the git version,
+            it will be replaced by the git version one.
         The overall coding can surely been improved! but it works as is...
     """
 
