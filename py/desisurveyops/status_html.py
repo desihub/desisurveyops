@@ -52,6 +52,8 @@ def process_html(
     Notes:
         For (programs, skip_passes, program_strs), see desisurveyops.sky_utils.get_programs_passparams().
         Usually use specprod=daily and specprod_ref=loa.
+        If there is an existing main-status.css file which differs from the git version,
+            it will be replaced by the git version one.
         The overall coding can surely been improved! but it works as is...
     """
 
@@ -64,6 +66,7 @@ def process_html(
     cssfn = get_filename(outdir, survey, "html", ext="css")
 
     # AR need to copy the css?
+    docopy = False
     git_cssfn = os.path.join(
         get_history_tiles_dir(), os.path.basename(cssfn)
     )
@@ -71,12 +74,15 @@ def process_html(
         f = open(cssfn, "r").read()
         git_f = open(git_cssfn, "r").read()
         if f != git_f:
+            docopy = True
             log.warning(
-                "{} and {} are different; {} page may look not as expected".format(
-                    cssfn, git_cssfn, htmlfn
+                "{} and {} are different; we replace the existing one with the git one".format(
+                    cssfn, git_cssfn,
                 )
             )
     else:
+        docopy = True
+    if docopy:
         cmd = "cp -p {} {}".format(git_cssfn, cssfn)
         log.info("run {}".format(cmd))
         os.system(cmd)
