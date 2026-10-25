@@ -5,6 +5,8 @@ import argparse
 import sys
 import datetime
 import shutil
+import subprocess
+from multiprocessing import Pool
 
 import numpy as np
 from astropy.table import Table
@@ -20,12 +22,21 @@ parser.add_argument("--outroot", default=None, type=str,
         help="root directory for final outputs ($DESI_ROOT/survey/fiberassign/main)")
 parser.add_argument("--overwrite", default=False, action='store_true',
         help="overwrite final outputs in outroot")
+parser.add_argument("--nproc", default=16, type=int,
+        help="Number of tiles to process in parallel at once.")
 parser.add_argument("--oldstyletoo", default=False, action="store_true",
         help=("Use the style of ToO file from the first part of the DESI "
         "survey, before the addition of Rubin ToOs")
         )
+parser.add_argument("--send_email", default=None, type=str,
+        help=("If provided, send an email on completion to this email address with the results"))
+parser.add_argument("--from_email", default=None, type=str,
+        help=("The from address for the sent email"))
 
 args = parser.parse_args()
+
+if bool(args.send_email) != bool(args.from_email):
+    raise ValueError("If providing either args.send_email or args.from_email, you must provide both!")
 
 if args.night is None:
     args.night = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y%m%d')
@@ -88,52 +99,89 @@ if not os.path.exists(outdir):
 fol = [] #empty list to contain orginal fiberassign file names
 fnl = [] #empty list to contain new fiberassign file names
 
-for tid in tidl:
-    sel = exps['TILEID'] == tid
-    expid = exps[sel]['EXPID'][0] #just select one expid to get the fiberassign file
-    ff = 'fiberassign-'+str(tid).zfill(6)+'.fits.gz'
-    fn = desiroot+'spectro/data/'+args.night+'/'+str(expid).zfill(8)+'/'+ff
-    print('reproducing data for fiberassign file '+fn)
-    fol.append(fn)
-    fnl.append(outdir+'/'+str(tid).zfill(6)[:3]+'/fiberassign-'+str(tid).zfill(6)+'.fits.gz')
-    #system call run fiberassign
-    # ADM updated for new style of ToO file.
-    # ADM see https://github.com/desihub/fiberassign/pull/500
-    # ADM and https://github.com/desihub/desitarget/pull/874
-    if args.oldstyletoo:
-        os.system('fba_rerun --infiberassign '+fn+' --outdir '+outdir+' --nosteps qa') #--dtver 1.1.1
-    else:
-        os.system('fba_rerun --infiberassign '+fn+' --outdir '+outdir+' --nosteps qa --force_try_too_all') #--dtver 1.1.1
+procs = []
+# DG - I added a flush print line here to print all lines above bevore the buffer gets held in the p.communicate() loop.
+# Without this none of the above prints print until the first fiberassignment finishes
+# and that process communicates.
+print("Starting `fba_rerun`", flush=True)
+for i in range(0, len(tidl), args.nproc):
+    for tid in tidl[i:(i + args.nproc)]:
+        sel = exps['TILEID'] == tid
+        expid = exps[sel]['EXPID'][0] #just select one expid to get the fiberassign file
+        ff = 'fiberassign-'+str(tid).zfill(6)+'.fits.gz'
+        fn = desiroot+'spectro/data/'+args.night+'/'+str(expid).zfill(8)+'/'+ff
+        print('reproducing data for fiberassign file '+fn)
+        fol.append(fn)
+        fnl.append(outdir+'/'+str(tid).zfill(6)[:3]+'/fiberassign-'+str(tid).zfill(6)+'.fits.gz')
+        #system call run fiberassign
+        # ADM updated for new style of ToO file.
+        # ADM see https://github.com/desihub/fiberassign/pull/500
+        # ADM and https://github.com/desihub/desitarget/pull/874
+        to_run = ["fba_rerun", "--infiberassign", fn, "--outdir", outdir, "--nosteps", "qa"] #"--dtver", "1.1.1"]
+        if not args.oldstyletoo:
+            to_run.append("--force_try_too_all")
+        # DG - For each tile, open a new subprocess to run that tile.
+        p = subprocess.Popen(to_run, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        procs.append(p)
+
+    # DG - Print the output of each process. Doing it this way instead of
+    # subprocess.run or multiprocess.pool allows us to multiprocess while keeping the output of
+    # each process in its own singular block - which is helpful for
+    # debugging if one of the tiles fails.
+    for p in procs:
+        stdout, stderr = p.communicate()
+        print(stdout.decode())
+
+        if stderr is not None:
+            print(stderr.decode())
 
 from fiberassign.fba_rerun_io import fba_rerun_check
 docheck = True
 
-tids_passl = []
-if docheck:
-    for ii in range(0, len(fnl)):
-        dfn = outdir+'/'+str(tidl[ii])+'.diff'
-        if os.path.isfile(fnl[ii]):
-            fba_rerun_check(fol[ii], fnl[ii],dfn )  
-            if len(open(dfn).readlines())>1:
-                tids = np.atleast_1d(np.genfromtxt(dfn, usecols = (3,), dtype=int))
-                if len(tids) > 0:
-                    #tids = dd[3]
-                    sel = tids > 0
-                    if len(tids[sel]) > 0:
-                        print('found '+str(len(tids[sel]))+' positive targetid that are different')
-                        print('FOLLOW-UP NEEDED, DO NOT ALLOW ZDONE FOR TILEID '+str(tidl[ii])+'!!!')
-                    else:
-                        print('TILEID '+str(tidl[ii])+' PASSED') 
-                        tids_passl.append(tidl[ii])
-                else:
-                    print('TILEID '+str(tidl[ii])+' PASSED')          
-                    tids_passl.append(tidl[ii])
-            else:
-                print('TILEID '+str(tidl[ii])+' PASSED')          
-                tids_passl.append(tidl[ii])
+print("Checking old vs new assignments", flush=True)
 
+tids_passl = []
+details_for_send = []
+if docheck:
+    diff_names = []
+    orig_names = []
+    repro_names = []
+    rerun_tids = []
+    for ii in range(0, len(fnl)):
+        if os.path.isfile(fnl[ii]):
+            diff_names.append(outdir+'/'+str(tidl[ii])+'.diff')
+            repro_names.append(fol[ii])
+            orig_names.append(fnl[ii])
+            rerun_tids.append(tidl[ii])
         else:
             print('WHY IS THERE NO NEW FIBERASSIGN FILE FOR '+str(tidl[ii])+'!?!? (check above output for clues)')
+
+    with Pool(args.nproc) as p:
+        p.starmap(fba_rerun_check, zip(repro_names, orig_names, diff_names))
+
+    for ii, dfn in enumerate(diff_names):
+        success_msg = f"TILEID {str(rerun_tids[ii])} PASSED"
+        if len(open(dfn).readlines())>1:
+            tids = np.atleast_1d(np.genfromtxt(dfn, usecols = (3,), dtype=int))
+            if len(tids) > 0:
+                sel = tids > 0
+                if len(tids[sel]) > 0:
+                    print(f"Found {str(len(tids[sel]))} positive targetid that are different")
+                    print(f"FOLLOW-UP NEEDED, DO NOT ALLOW ZDONE FOR TILEID {str(rerun_tids[ii])} !!!")
+                    details_for_send.append(f"FOLLOW-UP NEEDED, TILEID {str(rerun_tids[ii])} ({str(len(tids[sel]))} different positive targetids)")
+                else:
+                    print(success_msg)
+                    details_for_send.append(success_msg)
+                    tids_passl.append(rerun_tids[ii])
+            else:
+                print(success_msg)
+                details_for_send.append(success_msg)
+                tids_passl.append(rerun_tids[ii])
+        else:
+            print(success_msg)
+            details_for_send.append(success_msg)
+            tids_passl.append(rerun_tids[ii])
+
 
 #move intermediate files for tiles that pass
 
@@ -145,7 +193,7 @@ for tid in tids_passl:
         print("create {}".format(mv_tiddir))
         os.makedirs(mv_tiddir)
 
-    for name in ["tiles", "sky", "gfa", "targ", "scnd", "too"]:        
+    for name in ["tiles", "sky", "gfa", "targ", "scnd", "too"]:
         fn = outdir+'/'+str(tid).zfill(6)[:3]+'/'+str(tid).zfill(6)+'-'+name+'.fits'
         if os.path.isfile(fn):
             mv_fn = os.path.join(mv_tiddir, os.path.basename(fn))
@@ -159,9 +207,31 @@ for tid in tids_passl:
                 shutil.move(fn, mv_fn)
                 # os.system("mv {} {}".format(fn, mv_fn))
 
+final_result = ""
 if len(tids_passl) == len(tidl):
-    print('SUCCESS all tiles ('+str(len(tidl))+') passed; quickly double check above that files were copied as expected')
+    final_result = f"SUCCESS all tiles ({str(len(tidl))}) passed; quickly double check above that files were copied as expected"
 else:
-    print('FAIL!!! at lease one tile failed; investigate output above')
-    
+    final_result = "FAIL!!! at lease one tile failed; investigate output above"
+print(final_result)
+details_for_send.append(final_result)
+
+# TODO: os.system is deprecated. Switch this to subporcess.run
 os.system(f"fix_permissions.sh {args.outroot}")
+
+if args.send_email:
+    # DG - This entire block is basically just from the Python docs.
+    import smtplib
+    from email.message import EmailMessage
+
+    msg = EmailMessage()
+
+    msg["From"] = args.from_email
+    msg["To"] = args.send_email
+
+    msg["Subject"] = f"{args.night} validate_lastnight_fba: {final_result.split()[0]}"
+    to_send = "\n".join(details_for_send)
+    msg.set_content(to_send)
+
+    s = smtplib.SMTP('localhost')
+    s.send_message(msg)
+    s.quit()
