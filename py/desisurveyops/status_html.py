@@ -1309,15 +1309,18 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
     ]
 
     # AR button: per-case box
-    for name in ["program", "file", "format"]:
+    for name in ["program", "file", "format", "tab"]:
         button_cont_txts += [
             "<select name='{}' id='{}'>".format(name, name),
             "\t<option value='' selected='selected'>{}</option>".format(name),
             "</select>",
         ]
-    # AR button: "go" box
-    button_cont_txts += [
+    # AR button: "go" box + image + video (if tab=current)
+    button_cont_txts += [ 
         "<button onclick='getprog()' id='myProgButton' class='btn request-callback' > Go! </button>",
+        "<br>",
+        "<img id='progimg'></img>",
+        "<video id='progmp4' controls autoplay loop></video>",
         "</p>",
         "<p id='proglink'></p>",
         "<p> <span class='output'></span> </p>",
@@ -1339,6 +1342,9 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
             ]
         button_cont_txts += ["\t},"]
     button_cont_txts += ["}"]
+    button_cont_txts += [
+        "var tabObject = {'current': 'current', 'new': 'new'}",
+    ]
 
     # AR button: function
     button_cont_txts += [
@@ -1348,9 +1354,11 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
         "\tvar program;",
         "\tvar file;",
         "\tvar format;",
+        "\tvar tab;",
         "\tprogram = document.querySelector('#program').value;",
         "\tfile = document.querySelector('#file').value;",
         "\tformat = document.querySelector('#format').value;",
+        "\ttab = document.querySelector('#tab').value;",
         "\tx = program + '-' + file + '.' + format;",
     ]
     started = None
@@ -1365,16 +1373,36 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
                     started = 1
                 else:
                     cond_str = "} else if"
+                width = "55%"
+                if name == "zhist":
+                    width = "25%"
                 button_cont_txts += [
                     "\t" + cond_str + " (x == '" + program_str + "-" + file +"." + fmt + "') {",
                     "\t\tlink = '" + path_full2web(get_filename(outdir, survey, name, program_str=program_str, case=case, quant=quant, ext=fmt)) + "';",
+                    "\t\twidth = '{}'".format(width),
                 ]
     button_cont_txts += [
         "\t} else {",
         "\t1==1",
         "\t}",
-        "document.getElementById('proglink').innerHTML = 'Opening ' + link;",
-        "\twindow.open(link);",
+        "\tif (tab == 'current') {",
+        "\t\tif (format == 'mp4') {",
+        "\t\t\tdocument.getElementById('progmp4').src = link",
+        "\t\t\tdocument.getElementById('progmp4').type = 'video/mp4'",
+        "\t\t\tdocument.getElementById('progmp4').style.width = '55%'",
+        "\t\t\tdocument.getElementById('progmp4').style.height = 'auto'",
+        "\t\t\tdocument.getElementById('progmp4').style.display = 'inline'",
+        "\t\t\tdocument.getElementById('progimg').style.display = 'none'",
+        "\t\t} else {",
+        "\t\t\tdocument.getElementById('progimg').src = link",
+        "\t\t\tdocument.getElementById('progimg').style.width = width",
+        "\t\t\tdocument.getElementById('progimg').style.height = 'auto'",
+        "\t\t\tdocument.getElementById('progmp4').style.display = 'none'",
+        "\t\t}",
+        "} else {",
+        "\tdocument.getElementById('proglink').innerHTML = 'Opening ' + link;",
+        "\twindow.open(link)",
+        "}",
         "}",
         "</script>",
     ]
@@ -1386,6 +1414,9 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
         "var programSel = document.getElementById('program');",
         "var fileSel = document.getElementById('file');",
         "var formatSel = document.getElementById('format');",
+        "var tabSel = document.getElementById('tab');",
+        "var imgSel = document.getElementById('progimg');",
+        "var mp4Sel = document.getElementById('progmp4');",
         "for (var x in programObject) {",
         "\tprogramSel.options[programSel.options.length] = new Option(x, x);",
         "}",
@@ -1404,6 +1435,16 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
         "\tformatSel.options[formatSel.options.length] = new Option(z[i], z[i]);",
         "\t}",
         "}",
+        "for (var x in tabObject) {",
+        "\ttabSel.options[tabSel.options.length] = new Option(x, x)",
+        "}",
+        "\tif (formatSel == 'mp4') {",
+        "\t\timgSel.style.display = 'none';",
+        "\t\tmp4Sel.style.display = 'inline';",
+        "\t} else {",
+        "\t\timgSel.style.display = 'inline';",
+        "\t\tmp4Sel.style.display = 'none';",
+        "\t}",
         "}",
         "</script>",
     ]
@@ -1473,10 +1514,15 @@ def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
         "<select name='dd' id='dd'>",
         "\t<option value='' selected='selected'>dd</option>",
         "</select>",
+        "<select name='nighttab' id='nighttab'>",
+        "\t<option value='' selected='selected'>tab</option>",
+        "</select>",
     ]
     # AR button: "go" box
     button_cont_txts += [
         "<button onclick='getnight()' id='myNightButton' class='btn request-callback' > Go! </button>",
+        "<img id='nightimg'></img>",
+        "<video id='nightmp4' controls autoplay loop></video>",
         "</p>",
         "<p id='nightlink'></p>",
         "<p> <span class='output'></span> </p>",
@@ -1497,6 +1543,9 @@ def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
             button_cont_txts += ["'{}': [{}],".format(mm, ", ".join(dds))]
         button_cont_txts += ["},"]
     button_cont_txts += ["}"]
+    button_cont_txts += [
+        "var tabObject = {'current': 'current', 'new': 'new'}",
+    ]
 
     # AR button: function
     button_cont_txts += [
@@ -1506,10 +1555,12 @@ def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
         "var dd;",
         "var ext;",
         "var link;",
+        "var tab;",
         "product = document.querySelector('#product').value;",
         "yyyy = document.querySelector('#yyyy').value;",
         "mm = document.querySelector('#mm').value;",
         "dd = document.querySelector('#dd').value;",
+        "tab = document.querySelector('#tab').value;",
         "if (product == 'spacewatch'){",
         " ext = 'mp4';",
         "} else if (product == 'skyseq') {",
@@ -1522,8 +1573,25 @@ def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
         "link = '{}/' + product + '/' + product + '-' + yyyy + mm + dd + '.' + ext".format(
             path_full2web(outdir)
         ),
-        "document.getElementById('nightlink').innerHTML = 'Opening ' + link;",
-        "window.open(link);",
+
+        "\tif (tab == 'current') {",
+        "\t\tif (ext == 'mp4') {",
+        "\t\t\tdocument.getElementById('nightmp4').src = link",
+        "\t\t\tdocument.getElementById('nightmp4').type = 'video/mp4'",
+        "\t\t\tdocument.getElementById('nightmp4').style.width = '55%'",
+        "\t\t\tdocument.getElementById('nightmp4').style.height = 'auto'",
+        "\t\t\tdocument.getElementById('nightmp4').style.display = 'inline'",
+        "\t\t\tdocument.getElementById('nightimg').style.display = 'none'",
+        "\t\t} else {",
+        "\t\t\tdocument.getElementById('nightimg').src = link",
+        "\t\t\tdocument.getElementById('nightimg').style.width = width",
+        "\t\t\tdocument.getElementById('nightimg').style.height = 'auto'",
+        "\t\t\tdocument.getElementById('nightmp4').style.display = 'none'",
+        "\t\t}",
+        "} else {",
+        "\tdocument.getElementById('nightlink').innerHTML = 'Opening ' + link;",
+        "\twindow.open(link)",
+        "}",
         "}",
         "</script>",
     ]
@@ -1535,6 +1603,9 @@ def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
         "var yyyySel = document.getElementById('yyyy');",
         "var mmSel = document.getElementById('mm');",
         "var ddSel = document.getElementById('dd');",
+        "var tabSel = document.getElementById('tab');",
+        "var imgSel = document.getElementById('nightimg');",
+        "var mp4Sel = document.getElementById('nightmp4');",
         "for (var x in yyyyObject) {",
         "\tyyyySel.options[yyyySel.options.length] = new Option(x, x);",
         "}",
@@ -1554,6 +1625,16 @@ def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
         "\tddSel.options[ddSel.options.length] = new Option(z[i], z[i]);",
         "\t}",
         "}",
+        "for (var x in tabObject) {",
+        "\ttabSel.options[tabSel.options.length] = new Option(x, x)",
+        "}",
+        "\tif (formatSel == 'mp4') {",
+        "\t\timgSel.style.display = 'none';",
+        "\t\tmp4Sel.style.display = 'inline';",
+        "\t} else {",
+        "\t\timgSel.style.display = 'inline';",
+        "\t\tmp4Sel.style.display = 'none';",
+        "\t}",
         "}",
         "</script>",
     ]
