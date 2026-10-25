@@ -279,7 +279,7 @@ def process_html(
             # AR link to mp4 file (so that main-status.html hopefully is lighter)
             outmp4 = outpng.replace(".png", ".mp4")
             html.write(
-                "\t<p>An animated movie since the start of the program is available at this <a href='{}' target='external'>link</a>.</p>\n".format(
+                "\t\t<p>An animated movie since the start of the program is available at this <a href='{}' target='external'> link.</p>\n".format(
                     outmp4
                 )
             )
@@ -705,14 +705,17 @@ def process_html(
     # AR window.onload: defined functions to use the per-program and per-night buttons
     for txt in perprog_onload_func_txts:
         html.write(txt)
+    html.write("\n")
     for txt in pernight_onload_func_txts:
         html.write(txt)
+    html.write("\n")
     html.write("<script type='text/javascript'>\n")
     html.write("window.onload = function() {\n")
     html.write("\t{}();\n".format(pernight_func_name))
     html.write("\t{}();\n".format(perprog_func_name))
     html.write("}\n")
     html.write("</script>\n")
+    html.write("\n")
 
 
     # AR Expid / tileid finder
@@ -727,7 +730,7 @@ def process_html(
     """
 
     # AR used files
-    html.write("\t<p></p>\n")
+    html.write("\n")
     html.write(
         "<button type='button' class='collapsible'><strong>Used files</strong></button>\n"
     )
@@ -771,6 +774,7 @@ def process_html(
         "collapsible_sub",
     ] + prog_collapsibles:
         write_html_collapse_script(html, collapsible)
+        html.write("\n")
 
     # ADM html postamble for main page.
     write_html_today(html)
@@ -848,7 +852,7 @@ def write_html_today(html):
         html: html file object.
     """
     html.write(
-        "<p style='font-size:1vw; text-align:right'><i>Last updated: {}</p></i>\n".format(
+        "<p style='font-size:1vw; text-align:right'><i>Last updated: {}</i></p>\n".format(
             datetime.now().astimezone().strftime("%H:%M %Z, %b %-d, %Y")
         )
     )
@@ -1247,7 +1251,6 @@ def write_html_collapse_script(html, classname):
     html.write("<script>\n")
     html.write("var coll = document.getElementsByClassName('{}');\n".format(classname))
     html.write("var i;\n")
-    html.write("\n")
     html.write("for (i = 0; i < coll.length; i++) {\n")
     html.write("\tcoll[i].addEventListener('click', function() {\n")
     html.write(
@@ -1257,7 +1260,7 @@ def write_html_collapse_script(html, classname):
     )
     html.write("\t\tvar content = this.nextElementSibling;\n")
     html.write("\t\tif (content.style.display === 'block') {\n")
-    html.write("\t\tcontent.style.display = 'none';\n")
+    html.write("\t\t\tcontent.style.display = 'none';\n")
     html.write("\t\t} else {\n")
     html.write("\t\t\tcontent.style.display = 'block';\n")
     html.write("\t\t}\n")
@@ -1311,15 +1314,15 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
     # AR button: per-case box
     for name in ["program", "file", "format", "progtab"]:
         button_cont_txts += [
-            "<select name='{}' id='{}'>".format(name, name),
-            "\t<option value='' selected='selected'>{}</option>".format(name.replace("progtab", "tab")),
-            "</select>",
+            "\t<select name='{}' id='{}'>".format(name, name) +
+            "\t<option value='' selected='selected'>{}</option>".format(name.replace("progtab", "tab")) +
+            "\t</select>",
         ]
     # AR button: "go" box + image + video (if tab=current)
     button_cont_txts += [ 
-        "<button onclick='getprog()' id='myProgButton' class='btn request-callback' > Go! </button>",
-        "<div id='prog-media-container'> </div>",
-        "<br>",
+        "\t<button onclick='getprog()' id='myProgButton' class='btn request-callback' > Go! </button>",
+        "\t<div id='prog-media-container'> </div>",
+        "\t<br>",
         "</p>",
         "<p id='proglink'></p>",
     ]
@@ -1327,37 +1330,37 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
     # AR button: dictionary with content
     button_cont_txts += [
         "<script type='text/javascript'>",
-        "var programObject = {",
+        "\tvar programObject = {",
     ]
     for program_str in program_strs:
-        button_cont_txts += ["\t'{}': {{".format(program_str)]
+        button_cont_txts += ["\t\t'{}': {{".format(program_str)]
         for item in items[program_str]:
             button_cont_txts += [
-                "\t\t'{}': {},".format(
+                "\t\t\t\t'{}': {},".format(
                     "-".join([_ for _ in item[:-1] if _ is not None]),
                     str(item[-1]),
                 )
             ]
-        button_cont_txts += ["\t},"]
-    button_cont_txts += ["}"]
+        button_cont_txts += ["\t\t\t},"]
+    button_cont_txts += ["\t\t}"]
     button_cont_txts += [
-        "var tabObject = {'current': 'current', 'new': 'new'}",
+        "\tvar tabObject = {'current': 'current', 'new': 'new'}",
     ]
 
     # AR button: function
     button_cont_txts += [
-        "function getprog() {",
-        "\tvar x;",
-        "\tvar link;",
-        "\tvar program;",
-        "\tvar file;",
-        "\tvar format;",
-        "\tvar tab;",
-        "\tprogram = document.querySelector('#program').value;",
-        "\tfile = document.querySelector('#file').value;",
-        "\tformat = document.querySelector('#format').value;",
-        "\ttab = document.querySelector('#progtab').value;",
-        "\tx = program + '-' + file + '.' + format;",
+        "\tfunction getprog() {",
+        "\t\tvar x;",
+        "\t\tvar link;",
+        "\t\tvar program;",
+        "\t\tvar file;",
+        "\t\tvar format;",
+        "\t\tvar tab;",
+        "\t\tprogram = document.querySelector('#program').value;",
+        "\t\tfile = document.querySelector('#file').value;",
+        "\t\tformat = document.querySelector('#format').value;",
+        "\t\ttab = document.querySelector('#progtab').value;",
+        "\t\tx = program + '-' + file + '.' + format;",
     ]
     started = None
     for program_str in program_strs:
@@ -1375,40 +1378,40 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
                 if name == "zhist":
                     width = "25%"
                 button_cont_txts += [
-                    "\t" + cond_str + " (x == '" + program_str + "-" + file +"." + fmt + "') {",
-                    "\t\tlink = '" + path_full2web(get_filename(outdir, survey, name, program_str=program_str, case=case, quant=quant, ext=fmt)) + "';",
-                    "\t\twidth = '{}'".format(width),
+                    "\t\t" + cond_str + " (x == '" + program_str + "-" + file +"." + fmt + "') {",
+                    "\t\t\tlink = '" + path_full2web(get_filename(outdir, survey, name, program_str=program_str, case=case, quant=quant, ext=fmt)) + "';",
+                    "\t\t\twidth = '{}'".format(width),
                 ]
     button_cont_txts += [
-        "\t} else {",
-        "\t1==1",
-        "\t}",
-        "\tif (tab == 'current') {",
-        "\t\tconst container = document.getElementById('prog-media-container');",
-        "\t\twhile (container.lastElementChild) {",
-        "\t\t\tcontainer.removeChild(container.lastElementChild);",
-        "\t\t}",
-        "\t\tif (format == 'mp4') {",
-        "\t\tconst video = document.createElement('video');",
-        "\t\tvideo.src = link;",
-        "\t\tvideo.controls = true;",
-        "\t\tvideo.autoplay = true;",
-        "\t\tvideo.loop = true;",
-        "\t\tvideo.style.width = '55%'",
-        "\t\tvideo.style.height = 'auto'",
-        "\t\tcontainer.appendChild(video);",
         "\t\t} else {",
-        "\t\tconst img = document.createElement('img');",
-        "\t\timg.src = link;",
-        "\t\timg.style.width = '{}'".format(width),
-        "\t\timg.style.height = 'auto'",
-        "\t\tcontainer.appendChild(img);",
+        "\t\t1==1",
         "\t\t}",
-        "\t} else {",
-        "\t\tdocument.getElementById('proglink').innerHTML = 'Opening ' + link;",
-        "\t\twindow.open(link)",
+        "\t\tif (tab == 'current') {",
+        "\t\t\tconst container = document.getElementById('prog-media-container');",
+        "\t\t\twhile (container.lastElementChild) {",
+        "\t\t\t\tcontainer.removeChild(container.lastElementChild);",
+        "\t\t\t}",
+        "\t\t\tif (format == 'mp4') {",
+        "\t\t\t\tconst video = document.createElement('video');",
+        "\t\t\t\tvideo.src = link;",
+        "\t\t\t\tvideo.controls = true;",
+        "\t\t\t\tvideo.autoplay = true;",
+        "\t\t\t\tvideo.loop = true;",
+        "\t\t\t\tvideo.style.width = '55%'",
+        "\t\t\t\tvideo.style.height = 'auto'",
+        "\t\t\t\tcontainer.appendChild(video);",
+        "\t\t\t} else {",
+        "\t\t\t\tconst img = document.createElement('img');",
+        "\t\t\t\timg.src = link;",
+        "\t\t\t\timg.style.width = '{}'".format(width),
+        "\t\t\t\timg.style.height = 'auto'",
+        "\t\t\t\tcontainer.appendChild(img);",
+        "\t\t\t}",
+        "\t\t} else {",
+        "\t\t\tdocument.getElementById('proglink').innerHTML = 'Opening ' + link;",
+        "\t\t\twindow.open(link)",
+        "\t\t}",
         "\t}",
-        "}",
         "</script>",
     ]
 
@@ -1450,7 +1453,7 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
     # AR add indents + end of line
     indent_str = "".join(["\t" for _ in range(n_indent)])
     button_cont_txts = ["{}{}\n".format(indent_str, _) for _ in button_cont_txts]
-    onload_func_txts = ["{}{}\n".format(indent_str, _) for _ in onload_func_txts]
+    onload_func_txts = ["{}\n".format(_) for _ in onload_func_txts]
 
     return button_cont_txts, onload_func_txts
 
@@ -1492,7 +1495,7 @@ def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
     # AR button: initialize
     button_cont_txts = [
         "<p>Pick a product to display:",
-        "<select id='product'>",
+        "\t<select id='product'>",
     ]
     # AR button: per-case box
     for case in cases:
@@ -1501,26 +1504,26 @@ def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
         ]
     # AR button: yyyy, mm dd boxes
     button_cont_txts += [
-        "</select>",
-        "&nbsp",
-        "<select name='yyyy' id='yyyy'>",
-        "\t<option value='' selected='selected'>yyyy</option>",
-        "</select>",
-        "<select name='mm' id='mm'>",
-        "\t<option value='' selected='selected'>mm</option>",
-        "</select>",
-        "<select name='dd' id='dd'>",
-        "\t<option value='' selected='selected'>dd</option>",
-        "</select>",
-        "<select name='nighttab' id='nighttab'>",
-        "\t<option value='' selected='selected'>tab</option>",
-        "</select>",
+        "\t</select>",
+        "\t&nbsp",
+        "\t<select name='yyyy' id='yyyy'>",
+        "\t\t<option value='' selected='selected'>yyyy</option>",
+        "\t</select>",
+        "\t<select name='mm' id='mm'>",
+        "\t\t<option value='' selected='selected'>mm</option>",
+        "\t</select>",
+        "\t<select name='dd' id='dd'>",
+        "\t\t<option value='' selected='selected'>dd</option>",
+        "\t</select>",
+        "\t<select name='nighttab' id='nighttab'>",
+        "\t\t<option value='' selected='selected'>tab</option>",
+        "\t</select>",
     ]
     # AR button: "go" box
     button_cont_txts += [
-        "<button onclick='getnight()' id='myNightButton' class='btn request-callback' > Go! </button>",
-        "<div id='night-media-container'> </div>",
-        "<br>",
+        "\t<button onclick='getnight()' id='myNightButton' class='btn request-callback' > Go! </button>",
+        "\t<div id='night-media-container'> </div>",
+        "\t<br>",
         "</p>",
         "<p id='nightlink'></p>",
     ]
@@ -1528,82 +1531,82 @@ def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
     # AR button: dictionary with content
     button_cont_txts += [
         "<script type='text/javascript'>",
-        "var yyyyObject = {",
+        "\tvar yyyyObject = {",
     ]
     for yyyy in np.unique(my_yyyys)[::-1]:
-        button_cont_txts += ["\t'{}': {{".format(yyyy)]
+        button_cont_txts += ["\t\t'{}': {{".format(yyyy)]
         yyyy_sel = my_yyyys == yyyy
         for mm in np.unique(my_mms[yyyy_sel]):
             yyyymm_sel = (yyyy_sel) & (my_mms == mm)
             dds = my_dds[yyyymm_sel]
             dds = ["'{}'".format(_) for _ in dds]
-            button_cont_txts += ["'{}': [{}],".format(mm, ", ".join(dds))]
-        button_cont_txts += ["},"]
-    button_cont_txts += ["}"]
+            button_cont_txts += ["\t\t\t'{}': [{}],".format(mm, ", ".join(dds))]
+        button_cont_txts += ["\t\t},"]
+    button_cont_txts += ["\t}"]
     button_cont_txts += [
-        "var tabObject = {'current': 'current', 'new': 'new'}",
+        "\tvar tabObject = {'current': 'current', 'new': 'new'}",
     ]
 
     # AR button: function
     button_cont_txts += [
-        "function getnight() {",
-        "var yyyy;",
-        "var mm;",
-        "var dd;",
-        "var ext;",
-        "var link;",
-        "var tab;",
-        "product = document.querySelector('#product').value;",
-        "yyyy = document.querySelector('#yyyy').value;",
-        "mm = document.querySelector('#mm').value;",
-        "dd = document.querySelector('#dd').value;",
-        "tab = document.querySelector('#nighttab').value;",
-        "if (product == 'spacewatch'){",
-        " ext = 'mp4';",
-        "} else if (product == 'skyseq') {",
-        "ext = 'png';",
-        "} else if ((product == 'obsconds') || (product == 'sframesky') || (product == 'tileqa')) {",
-        "ext = 'pdf';",
-        "} else {",
-        "ext = 'html';",
-        "}",
-        "link = '{}/' + product + '/' + product + '-' + yyyy + mm + dd + '.' + ext".format(
+        "\tfunction getnight() {",
+        "\t\tvar yyyy;",
+        "\t\tvar mm;",
+        "\t\tvar dd;",
+        "\t\tvar ext;",
+        "\t\tvar link;",
+        "\t\tvar tab;",
+        "\t\tproduct = document.querySelector('#product').value;",
+        "\t\tyyyy = document.querySelector('#yyyy').value;",
+        "\t\tmm = document.querySelector('#mm').value;",
+        "\t\tdd = document.querySelector('#dd').value;",
+        "\t\ttab = document.querySelector('#nighttab').value;",
+        "\t\tif (product == 'spacewatch'){",
+        "\t\t\text = 'mp4';",
+        "\t\t} else if (product == 'skyseq') {",
+        "\t\t\text = 'png';",
+        "\t\t} else if ((product == 'obsconds') || (product == 'sframesky') || (product == 'tileqa')) {",
+        "\t\t\text = 'pdf';",
+        "\t\t} else {",
+        "\t\t\text = 'html';",
+        "\t\t}",
+        "\t\tlink = '{}/' + product + '/' + product + '-' + yyyy + mm + dd + '.' + ext".format(
             path_full2web(outdir)
         ),
 
-        "\tif (tab == 'current') {",
-        "\t\tconst container = document.getElementById('night-media-container');",
-        "\t\twhile (container.lastElementChild) {",
-        "\t\t\tcontainer.removeChild(container.lastElementChild);",
-        "\t\t}",
-        "\t\tif (ext == 'mp4') {",
-        "\t\t\tconst video = document.createElement('video');",
-        "\t\t\tvideo.src = link;",
-        "\t\tvideo.controls = true;",
-        "\t\t\tvideo.autoplay = true;",
-        "\t\t\tvideo.loop = true;",
-        "\t\t\tvideo.style.width = '55%'",
-        "\t\t\tvideo.style.height = 'auto'",
-        "\t\t\tcontainer.appendChild(video);",
-        "\t\t} else if ((ext == 'pdf') | (ext == 'html')) {",
-        "\t\t\tconst frame = document.createElement('iframe');",
-        "\t\t\tframe.src = link;",
-        "\t\t\tframe.style.width = '100%';",
-        "\t\t\tframe.style.height = '480px';",
-        "\t\t\tframe.style.border = 'none';",
-        "\t\t\tcontainer.appendChild(frame);",
+        "\t\tif (tab == 'current') {",
+        "\t\t\tconst container = document.getElementById('night-media-container');",
+        "\t\t\twhile (container.lastElementChild) {",
+        "\t\t\t\tcontainer.removeChild(container.lastElementChild);",
+        "\t\t\t}",
+        "\t\t\tif (ext == 'mp4') {",
+        "\t\t\t\tconst video = document.createElement('video');",
+        "\t\t\t\tvideo.src = link;",
+        "\t\t\tvideo.controls = true;",
+        "\t\t\t\tvideo.autoplay = true;",
+        "\t\t\t\tvideo.loop = true;",
+        "\t\t\t\tvideo.style.width = '55%'",
+        "\t\t\t\tvideo.style.height = 'auto'",
+        "\t\t\t\tcontainer.appendChild(video);",
+        "\t\t\t} else if ((ext == 'pdf') | (ext == 'html')) {",
+        "\t\t\t\tconst frame = document.createElement('iframe');",
+        "\t\t\t\tframe.src = link;",
+        "\t\t\t\tframe.style.width = '100%';",
+        "\t\t\t\tframe.style.height = '480px';",
+        "\t\t\t\tframe.style.border = 'none';",
+        "\t\t\t\tcontainer.appendChild(frame);",
+        "\t\t\t} else {",
+        "\t\t\t\tconst img = document.createElement('img');",
+        "\t\t\t\timg.src = link;",
+        "\t\t\t\timg.style.width = '55%'",
+        "\t\t\t\timg.style.height = 'auto'",
+        "\t\t\t\tcontainer.appendChild(img);",
+        "\t\t\t}",
         "\t\t} else {",
-        "\t\t\tconst img = document.createElement('img');",
-        "\t\t\timg.src = link;",
-        "\t\t\timg.style.width = '55%'",
-        "\t\t\timg.style.height = 'auto'",
-        "\t\t\tcontainer.appendChild(img);",
+        "\t\t\tdocument.getElementById('nightlink').innerHTML = 'Opening ' + link;",
+        "\t\t\twindow.open(link)",
         "\t\t}",
-        "} else {",
-        "\tdocument.getElementById('nightlink').innerHTML = 'Opening ' + link;",
-        "\twindow.open(link)",
-        "}",
-        "}",
+        "\t}",
         "</script>",
     ]
 
@@ -1646,6 +1649,6 @@ def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
     # AR add indents + end of line
     indent_str = "".join(["\t" for _ in range(n_indent)])
     button_cont_txts = ["{}{}\n".format(indent_str, _) for _ in button_cont_txts]
-    onload_func_txts = ["{}{}\n".format(indent_str, _) for _ in onload_func_txts]
+    onload_func_txts = ["{}\n".format(_) for _ in onload_func_txts]
 
     return button_cont_txts, onload_func_txts
