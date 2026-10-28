@@ -511,53 +511,35 @@ def process_html(
         "<button type='button' class='collapsible'><strong>Per-program plots/movies</strong></button>\n"
     )
     html.write("<div class='content'>\n")
+
+    # AR programs clarification
+    progdef_dict = {}
+    for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
+        txt = "{} program definition: ".format(program_str)
+        if program_str in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
+            txt += "FAPRGRM/PROGRAM={}, or FAPRGRM/PROGRAM={} and observed with NIGHT>20260414 (200260414 is the end of Run1a)".format(
+                program_str.replace("_RUN", ""), program_str.replace("_RUN1B", ""),
+            )
+        else:
+            txt += "FAPRGRM/PROGRAM={}".format(program)
+        if skip_pass is not None:
+            txt += ", PASS!={}".format(",".join([str(_) for _ in skip_pass]))
+        progdef_dict[program_str] = txt + "."
+
     # AR retrieve button coding + function to call in window.onload
     button_cont_txts, perprog_onload_func_txts = get_perprog_menu(
         outdir,
         perprog_func_name,
+        progdef_dict,
         survey=survey,
     )
     # AR print button coding
     for txt in button_cont_txts:
         html.write(txt)
 
-    # AR programs clarification
-    # AR use all programs (not only the ones passed as argument), as in the clickable menu
-    html.write("\t<p>Programs are defined as tiles with:</p>\n")
-    html.write("\t<ul>\n")
-    for program, skip_pass, program_str in zip(*get_programs_passparams(survey=survey)):
-        prog_txt, pass_txt = get_program_definition_txts(program, skip_pass)
-        txt = "{}: {}".format(program_str, prog_txt)
-        if pass_txt is not None:
-            txt += ", {}".format(pass_txt)
-        html.write("\t\t<li><p>{}.</p></li>\n".format(txt))
-    html.write("\t</ul>\n")
-    html.write("\t<br>\n")
-
     # AR plots clarification
-    html.write(
-        "\t<p>We consider a tile observed if it has EFFTIME_SPEC > MINTFRAC * GOALTIME (except for BACKUP: EFFTIME_SPEC > {}s).</p>\n".format(
-            get_backup_minefftime()
-        )
-    )
-    # AR point to a section actually displayed (preferably a DARK* one, which has all the plots)
-    ref_program_strs = [_ for _ in shown_program_strs if _[:4] == "DARK"] + shown_program_strs
-    if len(ref_program_strs) > 0:
-        html.write(
-            "\t<p>See e.g. the {} section for a more detailed explanation for each plot.</p>\n".format(
-                ref_program_strs[0]
-            )
-        )
-    html.write("\t\t<p>Available plots/movies are:</p>\n")
-    html.write("\t<ul>\n")
-    html.write("\t\t<li><p>skymap-obs-ntile: sky map of observed tiles; the color-coding represents the number of tiles.</p></li>\n")
-    html.write("\t\t<li><p>skymap-obs-fraccov: sky map of observed tiles; the color-coding represents the fraction of the final coverage.</p></li>\n")
-    html.write("\t\t<li><p>skymap-complra: sky map of observed tiles; the color-coding represents the (weighted) completeness per R.A. slice of 30 deg.</p></li>\n")
-    html.write("\t\t<li><p>skymap-compllst: sky map of observed tiles; the color-coding represents the (weighted) completeness per LST slice of 30 deg.</p></li>\n")
-    html.write("\t\t<li><p>skymap-pending (for BRIGHT* and DARK* programs only): sky map of pending tiles, identified from tiles-main.ecsv with: (IN_DESI=True) & ((STATUS == 'obsstart') | (STATUS == 'obsend').</p></li>\n")
-    html.write("\t\t<li><p>zhist (for BRIGHT* and DARK* programs only): redshift histogram.</p></li>\n")
-    html.write("\t\t<li><p>qso (for DARK* programs only): QSO/Lya diagnosis.</p></li>\n")
-    html.write("\t</ul>\n")
+    html.write("\t<p>We consider a tile observed if it has EFFTIME_SPEC > MINTFRAC * GOALTIME (except for BACKUP: EFFTIME_SPEC > 1.0s).</p>\n")
+    html.write("\t<p>See e.g. the DARK section for a more detailed explanation for each plot.</p>\n")
 
     # AR close
     html.write("</div>\n")
@@ -1269,7 +1251,7 @@ def write_html_collapse_script(html, classname):
     html.write("</script>\n")
 
 
-def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
+def get_perprog_menu(outdir, function_name, progdef_dict, survey="main", n_indent=1):
     """
     Get the text to write in html to have the per-program clickable menu.
 
@@ -1328,10 +1310,26 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
     ]
 
     # AR button: dictionary with content
+    button_cont_txts += ["<script type='text/javascript'>"]
+    #
+    button_cont_txts += ["\tvar progdefObject = {"]
+    for program_str in program_strs:
+        button_cont_txts += ["\t\t'{}': '{}',".format(program_str, progdef_dict[program_str])]
+    button_cont_txts += ["\t}"]
+    #
+    button_cont_txts += ["\tvar plotdefObject = {"]
     button_cont_txts += [
-        "<script type='text/javascript'>",
-        "\tvar programObject = {",
+        "\t\t'skymap-obs-ntile': 'sky map of observed tiles; the color-coding represents the number of tiles.',",
+        "\t\t'skymap-obs-fraccov': 'sky map of observed tiles; the color-coding represents the fraction of the final coverage.',",
+        "\t\t'skymap-complra': 'sky map of observed tiles; the color-coding represents the (weighted) completeness per R.A. slice of 30 deg.',",
+        "\t\t'skymap-compllst': 'sky map of observed tiles; the color-coding represents the (weighted) completeness per LST slice of 30 deg.',",
+        "\t\t'skymap-pending': 'sky map of pending tiles, identified from tiles-main.ecsv with: (IN_DESI=True) & ((STATUS == obsstart) | (STATUS == obsend)).',",
+        "\t\t'zhist': 'redshift histogram.',",
+        "\t\t'qso': 'QSO/Lya diagnosis.',",
     ]
+    button_cont_txts += ["\t}"]
+    #
+    button_cont_txts += ["\tvar programObject = {"]
     for program_str in program_strs:
         button_cont_txts += ["\t\t'{}': {{".format(program_str)]
         for item in items[program_str]:
@@ -1360,6 +1358,8 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
         "\t\tfile = document.querySelector('#file').value;",
         "\t\tformat = document.querySelector('#format').value;",
         "\t\ttab = document.querySelector('#progtab').value;",
+        "\t\tprogdef = progdefObject[program]",
+        "\t\tplotdef = plotdefObject[file]",
         "\t\tx = program + '-' + file + '.' + format;",
     ]
     started = None
@@ -1386,6 +1386,7 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
         "\t\t} else {",
         "\t\t1==1",
         "\t\t}",
+        "\t\t\tdocument.getElementById('proglink').innerHTML = 'Opening ' + link + '<br></br><br></br><br></br>' + progdef + '<br></br><br></br><br></br> Plot description: ' + plotdef",
         "\t\tif (tab == 'current') {",
         "\t\t\tconst container = document.getElementById('prog-media-container');",
         "\t\t\twhile (container.lastElementChild) {",
@@ -1408,7 +1409,6 @@ def get_perprog_menu(outdir, function_name, survey="main", n_indent=1):
         "\t\t\t\tcontainer.appendChild(img);",
         "\t\t\t}",
         "\t\t} else {",
-        "\t\t\tdocument.getElementById('proglink').innerHTML = 'Opening ' + link;",
         "\t\t\twindow.open(link)",
         "\t\t}",
         "\t}",
