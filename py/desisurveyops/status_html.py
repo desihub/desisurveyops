@@ -1404,7 +1404,7 @@ def get_perprog_menu(outdir, function_name, progdef_dict, survey="main", n_inden
         "\t\t\t} else {",
         "\t\t\t\tconst img = document.createElement('img');",
         "\t\t\t\timg.src = link;",
-        "\t\t\t\timg.style.width = '{}'".format(width),
+        "\t\t\t\timg.style.width = width",
         "\t\t\t\timg.style.height = 'auto'",
         "\t\t\t\tcontainer.appendChild(img);",
         "\t\t\t}",
