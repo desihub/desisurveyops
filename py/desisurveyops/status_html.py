@@ -1573,7 +1573,7 @@ def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
         "\t\tlink = '{}/' + product + '/' + product + '-' + yyyy + mm + dd + '.' + ext".format(
             path_full2web(outdir)
         ),
-
+        "\t\t\tdocument.getElementById('nightlink').innerHTML = 'Opening ' + link;", 
         "\t\tif (tab == 'current') {",
         "\t\t\tconst container = document.getElementById('night-media-container');",
         "\t\t\twhile (container.lastElementChild) {",
@@ -1603,7 +1603,6 @@ def get_pernight_menu(outdir, cases, nights, function_name, n_indent=1):
         "\t\t\t\tcontainer.appendChild(img);",
         "\t\t\t}",
         "\t\t} else {",
-        "\t\t\tdocument.getElementById('nightlink').innerHTML = 'Opening ' + link;",
         "\t\t\twindow.open(link)",
         "\t\t}",
         "\t}",
