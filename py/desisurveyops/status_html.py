@@ -1376,7 +1376,7 @@ def get_perprog_menu(outdir, function_name, progdef_dict, survey="main", n_inden
                     cond_str = "} else if"
                 width = "55%"
                 if name == "zhist":
-                    width = "25%"
+                    width = "40%"
                 button_cont_txts += [
                     "\t\t" + cond_str + " (x == '" + program_str + "-" + file +"." + fmt + "') {",
                     "\t\t\tlink = '" + path_full2web(get_filename(outdir, survey, name, program_str=program_str, case=case, quant=quant, ext=fmt)) + "';",
