@@ -32,8 +32,8 @@ from desiutil.log import get_logger
 
 log = get_logger()
 
-# AR programs for which we display a full section in the main-status.html page
-# AR other programs are accessible through the per-program clickable menu
+# AK programs for which we display a full section in the main-status.html page
+# AK other programs are accessible through the per-program clickable menu
 DISPLAY_PROGRAM_STRS = ["BACKUP", "BRIGHT_RUN1B", "DARK_RUN1B"]
 
 
@@ -70,7 +70,7 @@ def process_html(
     cssfn = get_filename(outdir, survey, "html", ext="css")
 
     # AR need to copy the css?
-    # AR the git version is the reference: copy it if cssfn is missing or different
+    # AK the git version is the reference: copy it if cssfn is missing or different
     git_cssfn = os.path.join(
         get_history_tiles_dir(), os.path.basename(cssfn)
     )
@@ -98,7 +98,7 @@ def process_html(
     # AR exposures
     fns = get_fns(survey=survey, specprod=specprod)
     e = Table.read(fns["spec"]["exps"])
-    # AR last night displayed in the fpstate png (process_fpstate() does not cut on survey/efftime)
+    # AK last night displayed in the fpstate png (process_fpstate() does not cut on survey/efftime)
     fpstate_lastnight = e["NIGHT"].max()
     sel = (e["SURVEY"] == survey) & (e["EFFTIME_SPEC"] > 0)
     e = e[sel]
@@ -119,10 +119,10 @@ def process_html(
     collapsible_names = get_collapsible_names(survey)
 
 
-    # AR we only display full tabs for DISPLAY_PROGRAM_STRS to keep a minimal number of tabs
+    # AK we only display full tabs for DISPLAY_PROGRAM_STRS to keep a minimal number of tabs
     # AR for other programs, the clickable menu will allow one to check any desired plot "on demand"
     sel2show = np.isin(program_strs, DISPLAY_PROGRAM_STRS)
-    # AR program_strs for which a section is actually written
+    # AK program_strs for which a section is actually written
     shown_program_strs = []
 
     # AR sky/zhist/qso/pending
@@ -1266,7 +1266,7 @@ def get_perprog_menu(outdir, function_name, progdef_dict, survey="main", n_inden
         onload_func_txts: a list of strings to print to define the function (in the window.onload call)
     """
 
-    # AR programs (use the same definitions as the rest of the code)
+    # AK programs (use the same definitions as the rest of the code)
     _, _, program_strs = get_programs_passparams(survey=survey)
 
     # AR (name, case, quant, [fmts]) ; last element is a list of formats
