@@ -516,14 +516,10 @@ def process_html(
     progdef_dict = {}
     for program, skip_pass, program_str in zip(programs, skip_passes, program_strs):
         txt = "{} program definition: ".format(program_str)
-        if program_str in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
-            txt += "FAPRGRM/PROGRAM={}, or FAPRGRM/PROGRAM={} and observed with NIGHT>20260414 (200260414 is the end of Run1a)".format(
-                program_str.replace("_RUN", ""), program_str.replace("_RUN1B", ""),
-            )
-        else:
-            txt += "FAPRGRM/PROGRAM={}".format(program)
-        if skip_pass is not None:
-            txt += ", PASS!={}".format(",".join([str(_) for _ in skip_pass]))
+        prog_txt, pass_txt = get_program_definition_txts(program, skip_pass)
+        txt += prog_txt
+        if pass_txt is not None:
+            txt += ", {}".format(pass_txt)
         progdef_dict[program_str] = txt + "."
 
     # AR retrieve button coding + function to call in window.onload
