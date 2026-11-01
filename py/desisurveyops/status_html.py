@@ -539,7 +539,7 @@ def process_html(
 
     # AR plots clarification
     html.write("\t<p>We consider a tile observed if it has EFFTIME_SPEC > MINTFRAC * GOALTIME (except for BACKUP: EFFTIME_SPEC > 1.0s).</p>\n")
-    html.write("\t<p>See e.g. the DARK section for a more detailed explanation for each plot.</p>\n")
+    html.write("\t<p>See e.g. the DARK_RUN1B section for a more detailed explanation for each plot.</p>\n")
 
     # AR close
     html.write("</div>\n")
