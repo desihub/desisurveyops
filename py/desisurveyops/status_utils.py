@@ -1027,7 +1027,8 @@ def get_run1b_selection(program, tileids, progs):
 
     Notes:
         {BRIGHT,DARK}_RUN1B definition: {BRIGHT,DARK}1B tiles, plus {BRIGHT,DARK} tiles
-            observed with NIGHT>20260414 (20260414 is the end of RUN1A).
+            not observed during RUN1A, i.e. not in data/tiles-main-brightdark-run1a.ecsv
+            (20260414 is the end of RUN1A).
     """
     assert program in ["BRIGHT_RUN1B", "DARK_RUN1B"]
     sel = progs == program.replace("_RUN", "") # BRIGHT1B or DARK1B
@@ -1054,7 +1055,8 @@ def get_tile_selection_from_program(t, program, in_desi=True, skip_pass=None):
 
     Notes:
         {BRIGHT,DARK}_RUN1B definition: {BRIGHT,DARK}1B tiles, plus {BRIGHT,DARK} tiles
-            observed with NIGHT>20260414 (20260414 is the end of RUN1A).
+            not observed during RUN1A, i.e. not in data/tiles-main-brightdark-run1a.ecsv
+            (20260414 is the end of RUN1A).
     """
 
     if program in ["BRIGHT_RUN1B", "DARK_RUN1B"]:
