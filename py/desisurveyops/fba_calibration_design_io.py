@@ -113,6 +113,24 @@ def get_calibration_settings(prognum):
             83140,
             83159,
         )
+    # DG - ECDFS DARK
+    elif prognum == 66:
+        program, field_ra, field_dec, tileid_start, tileid_end = (
+            "DARK",
+            53.16,
+            -28.10,
+            83160,
+            83179,
+        )
+    # DG - ECDFS BRIGHT
+    elif prognum == 67:
+        program, field_ra, field_dec, tileid_start, tileid_end = (
+            "BRIGHT",
+            53.16,
+            -28.10,
+            83180,
+            83199,
+        )
     else:
         msg = "prognum = {} not recognized; exiting".format(prognum)
         log.error(msg)
