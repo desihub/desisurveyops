@@ -39,7 +39,7 @@ def get_calibration_settings(prognum):
 
     Notes:
         Source: https://desi.lbl.gov/trac/wiki/SurveyOps/CalibrationFields
-        So far the allowed prognums are 5,6,7,8,9,10,11,12.
+        So far the allowed prognums are 5,6,7,8,9,10,11,12,66,67.
     """
     # AR XMMLSS DARK
     if prognum == 5:
@@ -112,6 +112,24 @@ def get_calibration_settings(prognum):
             -0.7,
             83140,
             83159,
+        )
+    # DG - ECDFS DARK
+    elif prognum == 66:
+        program, field_ra, field_dec, tileid_start, tileid_end = (
+            "DARK",
+            53.349,
+            -28.024,
+            83160,
+            83179,
+        )
+    # DG - ECDFS BRIGHT
+    elif prognum == 67:
+        program, field_ra, field_dec, tileid_start, tileid_end = (
+            "BRIGHT",
+            53.349,
+            -28.024,
+            83180,
+            83199,
         )
     else:
         msg = "prognum = {} not recognized; exiting".format(prognum)

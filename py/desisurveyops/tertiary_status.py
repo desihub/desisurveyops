@@ -79,6 +79,10 @@ def get_prognum_desc(prognum=None):
         52: {"TARGETS": "STEEL", "FIELD": "RA,DEC=140.2,3.0"},
         53: {"TARGETS": "DWARF_GALAXY", "FIELD": "COSMOS"},
         54: {"TARGETS": "LAE/LBG", "FIELD": "COSMOS"},
+
+        # DG - Two additional calibration fields.
+        66: {"TARGETS": "Calibration", "FIELD": "ECDFS"},
+        67: {"TARGETS": "Calibration", "FIELD": "ECDFS"},
     }
     if prognum is None:
         return myd
