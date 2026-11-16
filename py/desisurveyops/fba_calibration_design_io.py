@@ -117,8 +117,8 @@ def get_calibration_settings(prognum):
     elif prognum == 66:
         program, field_ra, field_dec, tileid_start, tileid_end = (
             "DARK",
-            53.16,
-            -28.10,
+            53.349,
+            -28.024,
             83160,
             83179,
         )
@@ -126,8 +126,8 @@ def get_calibration_settings(prognum):
     elif prognum == 67:
         program, field_ra, field_dec, tileid_start, tileid_end = (
             "BRIGHT",
-            53.16,
-            -28.10,
+            53.349,
+            -28.024,
             83180,
             83199,
         )
