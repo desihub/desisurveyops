@@ -39,7 +39,7 @@ def get_calibration_settings(prognum):
 
     Notes:
         Source: https://desi.lbl.gov/trac/wiki/SurveyOps/CalibrationFields
-        So far the allowed prognums are 5,6,7,8,9,10,11,12.
+        So far the allowed prognums are 5,6,7,8,9,10,11,12,66,67.
     """
     # AR XMMLSS DARK
     if prognum == 5:
